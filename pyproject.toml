@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
     "mcp>=1.27.0",
     "pydantic>=2.13.0",
+    "shapely>=2.0",
 ]
 
 [project.urls]
@@ -63,6 +64,7 @@ dev = [
     # (real bpy is supplied by Blender 5.0.0); see scripts/blender/README.md
     # and .github/instructions.md §2.
     "fake-bpy-module-5.0==20260128",
+    "types-shapely>=2.1.0.20260408",
 ]
 
 # ---------------------------------------------------------------------------
