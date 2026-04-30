@@ -51,7 +51,7 @@ packages = ["forge_mcp"]
 [dependency-groups]
 dev = [
     "ruff==0.13.3",
-    "mypy==1.18.2",
+    "mypy==1.20.2",
     "pytest>=8.3.0",
     "pytest-cov>=7.1.0",
     "pre-commit>=4.6.0",
