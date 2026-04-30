@@ -29,7 +29,9 @@ classifiers = [
 dependencies = [
     "mcp>=1.27.0",
     "numpy>=2.0",
+    "pillow>=10.4",
     "pydantic>=2.13.0",
+    "scipy>=1.13",
     "shapely>=2.0",
 ]
 
@@ -67,6 +69,7 @@ dev = [
     "fake-bpy-module-5.0==20260128",
     "types-shapely>=2.1.0.20260408",
     "freezegun>=1.5.5",
+    "types-pillow>=10.2.0.20240822",
 ]
 
 # ---------------------------------------------------------------------------
