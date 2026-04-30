@@ -48,7 +48,7 @@ dev = [
     "ruff==0.13.3",
     "mypy==1.18.2",
     "pytest>=8.3.0",
-    "pytest-cov>=6.0.0",
+    "pytest-cov>=7.1.0",
     "pre-commit>=4.0.0",
     # bpy type stubs for Blender-internal scripts. Not used at runtime
     # (real bpy is supplied by Blender 5.0.0); see scripts/blender/README.md
