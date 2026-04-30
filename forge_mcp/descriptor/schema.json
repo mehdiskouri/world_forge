@@ -1,0 +1,149 @@
+{
+  "$defs": {
+    "Hydrology": {
+      "additionalProperties": false,
+      "description": "Hydrology sub-descriptor.\n\nA region with ``has_stream=True`` must declare ``stream_character`` to\nsomething other than ``NONE``; this is checked in\n:func:`forge_mcp.descriptor.validate.validate`.",
+      "properties": {
+        "has_stream": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Has Stream"
+        },
+        "stream_character": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StreamCharacter"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "Hydrology",
+      "type": "object"
+    },
+    "StreamCharacter": {
+      "description": "Hydrological character of a region's primary stream, if any.",
+      "enum": [
+        "alpine_creek",
+        "meandering_river",
+        "dry_wash",
+        "none"
+      ],
+      "title": "StreamCharacter",
+      "type": "string"
+    },
+    "Terrain": {
+      "additionalProperties": false,
+      "description": "Terrain sub-descriptor.\n\nOnly :attr:`primary` is required. Optional fields modulate the\ndeterministic Phase 3 mapping; absent fields fall back to per-profile\ndefaults.",
+      "properties": {
+        "elevation_band": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Elevation Band"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "primary": {
+          "$ref": "#/$defs/TerrainPrimary"
+        },
+        "ruggedness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ruggedness"
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "title": "Terrain",
+      "type": "object"
+    },
+    "TerrainPrimary": {
+      "description": "Primary terrain archetype enumerated by the v1 design space.\n\nEach value maps to a profile in the Phase 3 ``TERRAIN_PROFILES``\nlookup. Adding values is a minor schema bump; removing or renaming is\nbreaking.",
+      "enum": [
+        "alpine_valley",
+        "alpine_peaks",
+        "rolling_hills",
+        "plains",
+        "desert_mesa",
+        "desert_dunes",
+        "boreal_lowland",
+        "marsh",
+        "volcanic_cone",
+        "coastal_cliffs",
+        "river_valley",
+        "canyon"
+      ],
+      "title": "TerrainPrimary",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Top-level structured descriptor handed by the agent to Forge.\n\nFrozen and ``extra='forbid'``: the schema is the contract, agents\ncannot smuggle extra fields, and Forge can hash descriptors safely.",
+  "properties": {
+    "hydrology": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Hydrology"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "terrain": {
+      "$ref": "#/$defs/Terrain"
+    }
+  },
+  "required": [
+    "terrain"
+  ],
+  "title": "ForgeStructuredDescriptor",
+  "type": "object",
+  "x-schema-version": "1.0"
+}
