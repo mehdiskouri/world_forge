@@ -830,3 +830,64 @@ These invariants are what makes v2 work cheap. Violating them in v1 to save days
   `gaussian_filter` surface used by `forge_mcp.analyze`. mypy
   `mypy_path = "stubs"` keeps strict + `disallow_any_explicit` clean
   without a runtime dep on third-party stub packages.
+
+---
+
+## Phase 4 measurements
+
+- **Curated v1 macro library**:
+  `forge_mcp/bpy_hypergraph/data/curated_sequences.json` ships the nine
+  macros `reset_scene`, `create_terrain_from_heightmap`,
+  `apply_terrain_material`, `carve_stream`, `set_camera_overview`,
+  `add_basic_lighting`, `render_preview`, `save_blend`, and the
+  composite `realize_region`. Each carries a `version` and is hashed
+  with BLAKE2b (`digest_size=10`) to a 20-character hex `sequence_id`.
+- **Engine semantics** (`forge_mcp/realize/engine.py`): pings the
+  adapter on construction and refuses to run on a Blender version
+  mismatch (`BlenderVersionMismatchError`); resolves `${name}`
+  placeholders whole-value from inputs; recurses into `seq:<other>`
+  steps with depth 1; verifies `expects.scene_diff` and
+  `expects.png_max_bytes` postconditions; raises `RealizerStepError`
+  carrying the partial trace on failure.
+- **Macro facade** (`forge_mcp/realize/macros.py`): one frozen+slots
+  `*Inputs` dataclass per macro, never imports `bpy`; thin
+  `realize_region(engine, inputs)` etc. wrappers that call
+  `engine.execute_macro(MACRO_NAME, inputs)` and return the engine's
+  `RealizationResult`.
+- **Heightmap tessellation** (`forge_mcp/realize/heightmap_mesh.py`):
+  row-major vertex order `y * W + x`; quad faces `(tl, tr, br, bl)`;
+  rejects grids smaller than 2x2.
+- **On-disk realization layout** (added by
+  `forge_mcp/project/service.py`):
+  `<project>/realizations/blender/<region_id>.{blend,preview.png,trace.json}`,
+  with `realizations/blender/` registered in
+  `ProjectPaths.all_directories()`.
+- **Atomic publish** (`forge_mcp/server/tools/generation.py`): both
+  the `.blend` and the preview PNG are written to `<path>.tmp` first
+  and `os.replace`d into place only after the realize + render pair
+  both succeed.
+- **`forge.render_view`** preset resolutions: `preview` 512x384,
+  `default` 1024x768, `full` 2048x1536. Default render engine string
+  is `BLENDER_EEVEE_NEXT`. The NF-1.5 200 KB ceiling on the preview
+  PNG is enforced by the engine via the macro's
+  `expects.png_max_bytes` postcondition.
+- **Realization trace sidecar** (`forge_mcp/realize/realization.py`):
+  pydantic `RealizationTraceRecord` (frozen, `extra="forbid"`)
+  carrying region id, view kind, macro name, sequence id, total
+  duration, the engine's `final_result`, and per-step
+  `TraceStepRecord`s.
+- **Realizer-factory injection**: `forge.generate_region` /
+  `forge.render_view` look up an installed factory via
+  `forge_mcp.server.tools.set_realizer_factory(...)`. With no factory
+  installed, the heightmap pipeline still runs and the realization
+  fields come back `None`.
+- **Local bench**: `scripts/eval/bench_phase4.py` exercises the full
+  realize + render path against a real Blender 5.0 binary
+  (`$FORGE_BLENDER_BIN`) for every entry in
+  `forge_mcp.eval.EVAL_DESCRIPTORS` and writes
+  `manifest.json` + per-region `.blend`, `.preview.png`, and a
+  `contact_sheet.png` under `docs/eval/phase4/<UTC-timestamp>/`.
+- **Adapter isolation**: the `forge_mcp.realize` package never
+  imports `bpy`; `scripts/blender/adapter.py` runs inside Blender's
+  embedded Python and is type-checked separately against
+  `fake-bpy-module-5.0` (the `mypy-blender-scripts` CI step).
