@@ -65,6 +65,21 @@ Companion documents:
   tools (BlenderMCP, Houdini, Gaea, Wonderdraft, Azgaar, World
   Machine) and Forge's differentiator framing.
 
+## Project format
+
+A Forge project is an on-disk folder of human-readable JSON, designed to be
+git-friendly and inspectable without booting Blender. The layout, file
+shapes, and invariants are documented in
+[`AGENT/ARCHITECTURE.md`](AGENT/ARCHITECTURE.md) §3 and walked through
+end-to-end in [`docs/project_format.md`](docs/project_format.md).
+Pydantic-published JSON Schemas for every model live under
+[`schemas/`](schemas/) and are regenerated via:
+
+```bash
+uv run forge-schema-export --check   # CI gate
+uv run forge-schema-export --write   # regenerate
+```
+
 ## Contributing
 
 - Work on feature branches; open PRs against `main`.
