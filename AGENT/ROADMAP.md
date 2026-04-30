@@ -46,7 +46,7 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 
 ---
 
-## Phase 3 — Descriptor mapping + terrain generator (PRD week 2)
+## Phase 3 — Descriptor mapping + terrain generator (PRD week 2) — **complete**
 **Outcome:** A structured descriptor + seed → heightmap PNG returned via MCP tool call. Determinism verified.
 **Steps**
 1. `forge_mcp/descriptor/`: `schema.py` (Pydantic, finalized), `validate.py` (structured error reporting), `map_to_spec.py` with `TERRAIN_PROFILES` lookup tables for every enum value (Architecture §4.2).
@@ -59,6 +59,8 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 8. Determinism tests: same (descriptor, seed) → byte-identical heightmap.
 
 **Verification:** invoke `generate_region` → receive heightmap PNG + analysis JSON; eval-set heightmaps visually distinct; perf budget met on dev machine; determinism test green.
+
+**Landed in:** PRs #24 (typed spec body), #25 (deterministic RNG + pass registry), #26 (descriptor → spec mapping), #27 (terrain noise + erosion + heightmap I/O), #28 (deterministic stream injector), #29 (orchestrator + analysis), #30 (agent-facing generation tools), #31 (eval set + acceptance contact sheet). Acceptance artefact: [`docs/eval/phase3/`](../../docs/eval/phase3/README.md).
 
 ---
 

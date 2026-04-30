@@ -801,3 +801,32 @@ Unchanged from v2.0. Structured logs, healthz endpoint, --debug flag. Blender 5.
 - **Blender version is pinned per build.** Forge refuses to load if running Blender doesn't match the bpy hypergraph's target version.
 
 These invariants are what makes v2 work cheap. Violating them in v1 to save days costs weeks later.
+
+---
+
+## Phase 3 measurements (2026-04-30)
+
+- **RNG pass-name registry** (locked in `forge_mcp/generate/deterministic.py`):
+  `noise.base`, `noise.warp`, `erosion.hydraulic`, `erosion.thermal`,
+  `stream.path_jitter`. Adding or renaming a name bumps the generator
+  contract; CI guards the set.
+- **Generator pipeline order** (recorded in
+  `SpecRecord.body.generation_metadata.generators_used`):
+  `noise.ridged_multifractal`, then declared `post_passes` in order
+  (`erosion.hydraulic` / `erosion.thermal`), then declared
+  `feature_injectors` in order (`stream.injector`).
+- **Spec content addressing**: `spec_id = "spec_" + blake2b(canonical_json(body), digest_size=6).hex()`.
+  Identical descriptor + seed + generator versions across regions
+  yield identical spec ids — intentional dedup property.
+- **Realisations layout**: `realizations/heightmap/<region_id>.{npy,png[,stream.json]}`;
+  `realizations/` is gitignored.
+- **Eval acceptance artefact**: `docs/eval/phase3/<UTC-timestamp>/contact_sheet.png`
+  + `analyses.json` + `manifest.json`. Inputs locked in
+  `forge_mcp.eval`; structural ordering rules in
+  `tests/descriptor/test_eval_set.py`.
+- **Perf gate**: local-only via `make perf`; no CI threshold (NF-1.2
+  is runner-sensitive). Phase 4 reopens the budget.
+- **Local stubs**: `stubs/scipy/ndimage.pyi` covers the `sobel` and
+  `gaussian_filter` surface used by `forge_mcp.analyze`. mypy
+  `mypy_path = "stubs"` keeps strict + `disallow_any_explicit` clean
+  without a runtime dep on third-party stub packages.
