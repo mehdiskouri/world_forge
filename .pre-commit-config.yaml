@@ -22,11 +22,9 @@ repos:
       - id: ruff-format
         args: ["--check"]
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    # Pinned to match the version declared in pyproject.toml [dependency-groups].
-    rev: v1.18.2
-    hooks:
-      - id: mypy
-        args: ["--config-file=pyproject.toml"]
-        files: ^(forge_mcp|tests)/
-        additional_dependencies: []
+  # Note: mypy is intentionally NOT a pre-commit hook. The pre-commit
+  # mypy mirror runs in an isolated venv that does not see the
+  # project's dev/runtime dependencies (pydantic, mcp, pytest, etc.),
+  # which produces spurious "Cannot find implementation" errors. The
+  # CI workflow runs ``uv run mypy`` directly with the full
+  # environment, which is the source of truth for type-checking.

@@ -26,12 +26,20 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "mcp>=1.27.0",
+    "pydantic>=2.13.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/mehdi/world_forge"
 Repository = "https://github.com/mehdi/world_forge"
 Issues = "https://github.com/mehdi/world_forge/issues"
+
+[project.scripts]
+# Phase 1 spike 3: ``forge-mcp`` is the MCP server entry point that an
+# agent host (Claude Desktop / Claude Code / Cursor) launches over stdio.
+forge-mcp = "forge_mcp.server.mcp:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -47,6 +55,10 @@ dev = [
     "pytest>=8.3.0",
     "pytest-cov>=6.0.0",
     "pre-commit>=4.0.0",
+    # bpy type stubs for Blender-internal scripts. Not used at runtime
+    # (real bpy is supplied by Blender 5.0.0); see scripts/blender/README.md
+    # and .github/instructions.md §2.
+    "fake-bpy-module-5.0==20260128",
 ]
 
 # ---------------------------------------------------------------------------
@@ -57,6 +69,10 @@ dev = [
 target-version = "py313"
 line-length = 100
 src = ["forge_mcp", "tests"]
+# scripts/blender/* runs in Blender's embedded Python interpreter against the
+# real ``bpy`` module. It is exercised manually (Phase 1 spikes 1 and 2) and
+# lives outside the strict matrix — mirrors the mypy exclude in [tool.mypy].
+extend-exclude = ["scripts/blender"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -97,6 +113,18 @@ enable_error_code = [
     "possibly-undefined",
 ]
 files = ["forge_mcp", "tests"]
+# scripts/blender/* runs INSIDE Blender's own Python interpreter and imports
+# `bpy` natively. It is type-checked SEPARATELY (see CI "mypy-blender-scripts"
+# step) using fake-bpy-module-5.0 stubs, so it is excluded from the strict
+# main run. This is the only acceptable mypy carve-out (instructions §2).
+exclude = ["scripts/blender/.*"]
+
+[[tool.mypy.overrides]]
+# Blender-internal scripts: relax `disallow_any_explicit` only here so the
+# adapter can pass through opaque bpy return values without ceremony.
+# Run separately; never picked up by the main `uv run mypy` invocation.
+module = ["adapter", "introspect"]
+disallow_any_explicit = false
 
 # ---------------------------------------------------------------------------
 # Pytest
@@ -105,6 +133,9 @@ files = ["forge_mcp", "tests"]
 addopts = "-ra --strict-markers --strict-config"
 xfail_strict = true
 testpaths = ["tests"]
+markers = [
+    "blender_integration: tests that spawn a real Blender 5.0 process; gated on $FORGE_BLENDER_BIN",
+]
 
 # ---------------------------------------------------------------------------
 # Coverage — branch coverage on. Threshold enforcement is enabled in CI from

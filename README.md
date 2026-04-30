@@ -61,6 +61,9 @@ Companion documents:
 - [`AGENT/ARCHITECTURE.md`](AGENT/ARCHITECTURE.md) — system design.
 - [`AGENT/ROADMAP.md`](AGENT/ROADMAP.md) — phase roadmap.
 - [`AGENT/dev_phases/`](AGENT/dev_phases/) — per-phase implementation plans.
+- [`docs/prior_art.md`](docs/prior_art.md) — comparison with adjacent
+  tools (BlenderMCP, Houdini, Gaea, Wonderdraft, Azgaar, World
+  Machine) and Forge's differentiator framing.
 
 ## Contributing
 
