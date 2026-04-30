@@ -13,6 +13,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from mcp.server.fastmcp import FastMCP
 
+from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
 from forge_mcp.server.tools import inspection as inspection_tools
@@ -171,6 +172,34 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
         title="List locks",
         description="Return locks, optionally filtered by `region_id`.",
     )(inspection_tools.list_locks)
+
+    # --- Generation (Phase 3) ---------------------------------------------
+    server.tool(
+        name="forge.generate_region",
+        title="Generate a region",
+        description=(
+            "Compile the region's descriptor into a spec, run the terrain "
+            "pipeline, persist the heightmap + analysis, and return both."
+        ),
+    )(generation_tools.generate_region)
+    server.tool(
+        name="forge.reroll_seed",
+        title="Reroll a region seed",
+        description=(
+            "Replace `region.seed` with the supplied value, or with a "
+            "deterministic blake2b derivation when omitted."
+        ),
+    )(generation_tools.reroll_seed)
+    server.tool(
+        name="forge.analyze_region",
+        title="Re-analyze a generated region",
+        description="Recompute the structured analysis from the persisted heightmap.",
+    )(generation_tools.analyze_region)
+    server.tool(
+        name="forge.inspect_spec",
+        title="Inspect a persisted spec",
+        description="Return one SpecRecord by `spec_id` or by `region_id` indirection.",
+    )(generation_tools.inspect_spec)
 
     return server
 

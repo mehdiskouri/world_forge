@@ -19,7 +19,9 @@
         "close_project",
         "create_region",
         "update_region",
-        "delete_region"
+        "delete_region",
+        "generate_region",
+        "reroll_seed"
       ],
       "title": "HistoryEventKind",
       "type": "string"
