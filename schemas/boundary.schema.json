@@ -1,0 +1,88 @@
+{
+  "additionalProperties": false,
+  "description": "An adjacency boundary record without its Phase-6 contract.\n\nStage E (Phase 2) emits these on region create/update; Stage E in\nPhase 6 fills the ``contract`` field. ``contract`` is currently\ntyped as ``None`` to make the gap loud at the schema layer.",
+  "properties": {
+    "boundary_id": {
+      "title": "Boundary Id",
+      "type": "string"
+    },
+    "contract": {
+      "default": null,
+      "title": "Contract",
+      "type": "null"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "const": "adjacency",
+      "default": "adjacency",
+      "title": "Kind",
+      "type": "string"
+    },
+    "length_meters": {
+      "title": "Length Meters",
+      "type": "number"
+    },
+    "modified_at": {
+      "format": "date-time",
+      "title": "Modified At",
+      "type": "string"
+    },
+    "region_a": {
+      "title": "Region A",
+      "type": "string"
+    },
+    "region_b": {
+      "title": "Region B",
+      "type": "string"
+    },
+    "shared_edge": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        }
+      ],
+      "title": "Shared Edge",
+      "type": "array"
+    }
+  },
+  "required": [
+    "boundary_id",
+    "region_a",
+    "region_b",
+    "shared_edge",
+    "length_meters",
+    "created_at",
+    "modified_at"
+  ],
+  "title": "ForgeBoundary",
+  "type": "object"
+}

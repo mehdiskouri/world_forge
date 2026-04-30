@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "LockKind": {
+      "description": "Lock kinds (Architecture §10.2).",
+      "enum": [
+        "property",
+        "feature",
+        "region"
+      ],
+      "title": "LockKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persisted lock entry.\n\nPhase 2 only persists + lists locks; Stage F's :class:`LockStore`\nhands these to Phase 7 which adds enforcement. The ``payload`` shape\ndepends on ``kind`` and is intentionally free-form here; the\nPhase-7 lock applier is the schema authority.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/LockKind"
+    },
+    "lock_id": {
+      "title": "Lock Id",
+      "type": "string"
+    },
+    "modified_at": {
+      "format": "date-time",
+      "title": "Modified At",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Payload",
+      "type": "object"
+    },
+    "region_id": {
+      "title": "Region Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "lock_id",
+    "region_id",
+    "kind",
+    "created_at",
+    "modified_at"
+  ],
+  "title": "ForgeLock",
+  "type": "object"
+}

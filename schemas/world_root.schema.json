@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "The synthetic root node every project carries on disk.\n\nLives at ``nodes/world.json``. Distinct from :class:`RegionNode` so\nthe union ``WorldRootNode | RegionNode`` is unambiguous on load.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "const": "world_root",
+      "default": "world_root",
+      "title": "Kind",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "node_id",
+    "name",
+    "created_at"
+  ],
+  "title": "ForgeWorldRootNode",
+  "type": "object"
+}

@@ -1,0 +1,128 @@
+{
+  "$defs": {
+    "WorldBounds": {
+      "additionalProperties": false,
+      "description": "World-level rectangular bounds in meters.\n\nv1 only supports rectangles; richer shapes are deferred. ``units`` is\na literal so on-disk projects self-document the unit convention.",
+      "properties": {
+        "kind": {
+          "const": "rectangle",
+          "default": "rectangle",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Max",
+          "type": "array"
+        },
+        "min": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Min",
+          "type": "array"
+        },
+        "units": {
+          "const": "meters",
+          "default": "meters",
+          "title": "Units",
+          "type": "string"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "title": "WorldBounds",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``project.json`` shape (Architecture §3.1).",
+  "properties": {
+    "blender_version": {
+      "title": "Blender Version",
+      "type": "string"
+    },
+    "bpy_hypergraph_version": {
+      "title": "Bpy Hypergraph Version",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "descriptor_schema_version": {
+      "title": "Descriptor Schema Version",
+      "type": "string"
+    },
+    "forge_version": {
+      "title": "Forge Version",
+      "type": "string"
+    },
+    "modified_at": {
+      "format": "date-time",
+      "title": "Modified At",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "project_id": {
+      "format": "uuid",
+      "title": "Project Id",
+      "type": "string"
+    },
+    "registered_layers": {
+      "default": [
+        "spatial_containment",
+        "spatial_adjacency",
+        "hydrology"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Registered Layers",
+      "type": "array"
+    },
+    "world_bounds": {
+      "$ref": "#/$defs/WorldBounds"
+    },
+    "world_node_id": {
+      "title": "World Node Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "name",
+    "forge_version",
+    "blender_version",
+    "bpy_hypergraph_version",
+    "descriptor_schema_version",
+    "created_at",
+    "modified_at",
+    "world_node_id",
+    "world_bounds"
+  ],
+  "title": "ForgeProject",
+  "type": "object"
+}

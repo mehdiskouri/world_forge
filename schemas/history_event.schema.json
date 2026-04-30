@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "HistoryActor": {
+      "description": "Who performed a recorded history event.",
+      "enum": [
+        "agent",
+        "user",
+        "system"
+      ],
+      "title": "HistoryActor",
+      "type": "string"
+    },
+    "HistoryEventKind": {
+      "description": "Phase-2 history event kinds.\n\nLater phases extend this enum (generation, realization, lock\napplication, etc.). New kinds are additive and require a schema\nrefresh via ``forge-schema-export --write``.",
+      "enum": [
+        "create_project",
+        "open_project",
+        "save_project",
+        "close_project",
+        "create_region",
+        "update_region",
+        "delete_region"
+      ],
+      "title": "HistoryEventKind",
+      "type": "string"
+    },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "description": "One append-only history-log entry.\n\nFiles are named ``history/{event_id}_{kind}.json``; sequence numbers\nare monotonic per project and gaps are forbidden (enforced in Stage\nF).",
+  "properties": {
+    "actor": {
+      "$ref": "#/$defs/HistoryActor"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/HistoryEventKind"
+    },
+    "payload": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "event_id",
+    "kind",
+    "at",
+    "actor"
+  ],
+  "title": "ForgeHistoryEvent",
+  "type": "object"
+}

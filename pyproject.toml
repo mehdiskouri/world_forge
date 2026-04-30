@@ -40,6 +40,10 @@ Issues = "https://github.com/mehdi/world_forge/issues"
 # Phase 1 spike 3: ``forge-mcp`` is the MCP server entry point that an
 # agent host (Claude Desktop / Claude Code / Cursor) launches over stdio.
 forge-mcp = "forge_mcp.server.mcp:main"
+# Phase 2 Stage A/B: regenerate or verify every published JSON Schema
+# under ``schemas/``. CI runs ``forge-schema-export --check`` on every
+# pull request (.github/workflows/ci.yml).
+forge-schema-export = "forge_mcp.project.schema_export:main"
 
 [build-system]
 requires = ["hatchling"]
