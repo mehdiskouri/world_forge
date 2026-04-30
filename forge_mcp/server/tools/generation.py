@@ -1,23 +1,36 @@
-"""``forge.generate_region`` / ``reroll_seed`` / ``analyze_region`` / ``inspect_spec``.
+"""Generation + realization-view tools (forge.generate_region etc.).
 
-Phase-3 generation surface. All four tools are pure orchestrators over
-:mod:`forge_mcp.descriptor.map_to_spec`, :mod:`forge_mcp.generate.terrain`,
-and :mod:`forge_mcp.analyze.terrain_analysis`. Determinism is achieved by
+Phase-3 generation surface plus the Phase-4 realizer wiring. Generation
+itself remains a pure orchestrator over
+:mod:`forge_mcp.descriptor.map_to_spec`,
+:mod:`forge_mcp.generate.terrain`, and
+:mod:`forge_mcp.analyze.terrain_analysis` — determinism is achieved by
 threading the region's ``seed`` (rerollable) through both the spec
 compiler and the terrain generators.
+
+When a realizer factory is installed (see
+:func:`forge_mcp.server.tools.set_realizer_factory`), ``generate_region``
+also drives the curated v1 ``realize_region`` macro to materialise the
+terrain into a Blender ``.blend`` plus a preview PNG, persisting both
+atomically alongside a sidecar realization-trace JSON. ``render_view``
+re-runs the same realize + render path at one of three pre-set
+resolutions (preview / default / full) without touching the persisted
+spec — useful for the agent's "render me a closer look" loop.
 """
 
 from __future__ import annotations
 
+import os
+from dataclasses import dataclass
 from hashlib import blake2b
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from pydantic import ValidationError
 
 from forge_mcp.analyze.terrain_analysis import TerrainAnalysis, analyze
 from forge_mcp.descriptor.map_to_spec import map_to_spec
 from forge_mcp.generate import terrain as terrain_generator
-from forge_mcp.generate.heightmap import load_npy, save_npy, save_png16
+from forge_mcp.generate.heightmap import Heightmap, load_npy, save_npy, save_png16
 from forge_mcp.generate.stream import StreamGeometry
 from forge_mcp.project.schemas import RegionId, SpecId, SpecRecord
 from forge_mcp.project.service import (
@@ -26,14 +39,57 @@ from forge_mcp.project.service import (
     UnknownSpecError,
     _now,
 )
-from forge_mcp.server.tools import get_service
+from forge_mcp.realize.engine import RealizerError
+from forge_mcp.realize.heightmap_mesh import mesh_from_heightmap
+from forge_mcp.realize.macros import (
+    RealizeRegionInputs,
+    RenderPreviewInputs,
+    realize_region,
+    render_preview,
+)
+from forge_mcp.realize.realization import record_from_result, write_trace_record
+from forge_mcp.server.tools import get_realizer_factory, get_service
 from forge_mcp.server.tools._responses import fail, ok
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from forge_mcp.project.service import ProjectService
+    from forge_mcp.realize.engine import RealizationResult
+    from forge_mcp.realize.rpc import JsonValue
 
 
 _REROLL_DIGEST_BYTES = 8
+
+
+VIEW_KIND_PREVIEW: Final[str] = "preview"
+VIEW_KIND_DEFAULT: Final[str] = "default"
+VIEW_KIND_FULL: Final[str] = "full"
+
+_RESOLUTIONS: Final[dict[str, tuple[int, int]]] = {
+    VIEW_KIND_PREVIEW: (512, 384),
+    VIEW_KIND_DEFAULT: (1024, 768),
+    VIEW_KIND_FULL: (2048, 1536),
+}
+
+_DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
+    {"position": 0.0, "color": [0.18, 0.34, 0.12, 1.0]},
+    {"position": 0.5, "color": [0.45, 0.36, 0.27, 1.0]},
+    {"position": 1.0, "color": [0.95, 0.95, 0.95, 1.0]},
+)
+_DEFAULT_SLOPE_THRESHOLD: Final[float] = 0.35
+_RENDER_ENGINE: Final[str] = "BLENDER_EEVEE_NEXT"
+
+
+@dataclass(frozen=True, slots=True)
+class _RealizationArtifacts:
+    """Filesystem locations + trace returned by :func:`_run_realizer`."""
+
+    blend_path: Path
+    preview_path: Path
+    trace_path: Path
+    realize_result: RealizationResult
+    render_result: RealizationResult
 
 
 def _resolve_region(region_id_value: str) -> tuple[RegionId, object]:
@@ -91,6 +147,98 @@ def _persist_realization(
     return str(npy_path), str(png_path), stream_path
 
 
+def _build_realize_inputs(
+    region_id: RegionId,
+    spec_id: SpecId,
+    vertices: list[tuple[float, float, float]],
+    faces: list[tuple[int, int, int, int]],
+    blend_filepath: Path,
+) -> RealizeRegionInputs:
+    """Assemble the per-region :class:`RealizeRegionInputs` payload."""
+    rid_str = str(region_id)
+    sid_str = str(spec_id)
+    return RealizeRegionInputs(
+        object_name=f"terrain_{rid_str}",
+        vertices=vertices,
+        faces=faces,
+        region_id=rid_str,
+        spec_id=sid_str,
+        material_name=f"mat_{rid_str}",
+        color_ramp_stops=list(_DEFAULT_COLOR_RAMP_STOPS),
+        slope_threshold=_DEFAULT_SLOPE_THRESHOLD,
+        curve_name=f"stream_{rid_str}",
+        ortho_camera_name=f"cam_ortho_{rid_str}",
+        perspective_camera_name=f"cam_persp_{rid_str}",
+        sun_name=f"sun_{rid_str}",
+        world_name=f"world_{rid_str}",
+        blend_filepath=str(blend_filepath),
+    )
+
+
+def _run_realizer(
+    service: ProjectService,
+    region_id: RegionId,
+    spec_id: SpecId,
+    heightmap: Heightmap,
+    view_kind: str,
+) -> _RealizationArtifacts | None:
+    """Drive the realizer for one region+view, persisting all outputs atomically.
+
+    Returns ``None`` when no realizer factory is installed.
+    """
+    factory = get_realizer_factory()
+    if factory is None:
+        return None
+
+    paths = service.state.paths
+    paths.blender_dir.mkdir(parents=True, exist_ok=True)
+    blend_path = paths.blend_path(region_id)
+    preview_path = paths.preview_path(region_id)
+    trace_path = paths.realization_trace_path(region_id)
+    blend_tmp = blend_path.with_name(blend_path.name + ".tmp")
+    preview_tmp = preview_path.with_name(preview_path.name + ".tmp")
+
+    vertices, faces = mesh_from_heightmap(heightmap)
+    width, height = _RESOLUTIONS[view_kind]
+
+    realize_inputs = _build_realize_inputs(
+        region_id,
+        spec_id,
+        vertices,
+        faces,
+        blend_tmp,
+    )
+    render_inputs = RenderPreviewInputs(
+        filepath=str(preview_tmp),
+        resolution_x=width,
+        resolution_y=height,
+        camera_name=f"cam_persp_{region_id}",
+        engine=_RENDER_ENGINE,
+    )
+
+    with factory() as engine:
+        realize_result = realize_region(engine, realize_inputs)
+        render_result = render_preview(engine, render_inputs)
+
+    # Atomic publish: replace any prior outputs only after both writes succeeded.
+    os.replace(blend_tmp, blend_path)  # noqa: PTH105 - need os primitive on Path
+    os.replace(preview_tmp, preview_path)  # noqa: PTH105 - need os primitive on Path
+
+    record = record_from_result(
+        realize_result,
+        region_id=str(region_id),
+        view_kind=view_kind,
+    )
+    write_trace_record(trace_path, record)
+    return _RealizationArtifacts(
+        blend_path=blend_path,
+        preview_path=preview_path,
+        trace_path=trace_path,
+        realize_result=realize_result,
+        render_result=render_result,
+    )
+
+
 def generate_region(region_id: str) -> dict[str, object]:
     """Compile + generate + analyze a region. Persists spec, heightmap, analysis."""
     rid, lookup = _resolve_region(region_id)
@@ -135,6 +283,34 @@ def generate_region(region_id: str) -> dict[str, object]:
         spec_with_summary.spec_id,
         generators_used=result.generators_used,
     )
+
+    blend_path: str | None = None
+    preview_path: str | None = None
+    realization_trace_path: str | None = None
+    realization_summary: dict[str, object] | None = None
+    try:
+        artifacts = _run_realizer(
+            service,
+            rid,
+            spec_with_summary.spec_id,
+            result.heightmap,
+            VIEW_KIND_PREVIEW,
+        )
+    except RealizerError as exc:
+        return fail("realizer_failed", str(exc))
+    if artifacts is not None:
+        blend_path = str(artifacts.blend_path)
+        preview_path = str(artifacts.preview_path)
+        realization_trace_path = str(artifacts.trace_path)
+        realization_summary = {
+            "macro": artifacts.realize_result.macro,
+            "sequence_id": artifacts.realize_result.sequence_id,
+            "view_kind": VIEW_KIND_PREVIEW,
+            "render_engine": _RENDER_ENGINE,
+            "render_resolution": list(_RESOLUTIONS[VIEW_KIND_PREVIEW]),
+            "render_file_size_bytes": _render_size(artifacts.render_result),
+        }
+
     return ok(
         {
             "region_id": region_id,
@@ -142,9 +318,95 @@ def generate_region(region_id: str) -> dict[str, object]:
             "heightmap_npy_path": npy_path,
             "heightmap_png_path": png_path,
             "stream_geometry_path": stream_path,
-            "blend_path": None,
+            "blend_path": blend_path,
+            "preview_path": preview_path,
+            "realization_trace_path": realization_trace_path,
+            "realization": realization_summary,
             "generators_used": list(result.generators_used),
             "analysis": analysis.model_dump(mode="json"),
+        },
+    )
+
+
+def _render_size(render_result: RealizationResult) -> int | None:
+    """Pull ``file_size_bytes`` out of a render result, if present."""
+    final = render_result.final_result
+    if isinstance(final, dict):
+        size = final.get("file_size_bytes")
+        if isinstance(size, int):
+            return size
+    return None
+
+
+def _resolve_render_view_target(
+    region_id: str,
+    view_kind: str,
+) -> tuple[RegionId, SpecId, Path] | dict[str, object]:
+    """Validate ``render_view`` arguments and return the resolved target.
+
+    Returns either ``(region_id, spec_id, heightmap_npy_path)`` on success
+    or a ready-to-return error envelope.
+    """
+    if view_kind not in _RESOLUTIONS:
+        return fail(
+            "invalid_view_kind",
+            f"view_kind must be one of {sorted(_RESOLUTIONS)!r}, got {view_kind!r}",
+        )
+    rid, lookup = _resolve_region(region_id)
+    if isinstance(lookup, dict):
+        return lookup
+    from forge_mcp.project.schemas import RegionNode  # noqa: PLC0415 - local narrow
+
+    assert isinstance(lookup, RegionNode)  # noqa: S101 - narrow for mypy strict
+    if lookup.spec_id is None:
+        return fail(
+            "not_generated",
+            f"region {region_id!r} has no spec_id; run forge.generate_region first",
+        )
+    npy_path = get_service().state.paths.heightmap_npy_path(rid)
+    if not npy_path.exists():
+        return fail(
+            "not_generated",
+            f"region {region_id!r} has no persisted heightmap; run forge.generate_region first",
+        )
+    if get_realizer_factory() is None:
+        return fail(
+            "realizer_not_configured",
+            "no realizer factory installed; cannot render views",
+        )
+    return rid, lookup.spec_id, npy_path
+
+
+def render_view(region_id: str, view_kind: str = VIEW_KIND_DEFAULT) -> dict[str, object]:
+    """Re-render a previously-generated region at the requested resolution.
+
+    ``view_kind`` is one of ``"preview"`` (512x384), ``"default"``
+    (1024x768) or ``"full"`` (2048x1536). The realizer rebuilds the
+    scene from the persisted heightmap (and optional stream geometry)
+    each call - this keeps the on-disk ``.blend`` honest about what the
+    most recent render actually drew.
+    """
+    target = _resolve_render_view_target(region_id, view_kind)
+    if isinstance(target, dict):
+        return target
+    rid, spec_id, npy_path = target
+    service = get_service()
+    heightmap = load_npy(npy_path)
+    try:
+        artifacts = _run_realizer(service, rid, spec_id, heightmap, view_kind)
+    except RealizerError as exc:
+        return fail("realizer_failed", str(exc))
+    assert artifacts is not None  # noqa: S101 - factory guarded above
+    return ok(
+        {
+            "region_id": region_id,
+            "view_kind": view_kind,
+            "blend_path": str(artifacts.blend_path),
+            "preview_path": str(artifacts.preview_path),
+            "realization_trace_path": str(artifacts.trace_path),
+            "render_engine": _RENDER_ENGINE,
+            "render_resolution": list(_RESOLUTIONS[view_kind]),
+            "render_file_size_bytes": _render_size(artifacts.render_result),
         },
     )
 
@@ -247,5 +509,6 @@ __all__ = [
     "analyze_region",
     "generate_region",
     "inspect_spec",
+    "render_view",
     "reroll_seed",
 ]
