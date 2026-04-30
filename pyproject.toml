@@ -117,6 +117,7 @@ warn_unreachable = true
 disallow_any_unimported = true
 disallow_any_explicit = true
 extra_checks = true
+mypy_path = "stubs"
 enable_error_code = [
     "ignore-without-code",
     "redundant-self",
