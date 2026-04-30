@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: lint + type-check + test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv (with built-in cache)
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Pre-commit (ruff, ruff-format, hooks, mypy)
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+      - name: Mypy (strict)
+        run: uv run mypy
+
+      - name: Pytest (with coverage)
+        # Phase 0: smoke test only; --cov-fail-under is intentionally omitted
+        # until Phase 2 (see .github/instructions.md §3).
+        run: uv run pytest --cov=forge_mcp --cov-report=term-missing --cov-report=xml

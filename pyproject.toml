@@ -1,0 +1,119 @@
+[project]
+name = "forge"
+version = "0.0.0"
+description = "Agent-native worldbuilding MCP server (Forge v1)."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Mehdi" }]
+keywords = [
+    "mcp",
+    "worldbuilding",
+    "blender",
+    "procedural-generation",
+    "agent",
+    "hypergraph",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/mehdi/world_forge"
+Repository = "https://github.com/mehdi/world_forge"
+Issues = "https://github.com/mehdi/world_forge/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["forge_mcp"]
+
+[dependency-groups]
+dev = [
+    "ruff==0.13.3",
+    "mypy==1.18.2",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "pre-commit>=4.0.0",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — strict-from-day-one configuration. Do not widen `ignore` or
+# `per-file-ignores` without an explicit RELAX PR (.github/instructions.md §2).
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["forge_mcp", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+# Minimal, justified ignores only:
+#   D203 / D211     — incompatible pair; D211 (no blank line before class) wins.
+#   D213 / D212     — incompatible pair; D212 (multi-line summary on first line) wins.
+#   COM812          — trailing-comma rule conflicts with the formatter.
+#   ISC001          — implicit-string-concat rule conflicts with the formatter.
+ignore = ["D203", "D213", "COM812", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+# This is the ENTIRE allowed per-file-ignore list. Do not add more.
+"tests/**/*.py" = ["S101", "D", "ANN"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+# Use defaults; let the formatter own style.
+
+# ---------------------------------------------------------------------------
+# Mypy — strict mode plus additional tightening. Never relax.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unreachable = true
+disallow_any_unimported = true
+disallow_any_explicit = true
+extra_checks = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-self",
+    "truthy-bool",
+    "possibly-undefined",
+]
+files = ["forge_mcp", "tests"]
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config"
+xfail_strict = true
+testpaths = ["tests"]
+
+# ---------------------------------------------------------------------------
+# Coverage — branch coverage on. Threshold enforcement is enabled in CI from
+# Phase 2 onward (.github/instructions.md §3); Phase 0 only has a smoke test.
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["forge_mcp"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

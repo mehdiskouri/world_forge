@@ -1,0 +1,65 @@
+# Byte-compiled / cached
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Packaging / build artifacts
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# uv / virtual envs
+.venv/
+.uv/
+venv/
+env/
+
+# Test + coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# Type / lint caches
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Forge-derived artifacts (project format treats binaries as derived;
+# see PRD §6.5 / Architecture §3). Heightmaps and renders live here.
+realizations/
+*.blend
+*.blend1
+*.blend2
+*.npy
+realizations/**/*.png
+
+# Canvas frontend (lands in Phase 6)
+node_modules/
+dist-canvas/
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local env files
+.env
+.env.*
+!.env.example
