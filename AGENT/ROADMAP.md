@@ -64,7 +64,7 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 
 ---
 
-## Phase 4 — bpy 5.0 realizer (PRD week 3)
+## Phase 4 — bpy 5.0 realizer (PRD week 3) — **complete**
 **Outcome:** Heightmap → `.blend` file with terrain mesh; preview PNG returned through MCP `generate_region`.
 **Steps**
 1. Blender adapter script (Architecture §7.2): stdio JSON-RPC, dispatches `bpy.ops.*`, `bpy.data.*`, `set_property:*`. Lives inside Blender process.
