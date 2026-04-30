@@ -277,18 +277,175 @@ class EdgeLayerFile(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs 
 # ---------------------------------------------------------------------------
 
 
+# ----- Spec body sub-models (Phase 3 Stage A: Architecture §3.4 typed shape) ---
+
+AnchorPoint = tuple[float, float]
+"""``(x, y)`` world-frame coordinates in meters; entry/exit anchors for streams."""
+
+
+class TerrainGeneratorParams(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Tunable parameters for the ``ridged_multifractal_v1`` terrain generator.
+
+    Field semantics live in :mod:`forge_mcp.generate.noise` (Phase 3
+    Stage D); this model is the persistence shape only.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    octaves: int = Field(ge=1, le=12)
+    lacunarity: float = Field(gt=1.0, le=4.0)
+    persistence: float = Field(gt=0.0, lt=1.0)
+    warp: float = Field(ge=0.0, le=2.0)
+    scale_meters: float = Field(gt=0.0)
+
+
+class HydraulicErosionPass(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Grid-based hydraulic erosion post-pass."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["hydraulic_erosion"] = "hydraulic_erosion"
+    iterations: int = Field(ge=1, le=512)
+    rain: float = Field(gt=0.0, le=1.0)
+    evaporation: float = Field(ge=0.0, lt=1.0)
+
+
+class ThermalErosionPass(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Talus-angle thermal relaxation post-pass."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["thermal_erosion"] = "thermal_erosion"
+    iterations: int = Field(ge=1, le=512)
+    talus_angle_degrees: float = Field(gt=0.0, lt=90.0)
+
+
+PostPass = HydraulicErosionPass | ThermalErosionPass
+"""Discriminated union of post-pass kinds, keyed on ``kind``."""
+
+
+class StreamFeatureInjector(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Stream-feature injector spec.
+
+    ``anchor_in`` / ``anchor_out`` stay ``None`` until Phase 6 wires
+    boundary contracts; the Phase 3 generator picks deterministic edge
+    points when both are unset.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["stream"] = "stream"
+    anchor_in: AnchorPoint | None = None
+    anchor_out: AnchorPoint | None = None
+    width_meters: float = Field(gt=0.0)
+    carving_depth: float = Field(gt=0.0)
+
+
+FeatureInjector = StreamFeatureInjector
+"""Single-arm union today; widens when more feature kinds arrive."""
+
+
+class TerrainAxisSpec(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Per-axis spec for the terrain axis (the only v1 axis)."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    generator: Literal["ridged_multifractal_v1"] = "ridged_multifractal_v1"
+    params: TerrainGeneratorParams
+    post_passes: tuple[PostPass, ...] = ()
+    feature_injectors: tuple[FeatureInjector, ...] = ()
+    elevation_band: tuple[float, float]
+    resolution_meters_per_pixel: float = Field(gt=0.0)
+
+    @field_validator("elevation_band")
+    @classmethod
+    def _check_elevation_band(cls, value: tuple[float, float]) -> tuple[float, float]:
+        low, high = value
+        if not low < high:
+            msg = f"elevation_band low must be < high, got [{low}, {high}]"
+            raise ValueError(msg)
+        return value
+
+
+class BoundaryRequirement(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Requirement a spec places on one of the region's boundaries.
+
+    Phase 3 placeholder: ``elevation_continuity`` is the only kind, with
+    no parameters yet. Phase 6 fills the contract negotiation in.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    boundary_id: BoundaryId
+    kind: Literal["elevation_continuity"] = "elevation_continuity"
+
+
+class SpecSummary(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Compact numerical summary populated by :mod:`forge_mcp.analyze`.
+
+    Empty (all-zero) until ``forge.generate_region`` runs analysis;
+    refreshed in place on every regeneration.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    mean_elevation: float = 0.0
+    std_elevation: float = 0.0
+    min_elevation: float = 0.0
+    max_elevation: float = 0.0
+    slope_p95_degrees: float = 0.0
+    stream_length_meters: float | None = None
+
+
+class GenerationMetadata(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Provenance for one materialized spec.
+
+    Pinned versions let us refuse to load on mismatch (Architecture §15)
+    and let CI catch silent generator drift.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    compiler_version: str
+    generators_used: tuple[str, ...]
+    bpy_hypergraph_version: str
+    blender_version: str
+    parent_spec_hash: str | None = None
+    conflicts_resolved: tuple[str, ...] = ()
+
+
+class SpecBody(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Typed spec body matching Architecture §3.4.
+
+    Lifted out of :class:`SpecRecord` so the discriminated unions inside
+    ``axes['terrain'].post_passes`` and ``feature_injectors`` are
+    canonicalized in one place and round-trip cleanly through
+    ``model_dump(mode='json')``.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    axes: dict[Literal["terrain"], TerrainAxisSpec]
+    boundary_requirements: tuple[BoundaryRequirement, ...] = ()
+    summary: SpecSummary = Field(default_factory=SpecSummary)
+    generation_metadata: GenerationMetadata
+
+
 class SpecRecord(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
     """Persistence shape for ``specs/<spec_id>.json``.
 
-    Phase 2 keeps the body opaque (``Mapping[str, JsonValue]``); Phase 3
-    introduces the typed ``axes`` / ``generation_metadata`` substructure.
+    Phase 3 promotes ``body`` from an opaque mapping to the typed
+    :class:`SpecBody` substructure (Architecture §3.4). ``spec_id`` is
+    content-addressed off the canonical-JSON BLAKE2b of ``body`` —
+    identical descriptor + seed + generator versions across regions
+    therefore yield identical spec ids, by design.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
 
     spec_id: SpecId
     descriptor: StructuredDescriptor
-    body: dict[str, JsonValue] = Field(default_factory=dict)
+    body: SpecBody
     created_at: datetime
 
 
@@ -464,30 +621,42 @@ class ProjectMetadata(BaseModel):  # type: ignore[explicit-any]  # pydantic stub
 
 
 __all__ = [
+    "AnchorPoint",
     "AuditRecord",
     "BoundaryId",
+    "BoundaryRequirement",
     "BoundaryStub",
     "Bounds2D",
     "Edge",
     "EdgeId",
     "EdgeLayerFile",
+    "FeatureInjector",
+    "GenerationMetadata",
     "HistoryActor",
     "HistoryEvent",
     "HistoryEventId",
     "HistoryEventKind",
+    "HydraulicErosionPass",
     "LockId",
     "LockKind",
     "LockRecord",
     "LockStoreFile",
     "NodeId",
     "Polygon2D",
+    "PostPass",
     "ProjectMetadata",
     "RegionId",
     "RegionNode",
     "RegionTier",
     "SpatialBounds",
+    "SpecBody",
     "SpecId",
     "SpecRecord",
+    "SpecSummary",
+    "StreamFeatureInjector",
+    "TerrainAxisSpec",
+    "TerrainGeneratorParams",
+    "ThermalErosionPass",
     "WorldBounds",
     "WorldRootNode",
 ]

@@ -18,10 +18,12 @@ from forge_mcp.project.schemas import (
     Bounds2D,
     Edge,
     EdgeLayerFile,
+    GenerationMetadata,
     HistoryActor,
     HistoryEvent,
     HistoryEventId,
     HistoryEventKind,
+    HydraulicErosionPass,
     LockId,
     LockKind,
     LockRecord,
@@ -33,8 +35,13 @@ from forge_mcp.project.schemas import (
     RegionNode,
     RegionTier,
     SpatialBounds,
+    SpecBody,
     SpecId,
     SpecRecord,
+    StreamFeatureInjector,
+    TerrainAxisSpec,
+    TerrainGeneratorParams,
+    ThermalErosionPass,
     WorldBounds,
     WorldRootNode,
 )
@@ -220,9 +227,82 @@ def test_edge_layer_file_round_trip() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _spec_body(
+    *,
+    post_passes: tuple[HydraulicErosionPass | ThermalErosionPass, ...] = (),
+    feature_injectors: tuple[StreamFeatureInjector, ...] = (),
+) -> SpecBody:
+    """Build a minimally-valid spec body for round-trip tests."""
+    return SpecBody(
+        axes={
+            "terrain": TerrainAxisSpec(
+                params=TerrainGeneratorParams(
+                    octaves=4,
+                    lacunarity=2.0,
+                    persistence=0.5,
+                    warp=0.3,
+                    scale_meters=128.0,
+                ),
+                post_passes=post_passes,
+                feature_injectors=feature_injectors,
+                elevation_band=(0.0, 100.0),
+                resolution_meters_per_pixel=2.0,
+            ),
+        },
+        generation_metadata=GenerationMetadata(
+            compiler_version="0.1.0",
+            generators_used=("ridged_multifractal_v1",),
+            bpy_hypergraph_version="0.0.0",
+            blender_version="5.0.2",
+        ),
+    )
+
+
 def test_spec_record_round_trip() -> None:
-    s = SpecRecord(spec_id=SpecId("spec_abc123"), descriptor=DESCRIPTOR, created_at=NOW)
+    s = SpecRecord(
+        spec_id=SpecId("spec_abc123"),
+        descriptor=DESCRIPTOR,
+        body=_spec_body(),
+        created_at=NOW,
+    )
     assert SpecRecord.model_validate(s.model_dump(mode="json")) == s
+
+
+def test_spec_body_round_trip_with_post_passes_and_stream() -> None:
+    body = _spec_body(
+        post_passes=(
+            HydraulicErosionPass(iterations=20, rain=0.1, evaporation=0.05),
+            ThermalErosionPass(iterations=10, talus_angle_degrees=35.0),
+        ),
+        feature_injectors=(StreamFeatureInjector(width_meters=4.0, carving_depth=2.0),),
+    )
+    s = SpecRecord(
+        spec_id=SpecId("spec_def456"),
+        descriptor=DESCRIPTOR,
+        body=body,
+        created_at=NOW,
+    )
+    round_tripped = SpecRecord.model_validate(s.model_dump(mode="json"))
+    assert round_tripped == s
+    terrain_axis = round_tripped.body.axes["terrain"]
+    assert terrain_axis.post_passes[0].kind == "hydraulic_erosion"
+    assert terrain_axis.post_passes[1].kind == "thermal_erosion"
+    assert terrain_axis.feature_injectors[0].kind == "stream"
+
+
+def test_terrain_axis_rejects_inverted_elevation_band() -> None:
+    with pytest.raises(ValidationError, match="elevation_band low must be <"):
+        TerrainAxisSpec(
+            params=TerrainGeneratorParams(
+                octaves=4,
+                lacunarity=2.0,
+                persistence=0.5,
+                warp=0.3,
+                scale_meters=128.0,
+            ),
+            elevation_band=(100.0, 0.0),
+            resolution_meters_per_pixel=2.0,
+        )
 
 
 def _boundary(**overrides: object) -> BoundaryStub:
