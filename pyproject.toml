@@ -36,6 +36,11 @@ Homepage = "https://github.com/mehdi/world_forge"
 Repository = "https://github.com/mehdi/world_forge"
 Issues = "https://github.com/mehdi/world_forge/issues"
 
+[project.scripts]
+# Phase 1 spike 3: ``forge-mcp`` is the MCP server entry point that an
+# agent host (Claude Desktop / Claude Code / Cursor) launches over stdio.
+forge-mcp = "forge_mcp.server.mcp:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -48,7 +53,7 @@ dev = [
     "ruff==0.13.3",
     "mypy==1.18.2",
     "pytest>=8.3.0",
-    "pytest-cov>=6.0.0",
+    "pytest-cov>=7.1.0",
     "pre-commit>=4.6.0",
     # bpy type stubs for Blender-internal scripts. Not used at runtime
     # (real bpy is supplied by Blender 5.0.0); see scripts/blender/README.md
@@ -64,6 +69,10 @@ dev = [
 target-version = "py313"
 line-length = 100
 src = ["forge_mcp", "tests"]
+# scripts/blender/* runs in Blender's embedded Python interpreter against the
+# real ``bpy`` module. It is exercised manually (Phase 1 spikes 1 and 2) and
+# lives outside the strict matrix — mirrors the mypy exclude in [tool.mypy].
+extend-exclude = ["scripts/blender"]
 
 [tool.ruff.lint]
 select = ["ALL"]

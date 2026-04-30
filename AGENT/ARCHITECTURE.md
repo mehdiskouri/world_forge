@@ -94,6 +94,14 @@ V3.0 commits to Blender 5.0 over the safer 4.4 LTS. The reasoning, summarized fo
 
 **Known risk:** 5.0's IDProperty refactor is bleeding-edge. Forge uses custom IDProperties to link Blender objects back to project node IDs. The pre-week-1 spike validates IDProperty round-trip; if unstable, fallback is scene-level metadata dict keyed by object name.
 
+> **Phase 1 verdict (validated 2026-04-30):** Pinned to **Blender 5.0.0** (`/usr/bin/blender`, env var `FORGE_BLENDER_BIN`). Stdio JSON-RPC adapter
+> ([scripts/blender/adapter.py](../scripts/blender/adapter.py)) measured at sub-millisecond
+> ping latency in-process. **IDProperty round-trip works** end-to-end against
+> a real Blender 5.0.0 binary (3 integration tests in
+> [tests/realize/test_blender_proc.py](../tests/realize/test_blender_proc.py));
+> the scene-metadata-dict fallback is **not needed for v1**.
+> See [docs/spikes/02-blender-rpc-adapter.md](../docs/spikes/02-blender-rpc-adapter.md).
+
 ## 3. Project format and folder layout
 
 ```
@@ -554,6 +562,14 @@ The ingestion is targeted at a specific 5.0 patch version. Forge stores the patc
 
 ### 5.4 The v1 operator set (~30–50 operators)
 
+> **Phase 1 verdict (validated 2026-04-30):** ingestion against the
+> Blender 5.0.0 introspector
+> ([scripts/blender/introspect.py](../scripts/blender/introspect.py))
+> emitted **2 441 raw operators**; the curated v1 set is **24 operators**
+> spanning **11 types**, **24 effect annotations**, and **7 alternative-paths**
+> entries (`schema_tag = blender-5.0.0-v1`).
+> See [docs/spikes/01-bpy-hypergraph.md](../docs/spikes/01-bpy-hypergraph.md).
+
 Curated for v1 macros. In 5.0, more of these can be expressed as direct `bpy.data` calls:
 
 - **Mesh creation:** `bpy.ops.mesh.primitive_plane_add` (or `bpy.data.meshes.new` + manual vertex setup for finer control)
@@ -594,6 +610,9 @@ obj["forge_kind"] = "terrain_mesh"
 ```
 
 This lets the realizer query by node ID later (e.g., for incremental updates). 5.0's IDProperty refactor is bleeding-edge — pre-week-1 validates round-trip. Fallback: scene-level metadata dict keyed by object name.
+
+> **Phase 1 verdict:** IDProperty round-trip works against real Blender 5.0.0 — the fallback path is not used in v1. Verified in
+> [tests/realize/test_blender_proc.py](../tests/realize/test_blender_proc.py).
 
 ### 5.7 The realizer engine
 
