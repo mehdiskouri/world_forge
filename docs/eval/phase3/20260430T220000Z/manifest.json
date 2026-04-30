@@ -1,0 +1,62 @@
+{
+  "entries": [
+    {
+      "generators_used": [
+        "noise.ridged_multifractal",
+        "erosion.hydraulic",
+        "erosion.thermal",
+        "stream.injector"
+      ],
+      "label": "alpine_valley_with_creek",
+      "primary": "alpine_valley",
+      "spec_id": "spec_b879897a5533"
+    },
+    {
+      "generators_used": [
+        "noise.ridged_multifractal",
+        "erosion.hydraulic",
+        "erosion.thermal"
+      ],
+      "label": "rolling_hills_dry",
+      "primary": "rolling_hills",
+      "spec_id": "spec_68e25b554527"
+    },
+    {
+      "generators_used": [
+        "noise.ridged_multifractal",
+        "erosion.hydraulic",
+        "erosion.thermal"
+      ],
+      "label": "desert_mesa",
+      "primary": "desert_mesa",
+      "spec_id": "spec_47f0853485b9"
+    },
+    {
+      "generators_used": [
+        "noise.ridged_multifractal",
+        "erosion.hydraulic",
+        "erosion.thermal",
+        "stream.injector"
+      ],
+      "label": "boreal_lowland_meander",
+      "primary": "boreal_lowland",
+      "spec_id": "spec_bb1003e76368"
+    },
+    {
+      "generators_used": [
+        "noise.ridged_multifractal",
+        "erosion.hydraulic",
+        "erosion.thermal",
+        "stream.injector"
+      ],
+      "label": "canyon_dry_wash",
+      "primary": "canyon",
+      "spec_id": "spec_4889bb2c15e4"
+    }
+  ],
+  "seed": 17,
+  "shape": [
+    128,
+    128
+  ]
+}

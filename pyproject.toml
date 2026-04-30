@@ -97,6 +97,9 @@ ignore = ["D203", "D213", "COM812", "ISC001"]
 [tool.ruff.lint.per-file-ignores]
 # This is the ENTIRE allowed per-file-ignore list. Do not add more.
 "tests/**/*.py" = ["S101", "D", "ANN"]
+# scripts/eval/* are local-only entry-point scripts (Phase 3 Stage G).
+# INP001 -- intentional namespace, no __init__.py.
+"scripts/eval/**/*.py" = ["INP001"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
