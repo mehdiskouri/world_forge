@@ -83,7 +83,7 @@ def _walk_ops_module(module, prefix: str, out: list[dict]) -> None:
                 "idname": idname,
                 "label": getattr(rna, "name", "") or "",
                 "description": getattr(rna, "description", "") or "",
-                "bl_options": list(getattr(attr, "bl_options", []) or []),
+                "bl_options": sorted(getattr(attr, "bl_options", []) or []),
                 "params": params,
             })
         elif hasattr(attr, "__name__") and not callable(attr):

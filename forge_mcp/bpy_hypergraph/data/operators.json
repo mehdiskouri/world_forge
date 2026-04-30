@@ -3,8 +3,8 @@
   "operators": [
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Open image",
       "idname": "bpy.ops.image.open",
@@ -224,8 +224,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Construct a cube mesh that consists of six square faces",
       "idname": "bpy.ops.mesh.primitive_cube_add",
@@ -284,8 +284,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Construct a cylinder mesh",
       "idname": "bpy.ops.mesh.primitive_cylinder_add",
@@ -365,8 +365,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Construct a subdivided plane mesh",
       "idname": "bpy.ops.mesh.primitive_grid_add",
@@ -439,8 +439,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Construct a spherical mesh that consists of equally sized triangles",
       "idname": "bpy.ops.mesh.primitive_ico_sphere_add",
@@ -506,8 +506,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Construct a filled planar mesh with 4 vertices",
       "idname": "bpy.ops.mesh.primitive_plane_add",
@@ -566,8 +566,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Construct a spherical mesh with quad faces, except for triangle faces at the top and bottom",
       "idname": "bpy.ops.mesh.primitive_uv_sphere_add",
@@ -640,8 +640,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Subdivide selected edges",
       "idname": "bpy.ops.mesh.subdivide",
@@ -700,8 +700,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Delete selected objects",
       "idname": "bpy.ops.object.delete",
@@ -725,8 +725,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Add a procedural operation/effect to the active object",
       "idname": "bpy.ops.object.modifier_add",
@@ -751,8 +751,8 @@
     {
       "bl_options": [
         "INTERNAL",
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Apply modifier and remove from the stack",
       "idname": "bpy.ops.object.modifier_apply",
@@ -805,8 +805,8 @@
     {
       "bl_options": [
         "INTERNAL",
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Remove a modifier from the active object",
       "idname": "bpy.ops.object.modifier_remove",
@@ -837,8 +837,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Set the object's origin, by either moving the data, or set to center of data, or use 3D cursor",
       "idname": "bpy.ops.object.origin_set",
@@ -862,8 +862,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Set the object's parenting",
       "idname": "bpy.ops.object.parent_set",
@@ -894,8 +894,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Change selection of all visible objects in scene",
       "idname": "bpy.ops.object.select_all",
@@ -912,8 +912,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Render and display faces uniform, using face normals",
       "idname": "bpy.ops.object.shade_flat",
@@ -930,8 +930,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Render and display faces smooth, using interpolated vertex normals",
       "idname": "bpy.ops.object.shade_smooth",
@@ -948,8 +948,8 @@
     },
     {
       "bl_options": [
-        "UNDO",
-        "REGISTER"
+        "REGISTER",
+        "UNDO"
       ],
       "description": "Apply the object's transformation to its data",
       "idname": "bpy.ops.object.transform_apply",
