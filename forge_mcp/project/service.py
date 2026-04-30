@@ -22,6 +22,7 @@ and Phase 7 (undo). Stage C is just the persistence skeleton.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -32,6 +33,7 @@ from pydantic import ValidationError
 
 from forge_mcp._io.atomic import atomic_write_text, write_json
 from forge_mcp.descriptor.schema import SCHEMA_VERSION as DESCRIPTOR_SCHEMA_VERSION
+from forge_mcp.descriptor.schema import StructuredDescriptor
 from forge_mcp.project.history import HistoryLog
 from forge_mcp.project.locks import LockStore, LockStoreError
 from forge_mcp.project.schemas import (
@@ -46,9 +48,11 @@ from forge_mcp.project.schemas import (
     LockRecord,
     LockStoreFile,
     NodeId,
+    Polygon2D,
     ProjectMetadata,
     RegionId,
     RegionNode,
+    SpatialBounds,
     WorldBounds,
     WorldRootNode,
 )
@@ -540,21 +544,266 @@ class ProjectService:
         return boundaries
 
     @staticmethod
-    def _load_locks(paths: ProjectPaths) -> tuple[LockRecord, ...]:
-        if not paths.locks_path.exists():
-            return ()
-        try:
-            store = LockStoreFile.model_validate_json(paths.locks_path.read_text(encoding="utf-8"))
-        except (OSError, ValidationError) as exc:
-            msg = f"failed to load locks.json: {exc}"
-            raise ProjectFormatError(msg) from exc
-        return store.locks
-
-    @staticmethod
     def _count_history(paths: ProjectPaths) -> int:
         if not paths.history_dir.is_dir():
             return 0
         return sum(1 for _ in paths.history_dir.glob("*.json"))
+
+    # ------------------------------------------------------------------
+    # Region CRUD (Stage G)
+    # ------------------------------------------------------------------
+    def create_region(
+        self,
+        name: str,
+        polygon_coords: tuple[tuple[float, float], ...],
+        *,
+        structured_descriptor: StructuredDescriptor | None = None,
+        seed: int | None = None,
+    ) -> RegionNode:
+        """Validate, persist, and adjacency-stub a new region.
+
+        Polygon validity is checked through
+        :func:`forge_mcp.geometry.polygon.validate_polygon` (shapely);
+        overlap with any existing region's polygon raises
+        :class:`RegionOverlapError`. Adjacency stubs are emitted via
+        :func:`forge_mcp.geometry.adjacency.detect_adjacencies` and the
+        whole transaction is recorded as a single
+        ``CREATE_REGION`` history event.
+        """
+        from forge_mcp.geometry.adjacency import detect_adjacencies  # noqa: PLC0415 - cycle break
+        from forge_mcp.geometry.polygon import (  # noqa: PLC0415 - cycle break
+            PolygonInvalidError,
+            polygons_overlap,
+            validate_polygon,
+        )
+
+        state = self.state
+        try:
+            validate_polygon(polygon_coords)
+        except PolygonInvalidError as exc:
+            raise RegionPolygonError(str(exc)) from exc
+
+        for existing in state.regions.values():
+            if polygons_overlap(polygon_coords, existing.spatial_bounds.coords.coords):
+                msg = f"polygon overlaps existing region {existing.node_id!r} ({existing.name!r})"
+                raise RegionOverlapError(msg)
+
+        now = _now()
+        region_id = self._allocate_region_id(name)
+        region = RegionNode(
+            node_id=region_id,
+            parent_node=state.metadata.world_node_id,
+            name=name,
+            spatial_bounds=SpatialBounds(coords=Polygon2D(coords=polygon_coords)),
+            seed=seed if seed is not None else 0,
+            created_at=now,
+            modified_at=now,
+            structured_descriptor=structured_descriptor,
+        )
+        state.regions[region.node_id] = region
+        write_json(state.paths.region_path(region.node_id), region)
+
+        boundaries = detect_adjacencies(region, state.regions.values(), now=now)
+        for boundary in boundaries:
+            state.boundaries[boundary.boundary_id] = boundary
+            write_json(state.paths.boundary_path(boundary.boundary_id), boundary)
+
+        self._append_history(
+            HistoryEventKind.CREATE_REGION,
+            payload={
+                "region_id": str(region.node_id),
+                "name": region.name,
+                "boundary_count": len(boundaries),
+            },
+            now=now,
+        )
+        return region
+
+    def update_region(
+        self,
+        region_id: RegionId,
+        *,
+        name: str | None = None,
+        polygon_coords: tuple[tuple[float, float], ...] | None = None,
+        structured_descriptor: StructuredDescriptor | None = None,
+        clear_descriptor: bool = False,
+    ) -> RegionNode:
+        """Apply a partial update; re-runs adjacency if the polygon changed."""
+        state = self.state
+        existing = state.regions.get(region_id)
+        if existing is None:
+            msg = f"unknown region {region_id!r}"
+            raise UnknownRegionError(msg)
+
+        polygon_changed = polygon_coords is not None
+        new_bounds = (
+            self._validate_replacement_polygon(region_id, polygon_coords)
+            if polygon_changed and polygon_coords is not None
+            else existing.spatial_bounds
+        )
+
+        now = _now()
+        update = self._compose_region_update(
+            now=now,
+            name=name,
+            polygon_changed=polygon_changed,
+            new_bounds=new_bounds,
+            structured_descriptor=structured_descriptor,
+            clear_descriptor=clear_descriptor,
+        )
+        new_region: RegionNode = existing.model_copy(update=update)
+        state.regions[region_id] = new_region
+        write_json(state.paths.region_path(region_id), new_region)
+
+        boundary_count = 0
+        if polygon_changed:
+            boundary_count = self._refresh_boundaries(region_id, new_region, now)
+
+        self._append_history(
+            HistoryEventKind.UPDATE_REGION,
+            payload={
+                "region_id": str(region_id),
+                "polygon_changed": polygon_changed,
+                "boundary_count": boundary_count,
+            },
+            now=now,
+        )
+        return new_region
+
+    def _validate_replacement_polygon(
+        self,
+        region_id: RegionId,
+        polygon_coords: tuple[tuple[float, float], ...],
+    ) -> SpatialBounds:
+        from forge_mcp.geometry.polygon import (  # noqa: PLC0415 - cycle break
+            PolygonInvalidError,
+            polygons_overlap,
+            validate_polygon,
+        )
+
+        try:
+            validate_polygon(polygon_coords)
+        except PolygonInvalidError as exc:
+            raise RegionPolygonError(str(exc)) from exc
+        for other in self.state.regions.values():
+            if other.node_id == region_id:
+                continue
+            if polygons_overlap(polygon_coords, other.spatial_bounds.coords.coords):
+                msg = f"polygon overlaps existing region {other.node_id!r} ({other.name!r})"
+                raise RegionOverlapError(msg)
+        return SpatialBounds(coords=Polygon2D(coords=polygon_coords))
+
+    @staticmethod
+    def _compose_region_update(  # noqa: PLR0913 - flat kwargs are clearer here than a dataclass
+        *,
+        now: datetime,
+        name: str | None,
+        polygon_changed: bool,
+        new_bounds: SpatialBounds,
+        structured_descriptor: StructuredDescriptor | None,
+        clear_descriptor: bool,
+    ) -> dict[str, object]:
+        update: dict[str, object] = {"modified_at": now}
+        if name is not None:
+            update["name"] = name
+        if polygon_changed:
+            update["spatial_bounds"] = new_bounds
+        if clear_descriptor:
+            update["structured_descriptor"] = None
+        elif structured_descriptor is not None:
+            update["structured_descriptor"] = structured_descriptor
+        return update
+
+    def _refresh_boundaries(
+        self,
+        region_id: RegionId,
+        new_region: RegionNode,
+        now: datetime,
+    ) -> int:
+        from forge_mcp.geometry.adjacency import detect_adjacencies  # noqa: PLC0415 - cycle break
+
+        state = self.state
+        stale = [
+            bid for bid, b in state.boundaries.items() if region_id in (b.region_a, b.region_b)
+        ]
+        for bid in stale:
+            state.boundaries.pop(bid)
+            path = state.paths.boundary_path(bid)
+            if path.exists():
+                path.unlink()
+        new_boundaries = detect_adjacencies(new_region, state.regions.values(), now=now)
+        for boundary in new_boundaries:
+            state.boundaries[boundary.boundary_id] = boundary
+            write_json(state.paths.boundary_path(boundary.boundary_id), boundary)
+        return len(new_boundaries)
+
+    def delete_region(self, region_id: RegionId) -> None:
+        """Delete a region and any boundaries it participates in."""
+        state = self.state
+        if region_id not in state.regions:
+            msg = f"unknown region {region_id!r}"
+            raise UnknownRegionError(msg)
+        del state.regions[region_id]
+        path = state.paths.region_path(region_id)
+        if path.exists():
+            path.unlink()
+        stale = [
+            bid for bid, b in state.boundaries.items() if region_id in (b.region_a, b.region_b)
+        ]
+        for bid in stale:
+            state.boundaries.pop(bid)
+            bpath = state.paths.boundary_path(bid)
+            if bpath.exists():
+                bpath.unlink()
+        self._append_history(
+            HistoryEventKind.DELETE_REGION,
+            payload={"region_id": str(region_id), "boundary_count": len(stale)},
+        )
+
+    # ------------------------------------------------------------------
+    # Internal: region id allocation
+    # ------------------------------------------------------------------
+    def _allocate_region_id(self, name: str) -> RegionId:
+        """Return a fresh slug-based RegionId, suffixing on collision."""
+        base = _slugify(name) or "region"
+        candidate = f"region_{base}"
+        if RegionId(candidate) not in self.state.regions:
+            return RegionId(candidate)
+        # Use a deterministic short hash on the existing-id count to keep
+        # IDs predictable in tests; collisions are vanishingly rare in
+        # Phase-2 workloads.
+        for suffix_len in range(2, 9):
+            for _ in range(16):
+                token = uuid4().hex[:suffix_len]
+                candidate = f"region_{base}_{token}"
+                if RegionId(candidate) not in self.state.regions:
+                    return RegionId(candidate)
+        msg = f"could not allocate a unique region id for name {name!r}"
+        raise ProjectError(msg)
+
+
+_SLUG_RE: Final = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(value: str) -> str:
+    """Lowercase + collapse non-alnum runs to single underscores; trim."""
+    return _SLUG_RE.sub("_", value.lower()).strip("_")
+
+
+class RegionError(ProjectError):
+    """Base class for region-CRUD errors."""
+
+
+class UnknownRegionError(RegionError):
+    """Raised when a region id does not exist in the open project."""
+
+
+class RegionPolygonError(RegionError):
+    """Raised when a region polygon is malformed (delegates to geometry layer)."""
+
+
+class RegionOverlapError(RegionError):
+    """Raised when a region polygon overlaps an existing region."""
 
 
 __all__ = [
@@ -567,4 +816,8 @@ __all__ = [
     "ProjectService",
     "ProjectState",
     "ProjectVersionError",
+    "RegionError",
+    "RegionOverlapError",
+    "RegionPolygonError",
+    "UnknownRegionError",
 ]

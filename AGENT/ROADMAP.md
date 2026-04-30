@@ -31,7 +31,7 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 
 ---
 
-## Phase 2 — Project format + tool scaffolding (PRD week 1)
+## Phase 2 — Project format + tool scaffolding (PRD week 1) — **complete**
 **Outcome:** A user can hand-edit a Forge project on disk, open it via an agent, and list regions through MCP.
 **Steps**
 1. Pydantic schemas (`forge_mcp/project/schemas.py`) for: `project.json`, region nodes, edges, specs, boundaries, locks, history, audits — match Architecture §3.

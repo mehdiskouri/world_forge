@@ -14,7 +14,6 @@ The Phase 1 spike validates two surfaces:
 from __future__ import annotations
 
 import asyncio
-import sys
 from typing import TYPE_CHECKING
 
 import forge_mcp.server.mcp as server_mcp
@@ -29,19 +28,42 @@ from forge_mcp.server.mcp import (
 if TYPE_CHECKING:
     import pytest
 
-EXPECTED_TOOL_COUNT = 3
+EXPECTED_TOOLS: frozenset[str] = frozenset(
+    {
+        # Transport / introspection
+        "forge.ping",
+        "forge.echo",
+        "forge.get_descriptor_schema",
+        # Project lifecycle
+        "forge.create_project",
+        "forge.open_project",
+        "forge.save_project",
+        "forge.close_project",
+        # Region CRUD
+        "forge.create_region",
+        "forge.update_region",
+        "forge.delete_region",
+        "forge.list_regions",
+        "forge.get_region",
+        # Hypergraph + boundaries
+        "forge.query_layer",
+        "forge.list_boundaries",
+        "forge.inspect_boundary",
+        # History
+        "forge.history",
+        "forge.undo",
+        # Locks (read-only in Phase 2)
+        "forge.list_locks",
+    },
+)
 
 
 def test_build_server_registers_v1_tool_surface() -> None:
     server = build_server()
     tools = asyncio.run(server.list_tools())
     names = {t.name for t in tools}
-    assert names == {
-        "forge.ping",
-        "forge.echo",
-        "forge.get_descriptor_schema",
-    }
-    assert len(tools) == EXPECTED_TOOL_COUNT
+    assert names == EXPECTED_TOOLS
+    assert len(tools) == len(EXPECTED_TOOLS)
 
 
 def test_build_server_uses_forge_name() -> None:
@@ -66,13 +88,14 @@ def test_forge_echo_round_trips_empty_string() -> None:
     assert forge_echo("") == {"echoed": ""}
 
 
-def test_forge_get_descriptor_schema_returns_schema_or_placeholder() -> None:
+def test_forge_get_descriptor_schema_returns_real_schema() -> None:
     result = forge_get_descriptor_schema()
-    # Either the real schema (descriptor branch merged — has 'properties'
-    # at the top level because it is a Pydantic-generated object schema)
-    # or the placeholder (has '$schema' + 'x-status'). Both are valid
-    # JSON Schema documents from a host's perspective.
-    assert "properties" in result or "$schema" in result
+    # Phase 2 rewires this tool to call descriptor_json_schema directly,
+    # so the response is always the real envelope: {"ok": True, "result": <schema>}.
+    assert result["ok"] is True
+    schema = result["result"]
+    assert isinstance(schema, dict)
+    assert "properties" in schema or "$schema" in schema
 
 
 def test_forge_version_is_non_empty_string() -> None:
@@ -102,18 +125,19 @@ def test_forge_version_falls_back_when_metadata_missing(
 def test_forge_get_descriptor_schema_returns_real_schema_when_present(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Cover the success branch where the descriptor module is importable."""
-    import types  # noqa: PLC0415
+    """Phase 2 rewire: the tool delegates to ``schema_tools.get_descriptor_schema``.
 
-    fake = types.ModuleType("forge_mcp.descriptor")
+    We monkey-patch *that* helper to confirm the wiring without touching
+    the real descriptor module.
+    """
+    from forge_mcp.server.tools import schema as schema_tools  # noqa: PLC0415
 
-    def _schema() -> dict[str, object]:
-        return {"$schema": "https://example/test", "title": "FakeDescriptor"}
+    def _fake() -> dict[str, object]:
+        return {"ok": True, "result": {"$schema": "https://example/test"}}
 
-    fake.descriptor_json_schema = _schema  # type: ignore[attr-defined]  # injected for test
-    monkeypatch.setitem(sys.modules, "forge_mcp.descriptor", fake)
+    monkeypatch.setattr(schema_tools, "get_descriptor_schema", _fake)
     result = forge_get_descriptor_schema()
-    assert result["title"] == "FakeDescriptor"
+    assert result == {"ok": True, "result": {"$schema": "https://example/test"}}
 
 
 def test_main_invokes_server_run(monkeypatch: pytest.MonkeyPatch) -> None:
