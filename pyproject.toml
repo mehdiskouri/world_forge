@@ -64,6 +64,10 @@ dev = [
 target-version = "py313"
 line-length = 100
 src = ["forge_mcp", "tests"]
+# scripts/blender/* runs in Blender's embedded Python interpreter against the
+# real ``bpy`` module. It is exercised manually (Phase 1 spike 1) and lives
+# outside the strict matrix — mirrors the mypy exclude in [tool.mypy].
+extend-exclude = ["scripts/blender"]
 
 [tool.ruff.lint]
 select = ["ALL"]
