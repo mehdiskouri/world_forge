@@ -1,0 +1,40 @@
+{
+  "alternative_paths": {
+    "bpy.ops.image.open": {
+      "data_path": "bpy.data.images.load(filepath, check_existing=True)",
+      "notes": "5.0: data path is the canonical loader; ops path is editor-only.",
+      "preferred": "data"
+    },
+    "bpy.ops.mesh.primitive_plane_add": {
+      "data_path": "bpy.data.meshes.new + bmesh plane construction",
+      "notes": "5.0: ops path is canonical for primitives; switch to data for custom topologies.",
+      "preferred": "ops"
+    },
+    "bpy.ops.object.delete": {
+      "data_path": "bpy.data.objects.remove(obj, do_unlink=True)",
+      "notes": "5.0: data path is deterministic; ops path depends on selection state.",
+      "preferred": "data"
+    },
+    "bpy.ops.object.modifier_add": {
+      "data_path": "bpy.data.objects[name].modifiers.new(name, type)",
+      "notes": "5.0: data path avoids context.active_object dependency.",
+      "preferred": "data"
+    },
+    "bpy.ops.object.modifier_apply": {
+      "data_path": "bpy.context.evaluated_depsgraph_get + mesh.from_existing",
+      "notes": "Data path requires depsgraph evaluation; ops path is simpler in v1.",
+      "preferred": "ops"
+    },
+    "bpy.ops.render.render": {
+      "data_path": null,
+      "notes": "Render is fundamentally context-bound; no equivalent data path.",
+      "preferred": "ops"
+    },
+    "bpy.ops.wm.save_as_mainfile": {
+      "data_path": null,
+      "notes": "Save is window-manager-bound; no equivalent data path.",
+      "preferred": "ops"
+    }
+  },
+  "schema_tag": "blender-5.0.0-v1"
+}

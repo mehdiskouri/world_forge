@@ -1,0 +1,1660 @@
+{
+  "blender_version": "5.0.0",
+  "operators": [
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Open image",
+      "idname": "bpy.ops.image.open",
+      "label": "Open Image",
+      "params": [
+        {
+          "description": "Allow the path to contain substitution tokens",
+          "is_output": false,
+          "is_required": false,
+          "name": "allow_path_tokens",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Path to file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filepath",
+          "type": "STRING"
+        },
+        {
+          "description": "Directory of the file",
+          "is_output": false,
+          "is_required": false,
+          "name": "directory",
+          "type": "STRING"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "files",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Collapse the region displaying the operator settings",
+          "is_output": false,
+          "is_required": false,
+          "name": "hide_props_region",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Check and warn on overwriting existing files",
+          "is_output": false,
+          "is_required": false,
+          "name": "check_existing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blender",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_backup",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_image",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_movie",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_python",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_font",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_sound",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_text",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_archive",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_btx",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_alembic",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_usd",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_obj",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_folder",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blenlib",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The setting for the file browser mode to load a .blend file, a library or a special file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filemode",
+          "type": "INT"
+        },
+        {
+          "description": "Select the file relative to the blend file",
+          "is_output": false,
+          "is_required": false,
+          "name": "relative_path",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "show_multiview",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_multiview",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "display_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "sort_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "Automatically detect animated sequences in selected images (based on file names)",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_sequence_detection",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Detect selected UDIM files and load all matching tiles",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_udim_detecting",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Construct a cube mesh that consists of six square faces",
+      "idname": "bpy.ops.mesh.primitive_cube_add",
+      "label": "Add Cube",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Generate a default UV map",
+          "is_output": false,
+          "is_required": false,
+          "name": "calc_uvs",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enter edit mode when adding this object",
+          "is_output": false,
+          "is_required": false,
+          "name": "enter_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The alignment of the new object",
+          "is_output": false,
+          "is_required": false,
+          "name": "align",
+          "type": "ENUM"
+        },
+        {
+          "description": "Location for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "rotation",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Scale for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "scale",
+          "type": "FLOAT"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Construct a cylinder mesh",
+      "idname": "bpy.ops.mesh.primitive_cylinder_add",
+      "label": "Add Cylinder",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "vertices",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "radius",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "depth",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "end_fill_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Generate a default UV map",
+          "is_output": false,
+          "is_required": false,
+          "name": "calc_uvs",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enter edit mode when adding this object",
+          "is_output": false,
+          "is_required": false,
+          "name": "enter_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The alignment of the new object",
+          "is_output": false,
+          "is_required": false,
+          "name": "align",
+          "type": "ENUM"
+        },
+        {
+          "description": "Location for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "rotation",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Scale for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "scale",
+          "type": "FLOAT"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Construct a subdivided plane mesh",
+      "idname": "bpy.ops.mesh.primitive_grid_add",
+      "label": "Add Grid",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "x_subdivisions",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "y_subdivisions",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Generate a default UV map",
+          "is_output": false,
+          "is_required": false,
+          "name": "calc_uvs",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enter edit mode when adding this object",
+          "is_output": false,
+          "is_required": false,
+          "name": "enter_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The alignment of the new object",
+          "is_output": false,
+          "is_required": false,
+          "name": "align",
+          "type": "ENUM"
+        },
+        {
+          "description": "Location for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "rotation",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Scale for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "scale",
+          "type": "FLOAT"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Construct a spherical mesh that consists of equally sized triangles",
+      "idname": "bpy.ops.mesh.primitive_ico_sphere_add",
+      "label": "Add Ico Sphere",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "subdivisions",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "radius",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Generate a default UV map",
+          "is_output": false,
+          "is_required": false,
+          "name": "calc_uvs",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enter edit mode when adding this object",
+          "is_output": false,
+          "is_required": false,
+          "name": "enter_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The alignment of the new object",
+          "is_output": false,
+          "is_required": false,
+          "name": "align",
+          "type": "ENUM"
+        },
+        {
+          "description": "Location for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "rotation",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Scale for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "scale",
+          "type": "FLOAT"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Construct a filled planar mesh with 4 vertices",
+      "idname": "bpy.ops.mesh.primitive_plane_add",
+      "label": "Add Plane",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Generate a default UV map",
+          "is_output": false,
+          "is_required": false,
+          "name": "calc_uvs",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enter edit mode when adding this object",
+          "is_output": false,
+          "is_required": false,
+          "name": "enter_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The alignment of the new object",
+          "is_output": false,
+          "is_required": false,
+          "name": "align",
+          "type": "ENUM"
+        },
+        {
+          "description": "Location for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "rotation",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Scale for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "scale",
+          "type": "FLOAT"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Construct a spherical mesh with quad faces, except for triangle faces at the top and bottom",
+      "idname": "bpy.ops.mesh.primitive_uv_sphere_add",
+      "label": "Add UV Sphere",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "segments",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "ring_count",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "radius",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Generate a default UV map",
+          "is_output": false,
+          "is_required": false,
+          "name": "calc_uvs",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enter edit mode when adding this object",
+          "is_output": false,
+          "is_required": false,
+          "name": "enter_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The alignment of the new object",
+          "is_output": false,
+          "is_required": false,
+          "name": "align",
+          "type": "ENUM"
+        },
+        {
+          "description": "Location for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "rotation",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Scale for the newly added object",
+          "is_output": false,
+          "is_required": false,
+          "name": "scale",
+          "type": "FLOAT"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Subdivide selected edges",
+      "idname": "bpy.ops.mesh.subdivide",
+      "label": "Subdivide",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "number_cuts",
+          "type": "INT"
+        },
+        {
+          "description": "Smoothness factor",
+          "is_output": false,
+          "is_required": false,
+          "name": "smoothness",
+          "type": "FLOAT"
+        },
+        {
+          "description": "When disabled, newly created faces are limited to 3 and 4 sided faces",
+          "is_output": false,
+          "is_required": false,
+          "name": "ngon",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "How to subdivide quad corners (anything other than Straight Cut will prevent n-gons)",
+          "is_output": false,
+          "is_required": false,
+          "name": "quadcorner",
+          "type": "ENUM"
+        },
+        {
+          "description": "Fractal randomness factor",
+          "is_output": false,
+          "is_required": false,
+          "name": "fractal",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Apply fractal displacement along normal only",
+          "is_output": false,
+          "is_required": false,
+          "name": "fractal_along_normal",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Seed for the random number generator",
+          "is_output": false,
+          "is_required": false,
+          "name": "seed",
+          "type": "INT"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Delete selected objects",
+      "idname": "bpy.ops.object.delete",
+      "label": "Delete",
+      "params": [
+        {
+          "description": "Remove object from all scenes",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_global",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Prompt for confirmation",
+          "is_output": false,
+          "is_required": false,
+          "name": "confirm",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Add a procedural operation/effect to the active object",
+      "idname": "bpy.ops.object.modifier_add",
+      "label": "Add Modifier",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Affect all selected objects instead of just the active object",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_selected_objects",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "INTERNAL",
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Apply modifier and remove from the stack",
+      "idname": "bpy.ops.object.modifier_apply",
+      "label": "Apply Modifier",
+      "params": [
+        {
+          "description": "Name of the modifier to edit",
+          "is_output": false,
+          "is_required": false,
+          "name": "modifier",
+          "type": "STRING"
+        },
+        {
+          "description": "Create a notification after the operation",
+          "is_output": false,
+          "is_required": false,
+          "name": "report",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "For mesh objects, merge UV coordinates that share a vertex to account for imprecision in some modifiers",
+          "is_output": false,
+          "is_required": false,
+          "name": "merge_customdata",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Make the object's data single user if needed",
+          "is_output": false,
+          "is_required": false,
+          "name": "single_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "For Grease Pencil objects, apply the modifier to all the keyframes",
+          "is_output": false,
+          "is_required": false,
+          "name": "all_keyframes",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Affect all selected objects instead of just the active object",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_selected_objects",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "INTERNAL",
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Remove a modifier from the active object",
+      "idname": "bpy.ops.object.modifier_remove",
+      "label": "Remove Modifier",
+      "params": [
+        {
+          "description": "Name of the modifier to edit",
+          "is_output": false,
+          "is_required": false,
+          "name": "modifier",
+          "type": "STRING"
+        },
+        {
+          "description": "Create a notification after the operation",
+          "is_output": false,
+          "is_required": false,
+          "name": "report",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Affect all selected objects instead of just the active object",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_selected_objects",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Set the object's origin, by either moving the data, or set to center of data, or use 3D cursor",
+      "idname": "bpy.ops.object.origin_set",
+      "label": "Set Origin",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "center",
+          "type": "ENUM"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Set the object's parenting",
+      "idname": "bpy.ops.object.parent_set",
+      "label": "Make Parent",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Apply weights symmetrically along X axis, for Envelope/Automatic vertex groups creation",
+          "is_output": false,
+          "is_required": false,
+          "name": "xmirror",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Apply transformation before parenting",
+          "is_output": false,
+          "is_required": false,
+          "name": "keep_transform",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Change selection of all visible objects in scene",
+      "idname": "bpy.ops.object.select_all",
+      "label": "(De)select All",
+      "params": [
+        {
+          "description": "Selection action to execute",
+          "is_output": false,
+          "is_required": false,
+          "name": "action",
+          "type": "ENUM"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Render and display faces uniform, using face normals",
+      "idname": "bpy.ops.object.shade_flat",
+      "label": "Shade Flat",
+      "params": [
+        {
+          "description": "Don't remove sharp edges, which are redundant with faces shaded smooth",
+          "is_output": false,
+          "is_required": false,
+          "name": "keep_sharp_edges",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Render and display faces smooth, using interpolated vertex normals",
+      "idname": "bpy.ops.object.shade_smooth",
+      "label": "Shade Smooth",
+      "params": [
+        {
+          "description": "Don't remove sharp edges. Tagged edges will remain sharp",
+          "is_output": false,
+          "is_required": false,
+          "name": "keep_sharp_edges",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [
+        "UNDO",
+        "REGISTER"
+      ],
+      "description": "Apply the object's transformation to its data",
+      "idname": "bpy.ops.object.transform_apply",
+      "label": "Apply Object Transform",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "location",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "rotation",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "scale",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Modify properties such as curve vertex radius, font size and bone envelope",
+          "is_output": false,
+          "is_required": false,
+          "name": "properties",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Create new object-data users if needed",
+          "is_output": false,
+          "is_required": false,
+          "name": "isolate_users",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [],
+      "description": "(undocumented operator)",
+      "idname": "bpy.ops.render.render",
+      "label": "Render",
+      "params": [
+        {
+          "description": "Render files from the animation range of this scene",
+          "is_output": false,
+          "is_required": false,
+          "name": "animation",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Save the rendered image to the output path (used only when animation is disabled)",
+          "is_output": false,
+          "is_required": false,
+          "name": "write_still",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "When inside a 3D viewport, use layers and camera of the viewport",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_viewport",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Render the sequencer scene instead of the active scene",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_sequencer_scene",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Single render layer to re-render (used only when animation is disabled)",
+          "is_output": false,
+          "is_required": false,
+          "name": "layer",
+          "type": "STRING"
+        },
+        {
+          "description": "Scene to render, current scene if not specified",
+          "is_output": false,
+          "is_required": false,
+          "name": "scene",
+          "type": "STRING"
+        },
+        {
+          "description": "Frame to start rendering animation at. If not specified, the scene start frame will be assumed. This should only be specified if doing an animation render",
+          "is_output": false,
+          "is_required": false,
+          "name": "frame_start",
+          "type": "INT"
+        },
+        {
+          "description": "Frame to end rendering animation at. If not specified, the scene end frame will be assumed. This should only be specified if doing an animation render",
+          "is_output": false,
+          "is_required": false,
+          "name": "frame_end",
+          "type": "INT"
+        }
+      ]
+    },
+    {
+      "bl_options": [],
+      "description": "Open a Blender file",
+      "idname": "bpy.ops.wm.open_mainfile",
+      "label": "Open",
+      "params": [
+        {
+          "description": "Path to file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filepath",
+          "type": "STRING"
+        },
+        {
+          "description": "Collapse the region displaying the operator settings",
+          "is_output": false,
+          "is_required": false,
+          "name": "hide_props_region",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Check and warn on overwriting existing files",
+          "is_output": false,
+          "is_required": false,
+          "name": "check_existing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blender",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_backup",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_image",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_movie",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_python",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_font",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_sound",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_text",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_archive",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_btx",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_alembic",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_usd",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_obj",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_folder",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blenlib",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The setting for the file browser mode to load a .blend file, a library or a special file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filemode",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "display_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "sort_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "Load user interface setup in the .blend file",
+          "is_output": false,
+          "is_required": false,
+          "name": "load_ui",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Allow .blend file to execute scripts automatically, default available from system preferences",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_scripts",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "display_file_selector",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "state",
+          "type": "INT"
+        }
+      ]
+    },
+    {
+      "bl_options": [],
+      "description": "Quit Blender",
+      "idname": "bpy.ops.wm.quit_blender",
+      "label": "Quit Blender",
+      "params": []
+    },
+    {
+      "bl_options": [],
+      "description": "Load factory default startup file and preferences. To make changes permanent, use \"Save Startup File\" and \"Save Preferences\"",
+      "idname": "bpy.ops.wm.read_factory_settings",
+      "label": "Load Factory Settings",
+      "params": [
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_factory_startup_app_template_only",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "app_template",
+          "type": "STRING"
+        },
+        {
+          "description": "After loading, remove everything except scenes, windows, and workspaces. This makes it possible to load the startup file with its scene configuration and window layout intact, but no objects, materials, animations, ...",
+          "is_output": false,
+          "is_required": false,
+          "name": "use_empty",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [],
+      "description": "Save the current file in the desired location",
+      "idname": "bpy.ops.wm.save_as_mainfile",
+      "label": "Save As",
+      "params": [
+        {
+          "description": "Path to file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filepath",
+          "type": "STRING"
+        },
+        {
+          "description": "Collapse the region displaying the operator settings",
+          "is_output": false,
+          "is_required": false,
+          "name": "hide_props_region",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Check and warn on overwriting existing files",
+          "is_output": false,
+          "is_required": false,
+          "name": "check_existing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blender",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_backup",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_image",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_movie",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_python",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_font",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_sound",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_text",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_archive",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_btx",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_alembic",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_usd",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_obj",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_folder",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blenlib",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The setting for the file browser mode to load a .blend file, a library or a special file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filemode",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "display_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "sort_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "Write compressed .blend file",
+          "is_output": false,
+          "is_required": false,
+          "name": "compress",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Remap relative paths when saving to a different directory",
+          "is_output": false,
+          "is_required": false,
+          "name": "relative_remap",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Save a copy of the actual working state but does not make saved file active",
+          "is_output": false,
+          "is_required": false,
+          "name": "copy",
+          "type": "BOOLEAN"
+        }
+      ]
+    },
+    {
+      "bl_options": [],
+      "description": "Save the current Blender file",
+      "idname": "bpy.ops.wm.save_mainfile",
+      "label": "Save Blender File",
+      "params": [
+        {
+          "description": "Path to file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filepath",
+          "type": "STRING"
+        },
+        {
+          "description": "Collapse the region displaying the operator settings",
+          "is_output": false,
+          "is_required": false,
+          "name": "hide_props_region",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Check and warn on overwriting existing files",
+          "is_output": false,
+          "is_required": false,
+          "name": "check_existing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blender",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_backup",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_image",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_movie",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_python",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_font",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_sound",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_text",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_archive",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_btx",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_alembic",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_usd",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_obj",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_folder",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "filter_blenlib",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The setting for the file browser mode to load a .blend file, a library or a special file",
+          "is_output": false,
+          "is_required": false,
+          "name": "filemode",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "display_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "",
+          "is_output": false,
+          "is_required": false,
+          "name": "sort_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "Write compressed .blend file",
+          "is_output": false,
+          "is_required": false,
+          "name": "compress",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Remap relative paths when saving to a different directory",
+          "is_output": false,
+          "is_required": false,
+          "name": "relative_remap",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Exit Blender after saving",
+          "is_output": false,
+          "is_required": false,
+          "name": "exit",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Save the current Blender file with a numerically incremented name that does not overwrite any existing files",
+          "is_output": false,
+          "is_required": false,
+          "name": "incremental",
+          "type": "BOOLEAN"
+        }
+      ]
+    }
+  ],
+  "schema_tag": "blender-5.0.0-v1"
+}

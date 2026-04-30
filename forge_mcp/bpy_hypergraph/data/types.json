@@ -1,0 +1,4128 @@
+{
+  "blender_version": "5.0.0",
+  "schema_tag": "blender-5.0.0-v1",
+  "types": [
+    {
+      "description": "Camera data-block for storing camera settings",
+      "name": "Camera",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Camera types",
+          "is_readonly": false,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Method to fit image and field of view angle inside the sensor",
+          "is_readonly": false,
+          "name": "sensor_fit",
+          "type": "ENUM"
+        },
+        {
+          "description": "Opacity (alpha) of the darkened overlay in Camera view",
+          "is_readonly": false,
+          "name": "passepartout_alpha",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Camera lens horizontal field of view",
+          "is_readonly": false,
+          "name": "angle_x",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Camera lens vertical field of view",
+          "is_readonly": false,
+          "name": "angle_y",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Camera lens field of view",
+          "is_readonly": false,
+          "name": "angle",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Camera near clipping distance",
+          "is_readonly": false,
+          "name": "clip_start",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Camera far clipping distance",
+          "is_readonly": false,
+          "name": "clip_end",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Perspective Camera focal length value in millimeters",
+          "is_readonly": false,
+          "name": "lens",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Horizontal size of the image sensor area in millimeters",
+          "is_readonly": false,
+          "name": "sensor_width",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Vertical size of the image sensor area in millimeters",
+          "is_readonly": false,
+          "name": "sensor_height",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Orthographic Camera scale (similar to zoom)",
+          "is_readonly": false,
+          "name": "ortho_scale",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Apparent size of the Camera object in the 3D View",
+          "is_readonly": false,
+          "name": "display_size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Camera horizontal shift",
+          "is_readonly": false,
+          "name": "shift_x",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Camera vertical shift",
+          "is_readonly": false,
+          "name": "shift_y",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "stereo",
+          "type": "POINTER"
+        },
+        {
+          "description": "Display the clipping range and focus point on the camera",
+          "is_readonly": false,
+          "name": "show_limits",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display a line from the Camera to indicate the mist area",
+          "is_readonly": false,
+          "name": "show_mist",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Show a darkened overlay outside the image area in Camera view",
+          "is_readonly": false,
+          "name": "show_passepartout",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Show TV title safe and action safe areas in Camera view",
+          "is_readonly": false,
+          "name": "show_safe_areas",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Show safe areas to fit content in a different aspect ratio",
+          "is_readonly": false,
+          "name": "show_safe_center",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Show the active Camera's name in Camera view",
+          "is_readonly": false,
+          "name": "show_name",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Show sensor size (film gate) in Camera view",
+          "is_readonly": false,
+          "name": "show_sensor",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display reference images behind objects in the 3D View",
+          "is_readonly": false,
+          "name": "show_background_images",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Unit to edit lens in for the user interface",
+          "is_readonly": false,
+          "name": "lens_unit",
+          "type": "ENUM"
+        },
+        {
+          "description": "Color and alpha for compositional guide overlays",
+          "is_readonly": false,
+          "name": "composition_guide_color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Display center composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_center",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display diagonal center composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_center_diagonal",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display rule of thirds composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_thirds",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display golden ratio composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_golden",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display golden triangle A composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_golden_tria_a",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display golden triangle B composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_golden_tria_b",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display harmony A composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_harmony_tri_a",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display harmony B composition guide inside the camera view",
+          "is_readonly": false,
+          "name": "show_composition_harmony_tri_b",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Distortion to use for the calculation",
+          "is_readonly": false,
+          "name": "panorama_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Field of view for the fisheye lens",
+          "is_readonly": false,
+          "name": "fisheye_fov",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Lens focal length (mm)",
+          "is_readonly": false,
+          "name": "fisheye_lens",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Minimum latitude (vertical angle) for the equirectangular lens",
+          "is_readonly": false,
+          "name": "latitude_min",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Maximum latitude (vertical angle) for the equirectangular lens",
+          "is_readonly": false,
+          "name": "latitude_max",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Minimum longitude (horizontal angle) for the equirectangular lens",
+          "is_readonly": false,
+          "name": "longitude_min",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Maximum longitude (horizontal angle) for the equirectangular lens",
+          "is_readonly": false,
+          "name": "longitude_max",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Coefficient K0 of the lens polynomial",
+          "is_readonly": false,
+          "name": "fisheye_polynomial_k0",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Coefficient K1 of the lens polynomial",
+          "is_readonly": false,
+          "name": "fisheye_polynomial_k1",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Coefficient K2 of the lens polynomial",
+          "is_readonly": false,
+          "name": "fisheye_polynomial_k2",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Coefficient K3 of the lens polynomial",
+          "is_readonly": false,
+          "name": "fisheye_polynomial_k3",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Coefficient K4 of the lens polynomial",
+          "is_readonly": false,
+          "name": "fisheye_polynomial_k4",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Minimum Longitude value for the central cylindrical lens",
+          "is_readonly": false,
+          "name": "central_cylindrical_range_u_min",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Maximum Longitude value for the central cylindrical lens",
+          "is_readonly": false,
+          "name": "central_cylindrical_range_u_max",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Minimum Height value for the central cylindrical lens",
+          "is_readonly": false,
+          "name": "central_cylindrical_range_v_min",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Maximum Height value for the central cylindrical lens",
+          "is_readonly": false,
+          "name": "central_cylindrical_range_v_max",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Radius of the virtual cylinder",
+          "is_readonly": false,
+          "name": "central_cylindrical_radius",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Path to the shader defining the custom camera",
+          "is_readonly": false,
+          "name": "custom_filepath",
+          "type": "STRING"
+        },
+        {
+          "description": "Shader defining the custom camera",
+          "is_readonly": false,
+          "name": "custom_shader",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": false,
+          "name": "custom_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Compiled bytecode of the custom shader",
+          "is_readonly": false,
+          "name": "custom_bytecode",
+          "type": "STRING"
+        },
+        {
+          "description": "Hash of the compiled bytecode of the custom shader, for quick equality checking",
+          "is_readonly": false,
+          "name": "custom_bytecode_hash",
+          "type": "STRING"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "dof",
+          "type": "POINTER"
+        },
+        {
+          "description": "List of background images",
+          "is_readonly": true,
+          "name": "background_images",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Parameters for custom (OSL-based) cameras",
+          "is_readonly": true,
+          "name": "cycles_custom",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "Collection of Object data-blocks",
+      "name": "Collection",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Offset from the origin to use when instancing",
+          "is_readonly": false,
+          "name": "instance_offset",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Objects that are directly in this collection",
+          "is_readonly": true,
+          "name": "objects",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Objects that are in this collection and its child collections",
+          "is_readonly": true,
+          "name": "all_objects",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Collections that are immediate children of this collection",
+          "is_readonly": true,
+          "name": "children",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Objects of the collection with their parent-collection-specific settings",
+          "is_readonly": true,
+          "name": "collection_objects",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Children collections with their parent-collection-specific settings",
+          "is_readonly": true,
+          "name": "collection_children",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Export Handlers configured for the collection",
+          "is_readonly": true,
+          "name": "exporters",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Active index in the exporters list",
+          "is_readonly": false,
+          "name": "active_exporter_index",
+          "type": "INT"
+        },
+        {
+          "description": "Disable selection in viewport",
+          "is_readonly": false,
+          "name": "hide_select",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Globally disable in viewports",
+          "is_readonly": false,
+          "name": "hide_viewport",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Globally disable in renders",
+          "is_readonly": false,
+          "name": "hide_render",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "How to use this collection in Line Art calculation",
+          "is_readonly": false,
+          "name": "lineart_usage",
+          "type": "ENUM"
+        },
+        {
+          "description": "Use custom intersection mask for faces in this collection",
+          "is_readonly": false,
+          "name": "lineart_use_intersection_mask",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Intersection generated by this collection will have this mask value",
+          "is_readonly": false,
+          "name": "lineart_intersection_mask",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The intersection line will be included into the object with the higher intersection priority value",
+          "is_readonly": false,
+          "name": "lineart_intersection_priority",
+          "type": "INT"
+        },
+        {
+          "description": "Assign intersection priority value for this collection",
+          "is_readonly": false,
+          "name": "use_lineart_intersection_priority",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Color tag for a collection",
+          "is_readonly": false,
+          "name": "color_tag",
+          "type": "ENUM"
+        }
+      ]
+    },
+    {
+      "description": "Curve data-block storing curves, splines and NURBS",
+      "name": "Curve",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "shape_keys",
+          "type": "POINTER"
+        },
+        {
+          "description": "Collection of splines in this curve data object",
+          "is_readonly": true,
+          "name": "splines",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "The number of frames that are needed to traverse the path, defining the maximum value for the 'Evaluation Time' setting",
+          "is_readonly": false,
+          "name": "path_duration",
+          "type": "INT"
+        },
+        {
+          "description": "Enable the curve to become a translation path",
+          "is_readonly": false,
+          "name": "use_path",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Make curve path children rotate along the path",
+          "is_readonly": false,
+          "name": "use_path_follow",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Clamp the curve path children so they cannot travel past the start/end point of the curve",
+          "is_readonly": false,
+          "name": "use_path_clamp",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Option for curve-deform: make deformed child stretch along entire path",
+          "is_readonly": false,
+          "name": "use_stretch",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Option for curve-deform: Use the mesh bounds to clamp the deformation",
+          "is_readonly": false,
+          "name": "use_deform_bounds",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Option for paths and curve-deform: apply the curve radius to objects following it and to deformed objects",
+          "is_readonly": false,
+          "name": "use_radius",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Determine how to build the curve's bevel geometry",
+          "is_readonly": false,
+          "name": "bevel_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "The path for the curve's custom profile",
+          "is_readonly": true,
+          "name": "bevel_profile",
+          "type": "POINTER"
+        },
+        {
+          "description": "The number of segments in each quarter-circle of the bevel",
+          "is_readonly": false,
+          "name": "bevel_resolution",
+          "type": "INT"
+        },
+        {
+          "description": "Distance to move the curve parallel to its normals",
+          "is_readonly": false,
+          "name": "offset",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Length of the depth added in the local Z direction along the curve, perpendicular to its normals",
+          "is_readonly": false,
+          "name": "extrude",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Radius of the bevel geometry, not including extrusion",
+          "is_readonly": false,
+          "name": "bevel_depth",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Number of computed points in the U direction between every pair of control points",
+          "is_readonly": false,
+          "name": "resolution_u",
+          "type": "INT"
+        },
+        {
+          "description": "The number of computed points in the V direction between every pair of control points",
+          "is_readonly": false,
+          "name": "resolution_v",
+          "type": "INT"
+        },
+        {
+          "description": "Surface resolution in U direction used while rendering (zero uses preview resolution)",
+          "is_readonly": false,
+          "name": "render_resolution_u",
+          "type": "INT"
+        },
+        {
+          "description": "Surface resolution in V direction used while rendering (zero uses preview resolution)",
+          "is_readonly": false,
+          "name": "render_resolution_v",
+          "type": "INT"
+        },
+        {
+          "description": "Parametric position along the length of the curve that Objects 'following' it should be at (position is evaluated by dividing by the 'Path Length' value)",
+          "is_readonly": false,
+          "name": "eval_time",
+          "type": "FLOAT"
+        },
+        {
+          "description": "The name of the Curve object that defines the bevel shape",
+          "is_readonly": false,
+          "name": "bevel_object",
+          "type": "POINTER"
+        },
+        {
+          "description": "Curve object name that defines the taper (width)",
+          "is_readonly": false,
+          "name": "taper_object",
+          "type": "POINTER"
+        },
+        {
+          "description": "Select 2D or 3D curve type",
+          "is_readonly": false,
+          "name": "dimensions",
+          "type": "ENUM"
+        },
+        {
+          "description": "Mode of filling curve",
+          "is_readonly": false,
+          "name": "fill_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "The type of tilt calculation for 3D Curves",
+          "is_readonly": false,
+          "name": "twist_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Determine how the effective radius of the spline point is computed when a taper object is specified",
+          "is_readonly": false,
+          "name": "taper_radius_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Determine how the geometry start factor is mapped to a spline",
+          "is_readonly": false,
+          "name": "bevel_factor_mapping_start",
+          "type": "ENUM"
+        },
+        {
+          "description": "Determine how the geometry end factor is mapped to a spline",
+          "is_readonly": false,
+          "name": "bevel_factor_mapping_end",
+          "type": "ENUM"
+        },
+        {
+          "description": "Smoothing iteration for tangents",
+          "is_readonly": false,
+          "name": "twist_smooth",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Fill caps for beveled curves",
+          "is_readonly": false,
+          "name": "use_fill_caps",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Map effect of the taper object to the beveled part of the curve",
+          "is_readonly": false,
+          "name": "use_map_taper",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Adjust active object's texture space automatically when transforming object",
+          "is_readonly": false,
+          "name": "use_auto_texspace",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_readonly": false,
+          "name": "texspace_location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_readonly": false,
+          "name": "texspace_size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "materials",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Define where along the spline the curve geometry starts (0 for the beginning, 1 for the end)",
+          "is_readonly": false,
+          "name": "bevel_factor_start",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Define where along the spline the curve geometry ends (0 for the beginning, 1 for the end)",
+          "is_readonly": false,
+          "name": "bevel_factor_end",
+          "type": "FLOAT"
+        },
+        {
+          "description": "True when used in editmode",
+          "is_readonly": true,
+          "name": "is_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Cycles mesh settings",
+          "is_readonly": true,
+          "name": "cycles",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "Image data-block referencing an external or packed image",
+      "name": "Image",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Image/Movie file name",
+          "is_readonly": false,
+          "name": "filepath",
+          "type": "STRING"
+        },
+        {
+          "description": "Image/Movie file name (without data refreshing)",
+          "is_readonly": false,
+          "name": "filepath_raw",
+          "type": "STRING"
+        },
+        {
+          "description": "Format used for re-saving this file",
+          "is_readonly": false,
+          "name": "file_format",
+          "type": "ENUM"
+        },
+        {
+          "description": "Where the image comes from",
+          "is_readonly": false,
+          "name": "source",
+          "type": "ENUM"
+        },
+        {
+          "description": "How to generate the image",
+          "is_readonly": true,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "First packed file of the image",
+          "is_readonly": true,
+          "name": "packed_file",
+          "type": "POINTER"
+        },
+        {
+          "description": "Collection of packed images",
+          "is_readonly": true,
+          "name": "packed_files",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Apply render part of display transformation when displaying this image on the screen",
+          "is_readonly": false,
+          "name": "use_view_as_render",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Deinterlace movie file on load",
+          "is_readonly": false,
+          "name": "use_deinterlace",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use Multiple Views (when available)",
+          "is_readonly": false,
+          "name": "use_multiview",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Image has left and right views",
+          "is_readonly": true,
+          "name": "is_stereo_3d",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Image has more than one view",
+          "is_readonly": true,
+          "name": "is_multiview",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Image has changed and is not saved",
+          "is_readonly": true,
+          "name": "is_dirty",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Generated image type",
+          "is_readonly": false,
+          "name": "generated_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Generated image width",
+          "is_readonly": false,
+          "name": "generated_width",
+          "type": "INT"
+        },
+        {
+          "description": "Generated image height",
+          "is_readonly": false,
+          "name": "generated_height",
+          "type": "INT"
+        },
+        {
+          "description": "Generate floating-point buffer",
+          "is_readonly": false,
+          "name": "use_generated_float",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Fill color for the generated image",
+          "is_readonly": false,
+          "name": "generated_color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Display Aspect for this image, does not affect rendering",
+          "is_readonly": false,
+          "name": "display_aspect",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Render slots of the image",
+          "is_readonly": true,
+          "name": "render_slots",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Tiles of the image",
+          "is_readonly": true,
+          "name": "tiles",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "True if the image data is loaded into memory",
+          "is_readonly": true,
+          "name": "has_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Image bit depth",
+          "is_readonly": true,
+          "name": "depth",
+          "type": "INT"
+        },
+        {
+          "description": "Width and height of the image buffer in pixels, zero when image data cannot be loaded",
+          "is_readonly": true,
+          "name": "size",
+          "type": "INT"
+        },
+        {
+          "description": "X/Y pixels per meter, for the image buffer",
+          "is_readonly": false,
+          "name": "resolution",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Duration (in frames) of the image (1 when not a video/sequence)",
+          "is_readonly": true,
+          "name": "frame_duration",
+          "type": "INT"
+        },
+        {
+          "description": "Image buffer pixels in floating-point values",
+          "is_readonly": false,
+          "name": "pixels",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Number of channels in pixels buffer",
+          "is_readonly": true,
+          "name": "channels",
+          "type": "INT"
+        },
+        {
+          "description": "True if this image is stored in floating-point buffer",
+          "is_readonly": true,
+          "name": "is_float",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Input color space settings",
+          "is_readonly": true,
+          "name": "colorspace_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "Representation of alpha in the image file, to convert to and from when saving and loading the image",
+          "is_readonly": false,
+          "name": "alpha_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Use 16 bits per channel to lower the memory usage during rendering",
+          "is_readonly": false,
+          "name": "use_half_precision",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Margin to take into account when fixing UV seams during painting. Higher number would improve seam-fixes for mipmaps, but decreases performance.",
+          "is_readonly": false,
+          "name": "seam_margin",
+          "type": "INT"
+        },
+        {
+          "description": "Mode to load image views",
+          "is_readonly": false,
+          "name": "views_format",
+          "type": "ENUM"
+        },
+        {
+          "description": "Settings for stereo 3d",
+          "is_readonly": true,
+          "name": "stereo_3d_format",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "Light data-block for lighting a scene",
+      "name": "Light",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Type of light",
+          "is_readonly": false,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Use blackbody temperature to define a natural light color",
+          "is_readonly": false,
+          "name": "use_temperature",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Light color",
+          "is_readonly": false,
+          "name": "color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Light color temperature in Kelvin",
+          "is_readonly": false,
+          "name": "temperature",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Color from Temperature",
+          "is_readonly": true,
+          "name": "temperature_color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Specular reflection multiplier",
+          "is_readonly": false,
+          "name": "specular_factor",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Diffuse reflection multiplier",
+          "is_readonly": false,
+          "name": "diffuse_factor",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Transmission light multiplier",
+          "is_readonly": false,
+          "name": "transmission_factor",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Volume light multiplier",
+          "is_readonly": false,
+          "name": "volume_factor",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Use custom attenuation distance instead of global light threshold",
+          "is_readonly": false,
+          "name": "use_custom_distance",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Distance at which the light influence will be set to 0",
+          "is_readonly": false,
+          "name": "cutoff_distance",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_readonly": false,
+          "name": "use_shadow",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Scales the power of the light exponentially, multiplying the intensity by 2^exposure",
+          "is_readonly": false,
+          "name": "exposure",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Normalize intensity by light area, for consistent total light output regardless of size and shape",
+          "is_readonly": false,
+          "name": "normalize",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Node tree for node based lights",
+          "is_readonly": true,
+          "name": "node_tree",
+          "type": "POINTER"
+        },
+        {
+          "description": "Use shader nodes to render the light",
+          "is_readonly": false,
+          "name": "use_nodes",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Cycles light settings",
+          "is_readonly": true,
+          "name": "cycles",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "Material data-block to define the appearance of geometric objects for rendering",
+      "name": "Material",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Controls the blending and the compatibility with certain features",
+          "is_readonly": false,
+          "name": "surface_render_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "Method to use for the displacement",
+          "is_readonly": false,
+          "name": "displacement_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "Blend Mode for Transparent Faces (Deprecated: use 'surface_render_method')",
+          "is_readonly": false,
+          "name": "blend_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "A pixel is rendered only if its alpha value is above this threshold",
+          "is_readonly": false,
+          "name": "alpha_threshold",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Render multiple transparent layers (may introduce transparency sorting problems)",
+          "is_readonly": false,
+          "name": "use_transparency_overlap",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Render multiple transparent layers (may introduce transparency sorting problems) (Deprecated: use 'use_tranparency_overlap')",
+          "is_readonly": false,
+          "name": "show_transparent_back",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use back face culling to hide the back side of faces",
+          "is_readonly": false,
+          "name": "use_backface_culling",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use back face culling when casting shadows",
+          "is_readonly": false,
+          "name": "use_backface_culling_shadow",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Consider material single sided for light probe volume capture. Additionally helps rejecting probes inside the object to avoid light leaks.",
+          "is_readonly": false,
+          "name": "use_backface_culling_lightprobe_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use transparent shadows for this material if it contains a Transparent BSDF, disabling will render faster but not give accurate shadows",
+          "is_readonly": false,
+          "name": "use_transparent_shadow",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use raytracing to determine transmitted color instead of using only light probes. This prevents the surface from contributing to the lighting of surfaces not using this setting.",
+          "is_readonly": false,
+          "name": "use_raytrace_refraction",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use raytracing to determine transmitted color instead of using only light probes. This prevents the surface from contributing to the lighting of surfaces not using this setting. Deprecated: use 'use_raytrace_refraction'.",
+          "is_readonly": false,
+          "name": "use_screen_refraction",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Add translucency effect to subsurface (Deprecated)",
+          "is_readonly": false,
+          "name": "use_sss_translucency",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Approximate the thickness of the object to compute two refraction events (0 is disabled) (Deprecated)",
+          "is_readonly": false,
+          "name": "refraction_depth",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Approximation used to model the light interactions inside the object",
+          "is_readonly": false,
+          "name": "thickness_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Use the shadow maps from shadow casting lights to refine the thickness defined by the material node tree",
+          "is_readonly": false,
+          "name": "use_thickness_from_shadow",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Determines which inner part of the mesh will produce volumetric effect",
+          "is_readonly": false,
+          "name": "volume_intersection_method",
+          "type": "ENUM"
+        },
+        {
+          "description": "The max distance a vertex can be displaced. Displacements over this threshold may cause visibility issues.",
+          "is_readonly": false,
+          "name": "max_vertex_displacement",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Type of preview render",
+          "is_readonly": false,
+          "name": "preview_render_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Use the current world background to light the preview render",
+          "is_readonly": false,
+          "name": "use_preview_world",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Index number for the \"Material Index\" render pass",
+          "is_readonly": false,
+          "name": "pass_index",
+          "type": "INT"
+        },
+        {
+          "description": "Node tree for node based materials",
+          "is_readonly": true,
+          "name": "node_tree",
+          "type": "POINTER"
+        },
+        {
+          "description": "Use shader nodes to render the material",
+          "is_readonly": false,
+          "name": "use_nodes",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Texture images used for texture painting",
+          "is_readonly": true,
+          "name": "texture_paint_images",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Texture slots defining the mapping and influence of textures",
+          "is_readonly": true,
+          "name": "texture_paint_slots",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Index of active texture paint slot",
+          "is_readonly": false,
+          "name": "paint_active_slot",
+          "type": "INT"
+        },
+        {
+          "description": "Index of clone texture paint slot",
+          "is_readonly": false,
+          "name": "paint_clone_slot",
+          "type": "INT"
+        },
+        {
+          "description": "Diffuse color of the material",
+          "is_readonly": false,
+          "name": "diffuse_color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Specular color of the material",
+          "is_readonly": false,
+          "name": "specular_color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Roughness of the material",
+          "is_readonly": false,
+          "name": "roughness",
+          "type": "FLOAT"
+        },
+        {
+          "description": "How intense (bright) the specular reflection is",
+          "is_readonly": false,
+          "name": "specular_intensity",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Amount of mirror reflection for raytrace",
+          "is_readonly": false,
+          "name": "metallic",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Line color used for Freestyle line rendering",
+          "is_readonly": false,
+          "name": "line_color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "The line color of a higher priority is used at material boundaries",
+          "is_readonly": false,
+          "name": "line_priority",
+          "type": "INT"
+        },
+        {
+          "description": "Grease Pencil color settings for material",
+          "is_readonly": true,
+          "name": "grease_pencil",
+          "type": "POINTER"
+        },
+        {
+          "description": "True if this material has Grease Pencil data",
+          "is_readonly": true,
+          "name": "is_grease_pencil",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Line Art settings for material",
+          "is_readonly": true,
+          "name": "lineart",
+          "type": "POINTER"
+        },
+        {
+          "description": "Cycles material settings",
+          "is_readonly": true,
+          "name": "cycles",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "Mesh data-block defining geometric surfaces",
+      "name": "Mesh",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Vertices of the mesh",
+          "is_readonly": true,
+          "name": "vertices",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Edges of the mesh",
+          "is_readonly": true,
+          "name": "edges",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Loops of the mesh (face corners)",
+          "is_readonly": true,
+          "name": "loops",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Polygons of the mesh",
+          "is_readonly": true,
+          "name": "polygons",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "The attribute domain that gives enough information to represent the mesh's normals",
+          "is_readonly": true,
+          "name": "normals_domain",
+          "type": "ENUM"
+        },
+        {
+          "description": "The normal direction of each vertex, defined as the average of the surrounding face normals",
+          "is_readonly": true,
+          "name": "vertex_normals",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "The normal direction of each face, defined by the winding order and position of its vertices",
+          "is_readonly": true,
+          "name": "polygon_normals",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "The \"slit\" normal direction of each face corner, influenced by vertex normals, sharp faces, sharp edges, and custom normals. May be empty.",
+          "is_readonly": true,
+          "name": "corner_normals",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Tessellation of mesh polygons into triangles",
+          "is_readonly": true,
+          "name": "loop_triangles",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "The face index for each loop triangle",
+          "is_readonly": true,
+          "name": "loop_triangle_polygons",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Use another mesh for texture indices (vertex indices must be aligned)",
+          "is_readonly": false,
+          "name": "texture_mesh",
+          "type": "POINTER"
+        },
+        {
+          "description": "All UV loop layers",
+          "is_readonly": true,
+          "name": "uv_layers",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "UV loop layer to be used as cloning source",
+          "is_readonly": false,
+          "name": "uv_layer_clone",
+          "type": "POINTER"
+        },
+        {
+          "description": "Clone UV loop layer index",
+          "is_readonly": false,
+          "name": "uv_layer_clone_index",
+          "type": "INT"
+        },
+        {
+          "description": "UV loop layer to mask the painted area",
+          "is_readonly": false,
+          "name": "uv_layer_stencil",
+          "type": "POINTER"
+        },
+        {
+          "description": "Mask UV loop layer index",
+          "is_readonly": false,
+          "name": "uv_layer_stencil_index",
+          "type": "INT"
+        },
+        {
+          "description": "Legacy vertex color layers. Deprecated, use color attributes instead.",
+          "is_readonly": true,
+          "name": "vertex_colors",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "All skin vertices",
+          "is_readonly": true,
+          "name": "skin_vertices",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Geometry attributes",
+          "is_readonly": true,
+          "name": "attributes",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Geometry color attributes",
+          "is_readonly": true,
+          "name": "color_attributes",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Size of the voxel in object space used for volume evaluation. Lower values preserve finer details.",
+          "is_readonly": false,
+          "name": "remesh_voxel_size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Reduces the final face count by simplifying geometry where detail is not needed, generating triangles. A value greater than 0 disables Fix Poles.",
+          "is_readonly": false,
+          "name": "remesh_voxel_adaptivity",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Produces fewer poles and a better topology flow",
+          "is_readonly": false,
+          "name": "use_remesh_fix_poles",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Projects the mesh to preserve the volume and details of the original mesh",
+          "is_readonly": false,
+          "name": "use_remesh_preserve_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Transfer all attributes to the new mesh",
+          "is_readonly": false,
+          "name": "use_remesh_preserve_attributes",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_readonly": false,
+          "name": "remesh_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Enable symmetry in the X axis",
+          "is_readonly": false,
+          "name": "use_mirror_x",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enable symmetry in the Y axis",
+          "is_readonly": false,
+          "name": "use_mirror_y",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enable symmetry in the Z axis",
+          "is_readonly": false,
+          "name": "use_mirror_z",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Mirror the left/right vertex groups when painting. The symmetry axis is determined by the symmetry settings.",
+          "is_readonly": false,
+          "name": "use_mirror_vertex_groups",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Number of mirrored regions around a central axis",
+          "is_readonly": false,
+          "name": "radial_symmetry",
+          "type": "INT"
+        },
+        {
+          "description": "True if there is custom normal data for this mesh",
+          "is_readonly": true,
+          "name": "has_custom_normals",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Derive texture coordinates from another mesh",
+          "is_readonly": false,
+          "name": "texco_mesh",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "shape_keys",
+          "type": "POINTER"
+        },
+        {
+          "description": "Adjust active object's texture space automatically when transforming object",
+          "is_readonly": false,
+          "name": "use_auto_texspace",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use topology based mirroring (for when both sides of mesh have matching, unique topology)",
+          "is_readonly": false,
+          "name": "use_mirror_topology",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Bone selection during painting",
+          "is_readonly": false,
+          "name": "use_paint_bone_selection",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Face selection masking for painting",
+          "is_readonly": false,
+          "name": "use_paint_mask",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Vertex selection masking for painting",
+          "is_readonly": false,
+          "name": "use_paint_mask_vertex",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Selected vertex count in editmode",
+          "is_readonly": true,
+          "name": "total_vert_sel",
+          "type": "INT"
+        },
+        {
+          "description": "Selected edge count in editmode",
+          "is_readonly": true,
+          "name": "total_edge_sel",
+          "type": "INT"
+        },
+        {
+          "description": "Selected face count in editmode",
+          "is_readonly": true,
+          "name": "total_face_sel",
+          "type": "INT"
+        },
+        {
+          "description": "True when used in editmode",
+          "is_readonly": true,
+          "name": "is_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Adjust active object's texture space automatically when transforming object",
+          "is_readonly": false,
+          "name": "auto_texspace",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Texture space location",
+          "is_readonly": false,
+          "name": "texspace_location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Texture space size",
+          "is_readonly": false,
+          "name": "texspace_size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "materials",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Cycles mesh settings",
+          "is_readonly": true,
+          "name": "cycles",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "Modifier affecting the geometry data of an object",
+      "name": "Modifier",
+      "properties": [
+        {
+          "description": "Modifier name",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Display modifier in viewport",
+          "is_readonly": false,
+          "name": "show_viewport",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use modifier during render",
+          "is_readonly": false,
+          "name": "show_render",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display modifier in Edit mode",
+          "is_readonly": false,
+          "name": "show_in_editmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Adjust edit cage to modifier result",
+          "is_readonly": false,
+          "name": "show_on_cage",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Set modifier expanded in the user interface",
+          "is_readonly": false,
+          "name": "show_expanded",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "The active modifier in the list",
+          "is_readonly": false,
+          "name": "is_active",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Keep the modifier at the end of the list",
+          "is_readonly": false,
+          "name": "use_pin_to_last",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "In a local override object, whether this modifier comes from the linked reference object, or is local to the override",
+          "is_readonly": true,
+          "name": "is_override_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Apply this and all preceding deformation modifiers on splines' points rather than on filled curve/surface",
+          "is_readonly": false,
+          "name": "use_apply_on_spline",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Time in seconds that the modifier took to evaluate. This is only set on evaluated objects. If multiple modifiers run in parallel, execution time is not a reliable metric.",
+          "is_readonly": true,
+          "name": "execution_time",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Uniquely identifies the modifier within the modifier stack that it is part of",
+          "is_readonly": true,
+          "name": "persistent_uid",
+          "type": "INT"
+        }
+      ]
+    },
+    {
+      "description": "Object data-block defining an object in a scene",
+      "name": "Object",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Object data",
+          "is_readonly": false,
+          "name": "data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Type of object",
+          "is_readonly": true,
+          "name": "type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Object interaction mode",
+          "is_readonly": true,
+          "name": "mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Object's bounding box in object-space coordinates, all values are -1.0 when not available",
+          "is_readonly": true,
+          "name": "bound_box",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Parent object",
+          "is_readonly": false,
+          "name": "parent",
+          "type": "POINTER"
+        },
+        {
+          "description": "Type of parent relation",
+          "is_readonly": false,
+          "name": "parent_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Indices of vertices in case of a vertex parenting relation",
+          "is_readonly": false,
+          "name": "parent_vertices",
+          "type": "INT"
+        },
+        {
+          "description": "Name of parent bone in case of a bone parenting relation",
+          "is_readonly": false,
+          "name": "parent_bone",
+          "type": "STRING"
+        },
+        {
+          "description": "Use the final evaluated indices rather than the original mesh indices",
+          "is_readonly": false,
+          "name": "use_parent_final_indices",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "View Lock 3D viewport camera transformation affects the object's parent instead",
+          "is_readonly": false,
+          "name": "use_camera_lock_parent",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Axis that points in the 'forward' direction (applies to Instance Vertices when Align to Vertex Normal is enabled)",
+          "is_readonly": false,
+          "name": "track_axis",
+          "type": "ENUM"
+        },
+        {
+          "description": "Axis that points in the upward direction (applies to Instance Vertices when Align to Vertex Normal is enabled)",
+          "is_readonly": false,
+          "name": "up_axis",
+          "type": "ENUM"
+        },
+        {
+          "description": "Material slots in the object",
+          "is_readonly": true,
+          "name": "material_slots",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Active material being displayed",
+          "is_readonly": false,
+          "name": "active_material",
+          "type": "POINTER"
+        },
+        {
+          "description": "Index of active material slot",
+          "is_readonly": false,
+          "name": "active_material_index",
+          "type": "INT"
+        },
+        {
+          "description": "Location of the object",
+          "is_readonly": false,
+          "name": "location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation in Quaternions",
+          "is_readonly": false,
+          "name": "rotation_quaternion",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Angle of Rotation for Axis-Angle rotation representation",
+          "is_readonly": false,
+          "name": "rotation_axis_angle",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Rotation in Eulers",
+          "is_readonly": false,
+          "name": "rotation_euler",
+          "type": "FLOAT"
+        },
+        {
+          "description": "The kind of rotation to apply, values from other rotation modes are not used",
+          "is_readonly": false,
+          "name": "rotation_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Scaling of the object",
+          "is_readonly": false,
+          "name": "scale",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Absolute bounding box dimensions of the object.\nWarning: Assigning to it or its members multiple consecutive times will not work correctly, as this needs up-to-date evaluated data",
+          "is_readonly": false,
+          "name": "dimensions",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Extra translation added to the location of the object",
+          "is_readonly": false,
+          "name": "delta_location",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Extra rotation added to the rotation of the object (when using Euler rotations)",
+          "is_readonly": false,
+          "name": "delta_rotation_euler",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Extra rotation added to the rotation of the object (when using Quaternion rotations)",
+          "is_readonly": false,
+          "name": "delta_rotation_quaternion",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Extra scaling added to the scale of the object",
+          "is_readonly": false,
+          "name": "delta_scale",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Lock editing of location when transforming",
+          "is_readonly": false,
+          "name": "lock_location",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Lock editing of rotation when transforming",
+          "is_readonly": false,
+          "name": "lock_rotation",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Lock editing of 'angle' component of four-component rotations when transforming",
+          "is_readonly": false,
+          "name": "lock_rotation_w",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Lock editing of four component rotations by components (instead of as Eulers)",
+          "is_readonly": false,
+          "name": "lock_rotations_4d",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Lock editing of scale when transforming",
+          "is_readonly": false,
+          "name": "lock_scale",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Worldspace transformation matrix",
+          "is_readonly": false,
+          "name": "matrix_world",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Parent relative transformation matrix.\nWarning: Only takes into account object parenting, so e.g. in case of bone parenting you get a matrix relative to the Armature object, not to the actual parent bone",
+          "is_readonly": false,
+          "name": "matrix_local",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Matrix access to location, rotation and scale (including deltas), before constraints and parenting are applied",
+          "is_readonly": false,
+          "name": "matrix_basis",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Inverse of object's parent matrix at time of parenting",
+          "is_readonly": false,
+          "name": "matrix_parent_inverse",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Modifiers affecting the geometric data of the object",
+          "is_readonly": true,
+          "name": "modifiers",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Effects affecting display of object",
+          "is_readonly": true,
+          "name": "shader_effects",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Constraints affecting the transformation of the object",
+          "is_readonly": true,
+          "name": "constraints",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Vertex groups of the object",
+          "is_readonly": true,
+          "name": "vertex_groups",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Viewport display style for empties",
+          "is_readonly": false,
+          "name": "empty_display_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Size of display for empties in the viewport",
+          "is_readonly": false,
+          "name": "empty_display_size",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Origin offset distance",
+          "is_readonly": false,
+          "name": "empty_image_offset",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Parameters defining which layer, pass and frame of the image is displayed",
+          "is_readonly": true,
+          "name": "image_user",
+          "type": "POINTER"
+        },
+        {
+          "description": "Determine which other objects will occlude the image",
+          "is_readonly": false,
+          "name": "empty_image_depth",
+          "type": "ENUM"
+        },
+        {
+          "description": "Display image in perspective mode",
+          "is_readonly": false,
+          "name": "show_empty_image_perspective",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display image in orthographic mode",
+          "is_readonly": false,
+          "name": "show_empty_image_orthographic",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Only display the image when it is aligned with the view axis",
+          "is_readonly": false,
+          "name": "show_empty_image_only_axis_aligned",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use alpha blending instead of alpha test (can produce sorting artifacts)",
+          "is_readonly": false,
+          "name": "use_empty_image_alpha",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Show front/back side",
+          "is_readonly": false,
+          "name": "empty_image_side",
+          "type": "ENUM"
+        },
+        {
+          "description": "Add a \"rest_position\" attribute that is a copy of the position attribute before shape keys and modifiers are evaluated",
+          "is_readonly": false,
+          "name": "add_rest_position_attribute",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Index number for the \"Object Index\" render pass",
+          "is_readonly": false,
+          "name": "pass_index",
+          "type": "INT"
+        },
+        {
+          "description": "Object color and alpha, used when the Object Color mode is enabled",
+          "is_readonly": false,
+          "name": "color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Settings for using the object as a field in physics simulation",
+          "is_readonly": true,
+          "name": "field",
+          "type": "POINTER"
+        },
+        {
+          "description": "Settings for using the object as a collider in physics simulation",
+          "is_readonly": true,
+          "name": "collision",
+          "type": "POINTER"
+        },
+        {
+          "description": "Settings for soft body simulation",
+          "is_readonly": true,
+          "name": "soft_body",
+          "type": "POINTER"
+        },
+        {
+          "description": "Particle systems emitted from the object",
+          "is_readonly": true,
+          "name": "particle_systems",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Settings for rigid body simulation",
+          "is_readonly": true,
+          "name": "rigid_body",
+          "type": "POINTER"
+        },
+        {
+          "description": "Constraint constraining rigid bodies",
+          "is_readonly": true,
+          "name": "rigid_body_constraint",
+          "type": "POINTER"
+        },
+        {
+          "description": "Cache frames during simulation nodes playback",
+          "is_readonly": false,
+          "name": "use_simulation_cache",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Globally disable in viewports",
+          "is_readonly": false,
+          "name": "hide_viewport",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Disable selection in viewport",
+          "is_readonly": false,
+          "name": "hide_select",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Globally disable in renders",
+          "is_readonly": false,
+          "name": "hide_render",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Globally disable in volume probes",
+          "is_readonly": false,
+          "name": "hide_probe_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Globally disable in spherical light probes",
+          "is_readonly": false,
+          "name": "hide_probe_sphere",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Globally disable in planar light probes",
+          "is_readonly": false,
+          "name": "hide_probe_plane",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Disable surface influence during selection, snapping and depth-picking operators. Usually used to avoid semi-transparent objects to affect scene navigation",
+          "is_readonly": false,
+          "name": "hide_surface_pick",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Make instancer visible when rendering",
+          "is_readonly": false,
+          "name": "show_instancer_for_render",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Make instancer visible in the viewport",
+          "is_readonly": false,
+          "name": "show_instancer_for_viewport",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object visibility to camera rays",
+          "is_readonly": false,
+          "name": "visible_camera",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object visibility to diffuse rays",
+          "is_readonly": false,
+          "name": "visible_diffuse",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object visibility to glossy rays",
+          "is_readonly": false,
+          "name": "visible_glossy",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object visibility to transmission rays",
+          "is_readonly": false,
+          "name": "visible_transmission",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object visibility to volume scattering rays",
+          "is_readonly": false,
+          "name": "visible_volume_scatter",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object visibility to shadow rays",
+          "is_readonly": false,
+          "name": "visible_shadow",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Render objects as a holdout or matte, creating a hole in the image with zero alpha, to fill out in compositing with real footage or another render",
+          "is_readonly": false,
+          "name": "is_holdout",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Only render shadows and reflections on this object, for compositing renders into real footage. Objects with this setting are considered to already exist in the footage, objects without it are synthetic objects being composited into it.",
+          "is_readonly": false,
+          "name": "is_shadow_catcher",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "If not None, object instancing method to use",
+          "is_readonly": false,
+          "name": "instance_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Rotate instance according to vertex normal",
+          "is_readonly": false,
+          "name": "use_instance_vertices_rotation",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Scale instance based on face size",
+          "is_readonly": false,
+          "name": "use_instance_faces_scale",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Scale the face instance objects",
+          "is_readonly": false,
+          "name": "instance_faces_scale",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Instance an existing collection",
+          "is_readonly": false,
+          "name": "instance_collection",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "is_instancer",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "How to display object in viewport",
+          "is_readonly": false,
+          "name": "display_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Display the object's bounds",
+          "is_readonly": false,
+          "name": "show_bounds",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object boundary display type",
+          "is_readonly": false,
+          "name": "display_bounds_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "Display the object's name",
+          "is_readonly": false,
+          "name": "show_name",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display the object's origin and axes",
+          "is_readonly": false,
+          "name": "show_axis",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display the object's texture space",
+          "is_readonly": false,
+          "name": "show_texture_space",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display the object's wireframe over solid shading",
+          "is_readonly": false,
+          "name": "show_wire",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display all edges for mesh objects",
+          "is_readonly": false,
+          "name": "show_all_edges",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Lights affect Grease Pencil object",
+          "is_readonly": false,
+          "name": "use_grease_pencil_lights",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display material transparency in the object",
+          "is_readonly": false,
+          "name": "show_transparent",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Make the object display in front of others",
+          "is_readonly": false,
+          "name": "show_in_front",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Current pose for armatures",
+          "is_readonly": true,
+          "name": "pose",
+          "type": "POINTER"
+        },
+        {
+          "description": "Only show the active shape key at full value",
+          "is_readonly": false,
+          "name": "show_only_shape_key",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Display shape keys in edit mode (for meshes only)",
+          "is_readonly": false,
+          "name": "use_shape_key_edit_mode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Current shape key",
+          "is_readonly": true,
+          "name": "active_shape_key",
+          "type": "POINTER"
+        },
+        {
+          "description": "Current shape key index",
+          "is_readonly": false,
+          "name": "active_shape_key_index",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "use_dynamic_topology_sculpting",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object comes from a instancer",
+          "is_readonly": true,
+          "name": "is_from_instancer",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object comes from a background set",
+          "is_readonly": true,
+          "name": "is_from_set",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Object display settings for 3D viewport",
+          "is_readonly": true,
+          "name": "display",
+          "type": "POINTER"
+        },
+        {
+          "description": "Line Art settings for the object",
+          "is_readonly": true,
+          "name": "lineart",
+          "type": "POINTER"
+        },
+        {
+          "description": "Enable mesh symmetry in the X axis",
+          "is_readonly": false,
+          "name": "use_mesh_mirror_x",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enable mesh symmetry in the Y axis",
+          "is_readonly": false,
+          "name": "use_mesh_mirror_y",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Enable mesh symmetry in the Z axis",
+          "is_readonly": false,
+          "name": "use_mesh_mirror_z",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Lightgroup that the object belongs to",
+          "is_readonly": false,
+          "name": "lightgroup",
+          "type": "STRING"
+        },
+        {
+          "description": "Light linking settings",
+          "is_readonly": true,
+          "name": "light_linking",
+          "type": "POINTER"
+        },
+        {
+          "description": "Offset rays from the surface to reduce shadow terminator artifact on low poly geometry. Only affect triangles that are affected by the geometry offset",
+          "is_readonly": false,
+          "name": "shadow_terminator_normal_offset",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Offset rays from the surface to reduce shadow terminator artifact on low poly geometry. Only affects triangles at grazing angles to light",
+          "is_readonly": false,
+          "name": "shadow_terminator_geometry_offset",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Push the shadow terminator towards the light to hide artifacts on low poly geometry",
+          "is_readonly": false,
+          "name": "shadow_terminator_shading_offset",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_visualization",
+          "type": "POINTER"
+        },
+        {
+          "description": "Motion Path for this element",
+          "is_readonly": true,
+          "name": "motion_path",
+          "type": "POINTER"
+        },
+        {
+          "description": "List of groups of bones for easy selection",
+          "is_readonly": true,
+          "name": "selection_sets",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Index of the currently active selection set",
+          "is_readonly": false,
+          "name": "active_selection_set",
+          "type": "INT"
+        },
+        {
+          "description": "Cycles object settings",
+          "is_readonly": true,
+          "name": "cycles",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "Scene data-block, consisting in objects and defining time and render related settings",
+      "name": "Scene",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Active camera, used for rendering the scene",
+          "is_readonly": false,
+          "name": "camera",
+          "type": "POINTER"
+        },
+        {
+          "description": "Background set scene",
+          "is_readonly": false,
+          "name": "background_set",
+          "type": "POINTER"
+        },
+        {
+          "description": "World used for rendering the scene",
+          "is_readonly": false,
+          "name": "world",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "objects",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Current frame, to update animation data from Python frame_set() instead",
+          "is_readonly": false,
+          "name": "frame_current",
+          "type": "INT"
+        },
+        {
+          "description": "",
+          "is_readonly": false,
+          "name": "frame_subframe",
+          "type": "FLOAT"
+        },
+        {
+          "description": "",
+          "is_readonly": false,
+          "name": "frame_float",
+          "type": "FLOAT"
+        },
+        {
+          "description": "First frame of the playback/rendering range",
+          "is_readonly": false,
+          "name": "frame_start",
+          "type": "INT"
+        },
+        {
+          "description": "Final frame of the playback/rendering range",
+          "is_readonly": false,
+          "name": "frame_end",
+          "type": "INT"
+        },
+        {
+          "description": "Number of frames to skip forward while rendering/playing back each frame",
+          "is_readonly": false,
+          "name": "frame_step",
+          "type": "INT"
+        },
+        {
+          "description": "Which unit to use for time jumps in the timeline",
+          "is_readonly": false,
+          "name": "time_jump_unit",
+          "type": "ENUM"
+        },
+        {
+          "description": "Number of frames or seconds to jump forward or backward",
+          "is_readonly": false,
+          "name": "time_jump_delta",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Current frame with subframe and time remapping applied",
+          "is_readonly": true,
+          "name": "frame_current_final",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Don't allow frame to be selected with mouse outside of frame range",
+          "is_readonly": false,
+          "name": "lock_frame_selection_to_range",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use an alternative start/end frame range for animation playback and view renders",
+          "is_readonly": false,
+          "name": "use_preview_range",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Alternative start frame for UI playback",
+          "is_readonly": false,
+          "name": "frame_preview_start",
+          "type": "INT"
+        },
+        {
+          "description": "Alternative end frame for UI playback",
+          "is_readonly": false,
+          "name": "frame_preview_end",
+          "type": "INT"
+        },
+        {
+          "description": "Display and allow setting fractional frame values for the current frame",
+          "is_readonly": false,
+          "name": "show_subframe",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Only include channels relating to selected objects and data",
+          "is_readonly": false,
+          "name": "show_keys_from_selected_only",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "User defined note for the render stamping",
+          "is_readonly": false,
+          "name": "use_stamp_note",
+          "type": "STRING"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Whether there is any action referenced by NLA being edited (strictly read-only)",
+          "is_readonly": true,
+          "name": "is_nla_tweakmode",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Use a simulation range that is different from the scene range for simulation nodes that don't override the frame range themselves",
+          "is_readonly": false,
+          "name": "use_custom_simulation_range",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Frame at which simulations start",
+          "is_readonly": false,
+          "name": "simulation_frame_start",
+          "type": "INT"
+        },
+        {
+          "description": "Frame at which simulations end",
+          "is_readonly": false,
+          "name": "simulation_frame_end",
+          "type": "INT"
+        },
+        {
+          "description": "How to sync playback",
+          "is_readonly": false,
+          "name": "sync_mode",
+          "type": "ENUM"
+        },
+        {
+          "description": "Compositor Nodes",
+          "is_readonly": false,
+          "name": "compositing_node_group",
+          "type": "POINTER"
+        },
+        {
+          "description": "Enable the compositing node group.",
+          "is_readonly": false,
+          "name": "use_nodes",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "sequence_editor",
+          "type": "POINTER"
+        },
+        {
+          "description": "Absolute Keying Sets for this Scene",
+          "is_readonly": true,
+          "name": "keying_sets",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "All Keying Sets available for use (Builtins and Absolute Keying Sets for this Scene)",
+          "is_readonly": true,
+          "name": "keying_sets_all",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "rigidbody_world",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "tool_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "Unit editing settings",
+          "is_readonly": true,
+          "name": "unit_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "Constant acceleration in a given direction",
+          "is_readonly": false,
+          "name": "gravity",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Use global gravity for all dynamics",
+          "is_readonly": false,
+          "name": "use_gravity",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "render",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "safe_areas",
+          "type": "POINTER"
+        },
+        {
+          "description": "Markers used in all timelines for the current scene",
+          "is_readonly": true,
+          "name": "timeline_markers",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "transform_orientation_slots",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "cursor",
+          "type": "POINTER"
+        },
+        {
+          "description": "Play back of audio from Sequence Editor, otherwise mute audio",
+          "is_readonly": false,
+          "name": "use_audio",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Play audio from Sequence Editor while scrubbing",
+          "is_readonly": false,
+          "name": "use_audio_scrub",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Speed of sound for Doppler effect calculation",
+          "is_readonly": false,
+          "name": "audio_doppler_speed",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Pitch factor for Doppler effect calculation",
+          "is_readonly": false,
+          "name": "audio_doppler_factor",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Distance model for distance attenuation calculation",
+          "is_readonly": false,
+          "name": "audio_distance_model",
+          "type": "ENUM"
+        },
+        {
+          "description": "Audio volume",
+          "is_readonly": false,
+          "name": "audio_volume",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Data-block used for annotations in the 3D view",
+          "is_readonly": false,
+          "name": "annotation",
+          "type": "POINTER"
+        },
+        {
+          "description": "Active Movie Clip that can be used by motion tracking constraints or as a camera's background image",
+          "is_readonly": false,
+          "name": "active_clip",
+          "type": "POINTER"
+        },
+        {
+          "description": "Color management settings applied on image before saving",
+          "is_readonly": true,
+          "name": "view_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "Settings of device saved image would be displayed on",
+          "is_readonly": true,
+          "name": "display_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "Settings of color space sequencer is working in",
+          "is_readonly": true,
+          "name": "sequencer_colorspace_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "",
+          "is_readonly": true,
+          "name": "view_layers",
+          "type": "COLLECTION"
+        },
+        {
+          "description": "Scene root collection that owns all the objects and other collections instantiated in the scene",
+          "is_readonly": true,
+          "name": "collection",
+          "type": "POINTER"
+        },
+        {
+          "description": "Scene display settings for 3D viewport",
+          "is_readonly": true,
+          "name": "display",
+          "type": "POINTER"
+        },
+        {
+          "description": "EEVEE settings for the scene",
+          "is_readonly": true,
+          "name": "eevee",
+          "type": "POINTER"
+        },
+        {
+          "description": "Grease Pencil settings for the scene",
+          "is_readonly": true,
+          "name": "grease_pencil_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "Hydra settings for the scene",
+          "is_readonly": true,
+          "name": "hydra",
+          "type": "POINTER"
+        },
+        {
+          "description": "Cycles render settings",
+          "is_readonly": true,
+          "name": "cycles",
+          "type": "POINTER"
+        },
+        {
+          "description": "Cycles curves rendering settings",
+          "is_readonly": true,
+          "name": "cycles_curves",
+          "type": "POINTER"
+        }
+      ]
+    },
+    {
+      "description": "World data-block describing the environment and ambient lighting of a scene",
+      "name": "World",
+      "properties": [
+        {
+          "description": "Unique data-block ID name (within a same type and library)",
+          "is_readonly": false,
+          "name": "name",
+          "type": "STRING"
+        },
+        {
+          "description": "Unique data-block ID name, including library one if any",
+          "is_readonly": true,
+          "name": "name_full",
+          "type": "STRING"
+        },
+        {
+          "description": "Type identifier of this data-block",
+          "is_readonly": true,
+          "name": "id_type",
+          "type": "ENUM"
+        },
+        {
+          "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+          "is_readonly": true,
+          "name": "session_uid",
+          "type": "INT"
+        },
+        {
+          "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+          "is_readonly": true,
+          "name": "is_evaluated",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+          "is_readonly": true,
+          "name": "original",
+          "type": "POINTER"
+        },
+        {
+          "description": "Number of times this data-block is referenced",
+          "is_readonly": true,
+          "name": "users",
+          "type": "INT"
+        },
+        {
+          "description": "Save this data-block even if it has no users",
+          "is_readonly": false,
+          "name": "use_fake_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+          "is_readonly": false,
+          "name": "use_extra_user",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+          "is_readonly": true,
+          "name": "is_embedded_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is linked and packed into the .blend file",
+          "is_readonly": true,
+          "name": "is_linked_packed",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+          "is_readonly": true,
+          "name": "is_missing",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+          "is_readonly": false,
+          "name": "is_runtime_data",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+          "is_readonly": true,
+          "name": "is_editable",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+          "is_readonly": false,
+          "name": "tag",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Is this ID block linked indirectly",
+          "is_readonly": true,
+          "name": "is_library_indirect",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Library file the data-block is linked from",
+          "is_readonly": true,
+          "name": "library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+          "is_readonly": true,
+          "name": "library_weak_reference",
+          "type": "POINTER"
+        },
+        {
+          "description": "Additional data for an asset data-block",
+          "is_readonly": false,
+          "name": "asset_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "Library override data",
+          "is_readonly": true,
+          "name": "override_library",
+          "type": "POINTER"
+        },
+        {
+          "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+          "is_readonly": true,
+          "name": "preview",
+          "type": "POINTER"
+        },
+        {
+          "description": "Animation data for this data-block",
+          "is_readonly": true,
+          "name": "animation_data",
+          "type": "POINTER"
+        },
+        {
+          "description": "The world's volume used to be rendered by EEVEE Legacy. Conversion is needed for it to render properly.",
+          "is_readonly": false,
+          "name": "use_eevee_finite_volume",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Color of the background",
+          "is_readonly": false,
+          "name": "color",
+          "type": "FLOAT"
+        },
+        {
+          "description": "World lighting settings",
+          "is_readonly": true,
+          "name": "light_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "World mist settings",
+          "is_readonly": true,
+          "name": "mist_settings",
+          "type": "POINTER"
+        },
+        {
+          "description": "Node tree for node based worlds",
+          "is_readonly": true,
+          "name": "node_tree",
+          "type": "POINTER"
+        },
+        {
+          "description": "Use shader nodes to render the world",
+          "is_readonly": false,
+          "name": "use_nodes",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Lightgroup that the world belongs to",
+          "is_readonly": false,
+          "name": "lightgroup",
+          "type": "STRING"
+        },
+        {
+          "description": "Resolution when baked to a texture",
+          "is_readonly": false,
+          "name": "probe_resolution",
+          "type": "ENUM"
+        },
+        {
+          "description": "If non-zero, the maximum value for world contribution that will be recorded inside the world light probe. The excess contribution is converted to a sun light. This reduces the light bleeding caused by very bright light sources.",
+          "is_readonly": false,
+          "name": "sun_threshold",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Angular diameter of the Sun as seen from the Earth",
+          "is_readonly": false,
+          "name": "sun_angle",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Enable sun shadow casting",
+          "is_readonly": false,
+          "name": "use_sun_shadow",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Maximum size of a shadow map pixel. Higher values use less memory at the cost of shadow quality.",
+          "is_readonly": false,
+          "name": "sun_shadow_maximum_resolution",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Blur shadow aliasing using Percentage Closer Filtering",
+          "is_readonly": false,
+          "name": "sun_shadow_filter_radius",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Enable jittered soft shadows to increase shadow precision (disabled in viewport unless enabled in the render settings). Has a high performance impact.",
+          "is_readonly": false,
+          "name": "use_sun_shadow_jitter",
+          "type": "BOOLEAN"
+        },
+        {
+          "description": "Apply shadow tracing to each jittered sample to reduce under-sampling artifacts",
+          "is_readonly": false,
+          "name": "sun_shadow_jitter_overblur",
+          "type": "FLOAT"
+        },
+        {
+          "description": "Cycles world settings",
+          "is_readonly": true,
+          "name": "cycles",
+          "type": "POINTER"
+        },
+        {
+          "description": "Cycles visibility settings",
+          "is_readonly": true,
+          "name": "cycles_visibility",
+          "type": "POINTER"
+        }
+      ]
+    }
+  ]
+}
