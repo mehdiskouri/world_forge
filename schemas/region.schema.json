@@ -1,0 +1,326 @@
+{
+  "$defs": {
+    "Hydrology": {
+      "additionalProperties": false,
+      "description": "Hydrology sub-descriptor.\n\nA region with ``has_stream=True`` must declare ``stream_character`` to\nsomething other than ``NONE``; this is checked in\n:func:`forge_mcp.descriptor.validate.validate`.",
+      "properties": {
+        "has_stream": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Has Stream"
+        },
+        "stream_character": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StreamCharacter"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "Hydrology",
+      "type": "object"
+    },
+    "Polygon2D": {
+      "additionalProperties": false,
+      "description": "A closed 2D polygon defined by its vertices.\n\nValidation:\n\n* at least three vertices, all distinct;\n* non-degenerate (signed area magnitude > :data:`_AREA_EPSILON`);\n* canonicalized counter-clockwise on construction (so equal polygons\n  compare equal regardless of input winding).\n\nSelf-intersection detection is delegated to\n:mod:`forge_mcp.geometry.polygon` (Phase 2 Stage E) and is *not*\nenforced at the schema layer, by design: the schema layer rejects\nobvious garbage; the geometry layer enforces the richer invariants\nthat need shapely.",
+      "properties": {
+        "coords": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Coords",
+          "type": "array"
+        }
+      },
+      "required": [
+        "coords"
+      ],
+      "title": "Polygon2D",
+      "type": "object"
+    },
+    "RegionTier": {
+      "description": "Region tier (Architecture §3.2).\n\nv1 ships only ``UNIQUE`` regions; the broader enum is reserved.",
+      "enum": [
+        "unique"
+      ],
+      "title": "RegionTier",
+      "type": "string"
+    },
+    "SpatialBounds": {
+      "additionalProperties": false,
+      "description": "Per-region spatial bounds: a polygon plus optional elevation range.",
+      "properties": {
+        "coords": {
+          "$ref": "#/$defs/Polygon2D"
+        },
+        "elevation_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Elevation Range"
+        },
+        "kind": {
+          "const": "polygon",
+          "default": "polygon",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "coords"
+      ],
+      "title": "SpatialBounds",
+      "type": "object"
+    },
+    "StreamCharacter": {
+      "description": "Hydrological character of a region's primary stream, if any.",
+      "enum": [
+        "alpine_creek",
+        "meandering_river",
+        "dry_wash",
+        "none"
+      ],
+      "title": "StreamCharacter",
+      "type": "string"
+    },
+    "StructuredDescriptor": {
+      "additionalProperties": false,
+      "description": "Top-level structured descriptor handed by the agent to Forge.\n\nFrozen and ``extra='forbid'``: the schema is the contract, agents\ncannot smuggle extra fields, and Forge can hash descriptors safely.",
+      "properties": {
+        "hydrology": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Hydrology"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "terrain": {
+          "$ref": "#/$defs/Terrain"
+        }
+      },
+      "required": [
+        "terrain"
+      ],
+      "title": "StructuredDescriptor",
+      "type": "object"
+    },
+    "Terrain": {
+      "additionalProperties": false,
+      "description": "Terrain sub-descriptor.\n\nOnly :attr:`primary` is required. Optional fields modulate the\ndeterministic Phase 3 mapping; absent fields fall back to per-profile\ndefaults.",
+      "properties": {
+        "elevation_band": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Elevation Band"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "primary": {
+          "$ref": "#/$defs/TerrainPrimary"
+        },
+        "ruggedness": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ruggedness"
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "title": "Terrain",
+      "type": "object"
+    },
+    "TerrainPrimary": {
+      "description": "Primary terrain archetype enumerated by the v1 design space.\n\nEach value maps to a profile in the Phase 3 ``TERRAIN_PROFILES``\nlookup. Adding values is a minor schema bump; removing or renaming is\nbreaking.",
+      "enum": [
+        "alpine_valley",
+        "alpine_peaks",
+        "rolling_hills",
+        "plains",
+        "desert_mesa",
+        "desert_dunes",
+        "boreal_lowland",
+        "marsh",
+        "volcanic_cone",
+        "coastal_cliffs",
+        "river_valley",
+        "canyon"
+      ],
+      "title": "TerrainPrimary",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One region: spatial bounds, optional descriptor, optional spec linkage.",
+  "properties": {
+    "children": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Children",
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "const": "region",
+      "default": "region",
+      "title": "Kind",
+      "type": "string"
+    },
+    "modified_at": {
+      "format": "date-time",
+      "title": "Modified At",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    },
+    "parent_node": {
+      "title": "Parent Node",
+      "type": "string"
+    },
+    "scale_level": {
+      "default": 2,
+      "title": "Scale Level",
+      "type": "integer"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "spatial_bounds": {
+      "$ref": "#/$defs/SpatialBounds"
+    },
+    "spec_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Spec Id"
+    },
+    "structured_descriptor": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StructuredDescriptor"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "tier": {
+      "$ref": "#/$defs/RegionTier",
+      "default": "unique"
+    }
+  },
+  "required": [
+    "node_id",
+    "parent_node",
+    "name",
+    "spatial_bounds",
+    "seed",
+    "created_at",
+    "modified_at"
+  ],
+  "title": "ForgeRegion",
+  "type": "object"
+}

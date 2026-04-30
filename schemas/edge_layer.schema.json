@@ -1,0 +1,108 @@
+{
+  "$defs": {
+    "Edge": {
+      "additionalProperties": false,
+      "description": "A hyperedge in one of the project's typed layers.",
+      "properties": {
+        "attrs": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Attrs",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "directed": {
+          "default": false,
+          "title": "Directed",
+          "type": "boolean"
+        },
+        "edge_id": {
+          "title": "Edge Id",
+          "type": "string"
+        },
+        "endpoints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "modified_at": {
+          "format": "date-time",
+          "title": "Modified At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "edge_id",
+        "layer",
+        "endpoints",
+        "created_at",
+        "modified_at"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "description": "On-disk shape of ``edges/<layer>.json`` — wraps the edge list for diff-stability.",
+  "properties": {
+    "edges": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Edge"
+      },
+      "title": "Edges",
+      "type": "array"
+    },
+    "layer": {
+      "title": "Layer",
+      "type": "string"
+    }
+  },
+  "required": [
+    "layer"
+  ],
+  "title": "ForgeEdgeLayerFile",
+  "type": "object"
+}

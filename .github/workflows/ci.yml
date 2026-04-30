@@ -47,7 +47,15 @@ jobs:
         continue-on-error: true
         run: uv run mypy --no-incremental scripts/blender
 
-      - name: Pytest (with coverage)
-        # Phase 0: smoke test only; --cov-fail-under is intentionally omitted
-        # until Phase 2 (see .github/instructions.md §3).
-        run: uv run pytest --cov=forge_mcp --cov-report=term-missing --cov-report=xml
+      - name: Pytest (with coverage; 90% branch floor from Phase 2)
+        # Phase 2 turned on the coverage floor + branch coverage per
+        # AGENT/dev_phases/phase2.md Stage A item 3 / .github/instructions.md §3.
+        run: >-
+          uv run pytest --cov=forge_mcp --cov-branch
+          --cov-report=term-missing --cov-report=xml --cov-fail-under=90
+
+      - name: Schema drift (forge-schema-export --check)
+        # Phase 2 Stage A item 3: every published JSON Schema must match
+        # its live Pydantic model. CLI fails non-zero on any drift; the
+        # fix is `uv run forge-schema-export --write`.
+        run: uv run forge-schema-export --check
