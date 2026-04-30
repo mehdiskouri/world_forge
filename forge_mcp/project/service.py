@@ -53,6 +53,8 @@ from forge_mcp.project.schemas import (
     RegionId,
     RegionNode,
     SpatialBounds,
+    SpecId,
+    SpecRecord,
     WorldBounds,
     WorldRootNode,
 )
@@ -200,6 +202,27 @@ class ProjectPaths:
         """Path of the history-log entry for ``event_id`` of ``kind``."""
         return self.history_dir / f"{event_id}_{kind.value}.json"
 
+    def spec_path(self, spec_id: SpecId) -> Path:
+        """Path of the canonical-JSON :class:`SpecRecord` for ``spec_id``."""
+        return self.specs_dir / f"{spec_id}.json"
+
+    @property
+    def heightmaps_dir(self) -> Path:
+        """``realizations/heightmap`` — one ``<region_id>.npy`` per generated region."""
+        return self.realizations_dir / "heightmap"
+
+    def heightmap_npy_path(self, region_id: RegionId) -> Path:
+        """Path of the persisted float32 heightmap for ``region_id``."""
+        return self.heightmaps_dir / f"{region_id}.npy"
+
+    def heightmap_png_path(self, region_id: RegionId) -> Path:
+        """Path of the 16-bit PNG preview for ``region_id``."""
+        return self.heightmaps_dir / f"{region_id}.png"
+
+    def stream_geometry_path(self, region_id: RegionId) -> Path:
+        """Path of the optional persisted :class:`StreamGeometry` JSON."""
+        return self.heightmaps_dir / f"{region_id}.stream.json"
+
     def all_directories(self) -> tuple[Path, ...]:
         """Every directory that must exist for the project to be valid."""
         return (
@@ -212,6 +235,7 @@ class ProjectPaths:
             self.locks_dir,
             self.history_dir,
             self.realizations_dir,
+            self.heightmaps_dir,
             self.audits_dir,
         )
 
@@ -761,6 +785,80 @@ class ProjectService:
         )
 
     # ------------------------------------------------------------------
+    # Spec + region-spec linkage (Phase 3)
+    # ------------------------------------------------------------------
+    def persist_spec(self, spec: SpecRecord) -> None:
+        """Atomically persist ``spec`` to ``specs/<spec_id>.json``."""
+        write_json(self.state.paths.spec_path(spec.spec_id), spec)
+
+    def load_spec(self, spec_id: SpecId) -> SpecRecord:
+        """Load and return a previously-persisted spec."""
+        path = self.state.paths.spec_path(spec_id)
+        if not path.exists():
+            msg = f"unknown spec {spec_id!r}"
+            raise UnknownSpecError(msg)
+        try:
+            return SpecRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValidationError) as exc:  # pragma: no cover - I/O race
+            msg = f"failed to load spec {spec_id!r}: {exc}"
+            raise ProjectFormatError(msg) from exc
+
+    def link_region_to_spec(self, region_id: RegionId, spec_id: SpecId) -> RegionNode:
+        """Update ``region.spec_id`` and ``modified_at``; persist; return new region."""
+        state = self.state
+        existing = state.regions.get(region_id)
+        if existing is None:
+            msg = f"unknown region {region_id!r}"
+            raise UnknownRegionError(msg)
+        new_region: RegionNode = existing.model_copy(
+            update={"spec_id": spec_id, "modified_at": _now()},
+        )
+        state.regions[region_id] = new_region
+        write_json(state.paths.region_path(region_id), new_region)
+        return new_region
+
+    def reroll_region_seed(self, region_id: RegionId, new_seed: int) -> RegionNode:
+        """Replace ``region.seed`` with ``new_seed``; persist; record history."""
+        state = self.state
+        existing = state.regions.get(region_id)
+        if existing is None:
+            msg = f"unknown region {region_id!r}"
+            raise UnknownRegionError(msg)
+        now = _now()
+        new_region: RegionNode = existing.model_copy(
+            update={"seed": new_seed, "modified_at": now},
+        )
+        state.regions[region_id] = new_region
+        write_json(state.paths.region_path(region_id), new_region)
+        self._append_history(
+            HistoryEventKind.REROLL_SEED,
+            payload={
+                "region_id": str(region_id),
+                "previous_seed": existing.seed,
+                "new_seed": new_seed,
+            },
+            now=now,
+        )
+        return new_region
+
+    def record_generation(
+        self,
+        region_id: RegionId,
+        spec_id: SpecId,
+        *,
+        generators_used: tuple[str, ...],
+    ) -> HistoryEvent:
+        """Append the ``generate_region`` history event."""
+        return self._append_history(
+            HistoryEventKind.GENERATE_REGION,
+            payload={
+                "region_id": str(region_id),
+                "spec_id": str(spec_id),
+                "generators_used": list(generators_used),
+            },
+        )
+
+    # ------------------------------------------------------------------
     # Internal: region id allocation
     # ------------------------------------------------------------------
     def _allocate_region_id(self, name: str) -> RegionId:
@@ -806,6 +904,10 @@ class RegionOverlapError(RegionError):
     """Raised when a region polygon overlaps an existing region."""
 
 
+class UnknownSpecError(ProjectError):
+    """Raised when a spec id does not exist on disk."""
+
+
 __all__ = [
     "NoOpenProjectError",
     "ProjectAlreadyExistsError",
@@ -820,4 +922,5 @@ __all__ = [
     "RegionOverlapError",
     "RegionPolygonError",
     "UnknownRegionError",
+    "UnknownSpecError",
 ]

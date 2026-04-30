@@ -544,6 +544,8 @@ class HistoryEventKind(StrEnum):
     CREATE_REGION = "create_region"
     UPDATE_REGION = "update_region"
     DELETE_REGION = "delete_region"
+    GENERATE_REGION = "generate_region"
+    REROLL_SEED = "reroll_seed"
 
 
 class HistoryEvent(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any

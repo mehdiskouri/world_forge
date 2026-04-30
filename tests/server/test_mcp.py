@@ -54,6 +54,11 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         "forge.undo",
         # Locks (read-only in Phase 2)
         "forge.list_locks",
+        # Generation (Phase 3)
+        "forge.generate_region",
+        "forge.reroll_seed",
+        "forge.analyze_region",
+        "forge.inspect_spec",
     },
 )
 
