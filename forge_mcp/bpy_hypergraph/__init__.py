@@ -20,13 +20,25 @@ from forge_mcp.bpy_hypergraph.query import (
     TypeEntry,
     load_hypergraph,
 )
+from forge_mcp.bpy_hypergraph.sequences import (
+    CuratedSequence,
+    CuratedSequenceBundle,
+    CuratedSequenceError,
+    SequenceStep,
+    load_curated_sequences,
+)
 
 __all__ = [
     "AlternativePath",
     "BpyHypergraph",
+    "CuratedSequence",
+    "CuratedSequenceBundle",
+    "CuratedSequenceError",
     "EffectAnnotation",
     "HypergraphLoadError",
     "OperatorEntry",
+    "SequenceStep",
     "TypeEntry",
+    "load_curated_sequences",
     "load_hypergraph",
 ]
