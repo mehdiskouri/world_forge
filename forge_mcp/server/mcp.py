@@ -44,7 +44,7 @@ def forge_get_descriptor_schema() -> dict[str, object]:
     merged).
     """
     try:
-        from forge_mcp.descriptor import descriptor_json_schema  # type: ignore[attr-defined]  # noqa: I001, PLC0415  # sibling branch
+        from forge_mcp.descriptor import descriptor_json_schema  # type: ignore[attr-defined,import-not-found,unused-ignore]  # noqa: I001, PLC0415  # sibling branch may or may not be merged
     except ImportError:
         return {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
