@@ -52,6 +52,23 @@ def atomic_write_text(path: Path, data: str) -> None:
     os.replace(tmp, path)  # noqa: PTH105 - we need the os primitive on a Path argument
 
 
+def atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Atomically write ``data`` (raw bytes) to ``path``.
+
+    Binary counterpart of :func:`atomic_write_text` — same tmp-file +
+    fsync + ``os.replace`` recipe, used for ``.npy`` heightmap dumps and
+    ``.png`` previews where text-mode would corrupt the payload.
+    """
+    parent = path.parent
+    suffix = f".tmp.{os.getpid()}.{secrets.token_hex(_TMP_SUFFIX_RAND_BYTES)}"
+    tmp = parent / (path.name + suffix)
+    with tmp.open("xb") as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)  # noqa: PTH105 - we need the os primitive on a Path argument
+
+
 def dump_json(payload: BaseModel | Mapping[str, object]) -> str:
     """Serialize ``payload`` with Forge's canonical JSON style.
 
@@ -87,4 +104,4 @@ def write_json(path: Path, payload: BaseModel | Mapping[str, object]) -> None:
     atomic_write_text(path, dump_json(payload))
 
 
-__all__ = ["atomic_write_text", "dump_json", "write_json"]
+__all__ = ["atomic_write_bytes", "atomic_write_text", "dump_json", "write_json"]
