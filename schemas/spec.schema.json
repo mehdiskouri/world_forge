@@ -1,5 +1,116 @@
 {
   "$defs": {
+    "BoundaryRequirement": {
+      "additionalProperties": false,
+      "description": "Requirement a spec places on one of the region's boundaries.\n\nPhase 3 placeholder: ``elevation_continuity`` is the only kind, with\nno parameters yet. Phase 6 fills the contract negotiation in.",
+      "properties": {
+        "boundary_id": {
+          "title": "Boundary Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "elevation_continuity",
+          "default": "elevation_continuity",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "boundary_id"
+      ],
+      "title": "BoundaryRequirement",
+      "type": "object"
+    },
+    "GenerationMetadata": {
+      "additionalProperties": false,
+      "description": "Provenance for one materialized spec.\n\nPinned versions let us refuse to load on mismatch (Architecture §15)\nand let CI catch silent generator drift.",
+      "properties": {
+        "blender_version": {
+          "title": "Blender Version",
+          "type": "string"
+        },
+        "bpy_hypergraph_version": {
+          "title": "Bpy Hypergraph Version",
+          "type": "string"
+        },
+        "compiler_version": {
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "conflicts_resolved": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicts Resolved",
+          "type": "array"
+        },
+        "generators_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Generators Used",
+          "type": "array"
+        },
+        "parent_spec_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Spec Hash"
+        }
+      },
+      "required": [
+        "compiler_version",
+        "generators_used",
+        "bpy_hypergraph_version",
+        "blender_version"
+      ],
+      "title": "GenerationMetadata",
+      "type": "object"
+    },
+    "HydraulicErosionPass": {
+      "additionalProperties": false,
+      "description": "Grid-based hydraulic erosion post-pass.",
+      "properties": {
+        "evaporation": {
+          "exclusiveMaximum": 1.0,
+          "minimum": 0.0,
+          "title": "Evaporation",
+          "type": "number"
+        },
+        "iterations": {
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Iterations",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "hydraulic_erosion",
+          "default": "hydraulic_erosion",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rain": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "title": "Rain",
+          "type": "number"
+        }
+      },
+      "required": [
+        "iterations",
+        "rain",
+        "evaporation"
+      ],
+      "title": "HydraulicErosionPass",
+      "type": "object"
+    },
     "Hydrology": {
       "additionalProperties": false,
       "description": "Hydrology sub-descriptor.\n\nA region with ``has_stream=True`` must declare ``stream_character`` to\nsomething other than ``NONE``; this is checked in\n:func:`forge_mcp.descriptor.validate.validate`.",
@@ -31,36 +142,86 @@
       "title": "Hydrology",
       "type": "object"
     },
-    "JsonValue": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "integer"
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "boolean"
-        },
-        {
-          "items": {
-            "$ref": "#/$defs/JsonValue"
-          },
-          "type": "array"
-        },
-        {
+    "SpecBody": {
+      "additionalProperties": false,
+      "description": "Typed spec body matching Architecture §3.4.\n\nLifted out of :class:`SpecRecord` so the discriminated unions inside\n``axes['terrain'].post_passes`` and ``feature_injectors`` are\ncanonicalized in one place and round-trip cleanly through\n``model_dump(mode='json')``.",
+      "properties": {
+        "axes": {
           "additionalProperties": {
-            "$ref": "#/$defs/JsonValue"
+            "$ref": "#/$defs/TerrainAxisSpec"
           },
+          "propertyNames": {
+            "const": "terrain"
+          },
+          "title": "Axes",
           "type": "object"
         },
-        {
-          "type": "null"
+        "boundary_requirements": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BoundaryRequirement"
+          },
+          "title": "Boundary Requirements",
+          "type": "array"
+        },
+        "generation_metadata": {
+          "$ref": "#/$defs/GenerationMetadata"
+        },
+        "summary": {
+          "$ref": "#/$defs/SpecSummary"
         }
-      ]
+      },
+      "required": [
+        "axes",
+        "generation_metadata"
+      ],
+      "title": "SpecBody",
+      "type": "object"
+    },
+    "SpecSummary": {
+      "additionalProperties": false,
+      "description": "Compact numerical summary populated by :mod:`forge_mcp.analyze`.\n\nEmpty (all-zero) until ``forge.generate_region`` runs analysis;\nrefreshed in place on every regeneration.",
+      "properties": {
+        "max_elevation": {
+          "default": 0.0,
+          "title": "Max Elevation",
+          "type": "number"
+        },
+        "mean_elevation": {
+          "default": 0.0,
+          "title": "Mean Elevation",
+          "type": "number"
+        },
+        "min_elevation": {
+          "default": 0.0,
+          "title": "Min Elevation",
+          "type": "number"
+        },
+        "slope_p95_degrees": {
+          "default": 0.0,
+          "title": "Slope P95 Degrees",
+          "type": "number"
+        },
+        "std_elevation": {
+          "default": 0.0,
+          "title": "Std Elevation",
+          "type": "number"
+        },
+        "stream_length_meters": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stream Length Meters"
+        }
+      },
+      "title": "SpecSummary",
+      "type": "object"
     },
     "StreamCharacter": {
       "description": "Hydrological character of a region's primary stream, if any.",
@@ -72,6 +233,78 @@
       ],
       "title": "StreamCharacter",
       "type": "string"
+    },
+    "StreamFeatureInjector": {
+      "additionalProperties": false,
+      "description": "Stream-feature injector spec.\n\n``anchor_in`` / ``anchor_out`` stay ``None`` until Phase 6 wires\nboundary contracts; the Phase 3 generator picks deterministic edge\npoints when both are unset.",
+      "properties": {
+        "anchor_in": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor In"
+        },
+        "anchor_out": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor Out"
+        },
+        "carving_depth": {
+          "exclusiveMinimum": 0.0,
+          "title": "Carving Depth",
+          "type": "number"
+        },
+        "kind": {
+          "const": "stream",
+          "default": "stream",
+          "title": "Kind",
+          "type": "string"
+        },
+        "width_meters": {
+          "exclusiveMinimum": 0.0,
+          "title": "Width Meters",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width_meters",
+        "carving_depth"
+      ],
+      "title": "StreamFeatureInjector",
+      "type": "object"
     },
     "StructuredDescriptor": {
       "additionalProperties": false,
@@ -158,6 +391,114 @@
       "title": "Terrain",
       "type": "object"
     },
+    "TerrainAxisSpec": {
+      "additionalProperties": false,
+      "description": "Per-axis spec for the terrain axis (the only v1 axis).",
+      "properties": {
+        "elevation_band": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Elevation Band",
+          "type": "array"
+        },
+        "feature_injectors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StreamFeatureInjector"
+          },
+          "title": "Feature Injectors",
+          "type": "array"
+        },
+        "generator": {
+          "const": "ridged_multifractal_v1",
+          "default": "ridged_multifractal_v1",
+          "title": "Generator",
+          "type": "string"
+        },
+        "params": {
+          "$ref": "#/$defs/TerrainGeneratorParams"
+        },
+        "post_passes": {
+          "default": [],
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/HydraulicErosionPass"
+              },
+              {
+                "$ref": "#/$defs/ThermalErosionPass"
+              }
+            ]
+          },
+          "title": "Post Passes",
+          "type": "array"
+        },
+        "resolution_meters_per_pixel": {
+          "exclusiveMinimum": 0.0,
+          "title": "Resolution Meters Per Pixel",
+          "type": "number"
+        }
+      },
+      "required": [
+        "params",
+        "elevation_band",
+        "resolution_meters_per_pixel"
+      ],
+      "title": "TerrainAxisSpec",
+      "type": "object"
+    },
+    "TerrainGeneratorParams": {
+      "additionalProperties": false,
+      "description": "Tunable parameters for the ``ridged_multifractal_v1`` terrain generator.\n\nField semantics live in :mod:`forge_mcp.generate.noise` (Phase 3\nStage D); this model is the persistence shape only.",
+      "properties": {
+        "lacunarity": {
+          "exclusiveMinimum": 1.0,
+          "maximum": 4.0,
+          "title": "Lacunarity",
+          "type": "number"
+        },
+        "octaves": {
+          "maximum": 12,
+          "minimum": 1,
+          "title": "Octaves",
+          "type": "integer"
+        },
+        "persistence": {
+          "exclusiveMaximum": 1.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Persistence",
+          "type": "number"
+        },
+        "scale_meters": {
+          "exclusiveMinimum": 0.0,
+          "title": "Scale Meters",
+          "type": "number"
+        },
+        "warp": {
+          "maximum": 2.0,
+          "minimum": 0.0,
+          "title": "Warp",
+          "type": "number"
+        }
+      },
+      "required": [
+        "octaves",
+        "lacunarity",
+        "persistence",
+        "warp",
+        "scale_meters"
+      ],
+      "title": "TerrainGeneratorParams",
+      "type": "object"
+    },
     "TerrainPrimary": {
       "description": "Primary terrain archetype enumerated by the v1 design space.\n\nEach value maps to a profile in the Phase 3 ``TERRAIN_PROFILES``\nlookup. Adding values is a minor schema bump; removing or renaming is\nbreaking.",
       "enum": [
@@ -176,17 +517,43 @@
       ],
       "title": "TerrainPrimary",
       "type": "string"
+    },
+    "ThermalErosionPass": {
+      "additionalProperties": false,
+      "description": "Talus-angle thermal relaxation post-pass.",
+      "properties": {
+        "iterations": {
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Iterations",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "thermal_erosion",
+          "default": "thermal_erosion",
+          "title": "Kind",
+          "type": "string"
+        },
+        "talus_angle_degrees": {
+          "exclusiveMaximum": 90.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Talus Angle Degrees",
+          "type": "number"
+        }
+      },
+      "required": [
+        "iterations",
+        "talus_angle_degrees"
+      ],
+      "title": "ThermalErosionPass",
+      "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "Persistence shape for ``specs/<spec_id>.json``.\n\nPhase 2 keeps the body opaque (``Mapping[str, JsonValue]``); Phase 3\nintroduces the typed ``axes`` / ``generation_metadata`` substructure.",
+  "description": "Persistence shape for ``specs/<spec_id>.json``.\n\nPhase 3 promotes ``body`` from an opaque mapping to the typed\n:class:`SpecBody` substructure (Architecture §3.4). ``spec_id`` is\ncontent-addressed off the canonical-JSON BLAKE2b of ``body`` —\nidentical descriptor + seed + generator versions across regions\ntherefore yield identical spec ids, by design.",
   "properties": {
     "body": {
-      "additionalProperties": {
-        "$ref": "#/$defs/JsonValue"
-      },
-      "title": "Body",
-      "type": "object"
+      "$ref": "#/$defs/SpecBody"
     },
     "created_at": {
       "format": "date-time",
@@ -204,6 +571,7 @@
   "required": [
     "spec_id",
     "descriptor",
+    "body",
     "created_at"
   ],
   "title": "ForgeSpec",
