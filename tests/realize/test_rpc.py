@@ -10,6 +10,7 @@ import pytest
 from forge_mcp.realize import (
     RpcClient,
     RpcError,
+    RpcMethods,
     RpcProtocolError,
     RpcRequest,
     RpcResponse,
@@ -171,3 +172,23 @@ def test_rpc_error_str_includes_code_and_message() -> None:
     err = RpcError(code=ERR_METHOD_NOT_FOUND, message="not found")
     assert str(ERR_METHOD_NOT_FOUND) in str(err)
     assert "not found" in str(err)
+
+
+def test_rpc_methods_static_constants_match_adapter_surface() -> None:
+    assert RpcMethods.PING == "ping"
+    assert RpcMethods.SHUTDOWN == "shutdown"
+    assert RpcMethods.SET_PROPERTY == "set_property"
+    assert RpcMethods.GET_PROPERTY == "get_property"
+    assert RpcMethods.SET_IDPROP == "set_idprop"
+    assert RpcMethods.GET_IDPROP == "get_idprop"
+    assert RpcMethods.MESH_FROM_PYDATA == "mesh.from_pydata"
+    assert RpcMethods.IMAGE_FROM_FILE == "image.from_file"
+    assert RpcMethods.RENDER_TO_FILE == "render.to_file"
+    assert RpcMethods.MATERIAL_BUILD_TERRAIN == "material.build_terrain"
+    assert RpcMethods.SCENE_DIFF == "scene.diff"
+
+
+def test_rpc_methods_dynamic_helpers_compose_method_names() -> None:
+    assert RpcMethods.bpy_ops("mesh", "primitive_plane_add") == "bpy.ops.mesh.primitive_plane_add"
+    assert RpcMethods.bpy_data_new("meshes") == "bpy.data.meshes.new"
+    assert RpcMethods.bpy_data_remove("objects") == "bpy.data.objects.remove"

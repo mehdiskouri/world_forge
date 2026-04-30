@@ -6,7 +6,7 @@ import itertools
 import json
 from dataclasses import dataclass
 from threading import Lock
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -21,9 +21,15 @@ class RpcProtocolError(RuntimeError):
     """Raised when the peer violates the JSON-RPC framing contract."""
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass
 class RpcError(Exception):
-    """JSON-RPC 2.0 error payload returned by the peer."""
+    """JSON-RPC 2.0 error payload returned by the peer.
+
+    Not slotted/frozen: Python's exception machinery
+    (``contextlib`` / ``traceback``) writes ``__traceback__`` on the
+    instance, which both ``slots=True`` and ``frozen=True`` would
+    block.
+    """
 
     code: int
     message: str
@@ -123,3 +129,41 @@ class RpcClient:
                 msg = f"RPC id mismatch: sent {req.id}, got {resp.id}"
                 raise RpcProtocolError(msg)
             return resp.result
+
+
+class RpcMethods:
+    """Canonical JSON-RPC method names exposed by ``scripts/blender/adapter.py``.
+
+    Static methods (constants) cover the fixed surface; ``bpy_ops``,
+    ``bpy_data_new`` and ``bpy_data_remove`` build the dynamic
+    Blender-driven method names. Macros must reference these
+    constants/helpers exclusively to keep the adapter / hypergraph /
+    macro layers in lock-step.
+    """
+
+    PING: Final[str] = "ping"
+    SHUTDOWN: Final[str] = "shutdown"
+    SET_PROPERTY: Final[str] = "set_property"
+    GET_PROPERTY: Final[str] = "get_property"
+    SET_IDPROP: Final[str] = "set_idprop"
+    GET_IDPROP: Final[str] = "get_idprop"
+    MESH_FROM_PYDATA: Final[str] = "mesh.from_pydata"
+    IMAGE_FROM_FILE: Final[str] = "image.from_file"
+    RENDER_TO_FILE: Final[str] = "render.to_file"
+    MATERIAL_BUILD_TERRAIN: Final[str] = "material.build_terrain"
+    SCENE_DIFF: Final[str] = "scene.diff"
+
+    @staticmethod
+    def bpy_ops(group: str, name: str) -> str:
+        """Build the dynamic ``bpy.ops.<group>.<name>`` method name."""
+        return f"bpy.ops.{group}.{name}"
+
+    @staticmethod
+    def bpy_data_new(collection: str) -> str:
+        """Build the dynamic ``bpy.data.<collection>.new`` method name."""
+        return f"bpy.data.{collection}.new"
+
+    @staticmethod
+    def bpy_data_remove(collection: str) -> str:
+        """Build the dynamic ``bpy.data.<collection>.remove`` method name."""
+        return f"bpy.data.{collection}.remove"
