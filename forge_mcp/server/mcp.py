@@ -200,6 +200,16 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
         title="Inspect a persisted spec",
         description="Return one SpecRecord by `spec_id` or by `region_id` indirection.",
     )(generation_tools.inspect_spec)
+    server.tool(
+        name="forge.render_view",
+        title="Render a region view",
+        description=(
+            "Re-run the v1 realize_region macro on a previously-generated region "
+            "and render a `preview` (512x384), `default` (1024x768), or `full` "
+            "(2048x1536) PNG. Persists `.blend`, preview, and trace under "
+            "`realizations/blender/`."
+        ),
+    )(generation_tools.render_view)
 
     return server
 

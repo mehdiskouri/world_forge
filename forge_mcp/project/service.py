@@ -223,6 +223,23 @@ class ProjectPaths:
         """Path of the optional persisted :class:`StreamGeometry` JSON."""
         return self.heightmaps_dir / f"{region_id}.stream.json"
 
+    @property
+    def blender_dir(self) -> Path:
+        """``realizations/blender`` — one ``.blend`` plus preview/trace per region."""
+        return self.realizations_dir / "blender"
+
+    def blend_path(self, region_id: RegionId) -> Path:
+        """Path of the persisted ``.blend`` for ``region_id``."""
+        return self.blender_dir / f"{region_id}.blend"
+
+    def preview_path(self, region_id: RegionId) -> Path:
+        """Path of the persisted preview PNG for ``region_id``."""
+        return self.blender_dir / f"{region_id}.preview.png"
+
+    def realization_trace_path(self, region_id: RegionId) -> Path:
+        """Path of the persisted realization-trace sidecar JSON for ``region_id``."""
+        return self.blender_dir / f"{region_id}.trace.json"
+
     def all_directories(self) -> tuple[Path, ...]:
         """Every directory that must exist for the project to be valid."""
         return (
@@ -236,6 +253,7 @@ class ProjectPaths:
             self.history_dir,
             self.realizations_dir,
             self.heightmaps_dir,
+            self.blender_dir,
             self.audits_dir,
         )
 

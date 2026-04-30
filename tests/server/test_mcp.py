@@ -59,6 +59,8 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         "forge.reroll_seed",
         "forge.analyze_region",
         "forge.inspect_spec",
+        # Realization views (Phase 4)
+        "forge.render_view",
     },
 )
 
