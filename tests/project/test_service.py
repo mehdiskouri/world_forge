@@ -273,7 +273,7 @@ def _seed_state(svc: ProjectService) -> tuple[RegionNode, BoundaryStub, LockReco
     )
     state.regions[region.node_id] = region
     state.boundaries[boundary.boundary_id] = boundary
-    state.locks.append(lock)
+    state.lock_store.add_lock(lock)
     state.edges["spatial_containment"].append(edge)
     return region, boundary, lock, edge
 

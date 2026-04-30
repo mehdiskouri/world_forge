@@ -32,6 +32,8 @@ from pydantic import ValidationError
 
 from forge_mcp._io.atomic import atomic_write_text, write_json
 from forge_mcp.descriptor.schema import SCHEMA_VERSION as DESCRIPTOR_SCHEMA_VERSION
+from forge_mcp.project.history import HistoryLog
+from forge_mcp.project.locks import LockStore, LockStoreError
 from forge_mcp.project.schemas import (
     BoundaryId,
     BoundaryStub,
@@ -229,8 +231,24 @@ class ProjectState:
     regions: dict[RegionId, RegionNode] = field(default_factory=dict)
     boundaries: dict[BoundaryId, BoundaryStub] = field(default_factory=dict)
     edges: dict[str, list[Edge]] = field(default_factory=dict)
-    locks: list[LockRecord] = field(default_factory=list)
-    history_count: int = 0
+    history: HistoryLog = field(init=False)
+    lock_store: LockStore = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Bind sub-stores to the resolved paths."""
+        self.history = HistoryLog(self.paths.history_dir, count=0)
+        self.lock_store = LockStore(self.paths.locks_path)
+
+    # --- Compatibility shims for callers that still read the flat fields ---
+    @property
+    def locks(self) -> list[LockRecord]:
+        """Snapshot of the lock store as a list (for back-compat)."""
+        return list(self.lock_store.records)
+
+    @property
+    def history_count(self) -> int:
+        """Number of appended history events (for back-compat)."""
+        return self.history.count
 
 
 # ---------------------------------------------------------------------------
@@ -270,11 +288,6 @@ class NoOpenProjectError(ProjectError):
 def _now() -> datetime:
     """Return the current UTC time. Indirection point for ``freezegun`` later."""
     return datetime.now(tz=UTC)
-
-
-def _format_event_id(seq: int) -> HistoryEventId:
-    """Zero-pad ``seq`` to the schema's ≥4-digit minimum."""
-    return HistoryEventId(f"{seq:04d}")
 
 
 class ProjectService:
@@ -403,8 +416,12 @@ class ProjectService:
         state.regions = self._load_regions(paths)
         state.edges = self._load_edges(paths, metadata.registered_layers)
         state.boundaries = self._load_boundaries(paths)
-        state.locks = list(self._load_locks(paths))
-        state.history_count = self._count_history(paths)
+        try:
+            state.lock_store = LockStore.load(paths.locks_path)
+        except LockStoreError as exc:
+            msg = f"failed to load locks.json: {exc}"
+            raise ProjectFormatError(msg) from exc
+        state.history = HistoryLog(paths.history_dir, count=self._count_history(paths))
         self._state = state
 
         self._append_history(
@@ -439,7 +456,7 @@ class ProjectService:
             )
         for boundary in state.boundaries.values():
             write_json(state.paths.boundary_path(boundary.boundary_id), boundary)
-        write_json(state.paths.locks_path, LockStoreFile(locks=tuple(state.locks)))
+        write_json(state.paths.locks_path, LockStoreFile(locks=state.lock_store.records))
         self._append_history(HistoryEventKind.SAVE_PROJECT, now=now)
 
     def close_project(self) -> None:
@@ -462,20 +479,12 @@ class ProjectService:
     ) -> HistoryEvent:
         """Atomically append one history event to the open project."""
         state = self.state
-        seq = state.history_count + 1
-        event = HistoryEvent(
-            event_id=_format_event_id(seq),
-            kind=kind,
+        return state.history.append(
+            kind,
             at=now if now is not None else _now(),
             actor=HistoryActor.AGENT,
-            # ``HistoryEvent.payload`` is typed as ``dict[str, JsonValue]``
-            # but we accept ``Mapping[str, object]`` here; Pydantic
-            # validates the values for us.
-            payload=dict(payload or {}),  # type: ignore[arg-type]  # validated by Pydantic
+            payload=payload,
         )
-        write_json(state.paths.history_event_path(event.event_id, event.kind), event)
-        state.history_count = seq
-        return event
 
     @staticmethod
     def _load_regions(paths: ProjectPaths) -> dict[RegionId, RegionNode]:
