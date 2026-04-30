@@ -38,6 +38,15 @@ jobs:
       - name: Mypy (strict)
         run: uv run mypy
 
+      - name: Mypy — Blender-internal scripts (separate, soft in Phase 1)
+        # scripts/blender/* runs inside Blender's interpreter and imports
+        # `bpy` natively. Type-checked separately against fake-bpy-module-5.0
+        # stubs. Soft (continue-on-error) in Phase 1; hardened from Phase 4.
+        # See .github/instructions.md §2 and scripts/blender/README.md.
+        if: hashFiles('scripts/blender/*.py') != ''
+        continue-on-error: true
+        run: uv run mypy --no-incremental scripts/blender
+
       - name: Pytest (with coverage)
         # Phase 0: smoke test only; --cov-fail-under is intentionally omitted
         # until Phase 2 (see .github/instructions.md §3).
