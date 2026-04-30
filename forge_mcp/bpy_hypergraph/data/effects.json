@@ -1,0 +1,309 @@
+{
+  "effects": {
+    "bpy.ops.image.open": {
+      "mutates": [
+        "bpy.data.images"
+      ],
+      "postconditions": [
+        "image_in_bpy_data_images"
+      ],
+      "preconditions": [
+        "filepath_exists",
+        "filepath_is_image"
+      ]
+    },
+    "bpy.ops.mesh.primitive_cube_add": {
+      "mutates": [
+        "scene.objects",
+        "scene.collection",
+        "active_object"
+      ],
+      "postconditions": [
+        "new_object_active",
+        "object_kind == 'MESH'"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'"
+      ]
+    },
+    "bpy.ops.mesh.primitive_cylinder_add": {
+      "mutates": [
+        "scene.objects",
+        "active_object"
+      ],
+      "postconditions": [
+        "new_object_active",
+        "object_kind == 'MESH'"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'"
+      ]
+    },
+    "bpy.ops.mesh.primitive_grid_add": {
+      "mutates": [
+        "scene.objects",
+        "scene.collection",
+        "active_object"
+      ],
+      "postconditions": [
+        "new_object_active",
+        "object_kind == 'MESH'"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'"
+      ]
+    },
+    "bpy.ops.mesh.primitive_ico_sphere_add": {
+      "mutates": [
+        "scene.objects",
+        "active_object"
+      ],
+      "postconditions": [
+        "new_object_active",
+        "object_kind == 'MESH'"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'"
+      ]
+    },
+    "bpy.ops.mesh.primitive_plane_add": {
+      "mutates": [
+        "scene.objects",
+        "scene.collection",
+        "active_object"
+      ],
+      "postconditions": [
+        "new_object_active",
+        "object_kind == 'MESH'"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'"
+      ]
+    },
+    "bpy.ops.mesh.primitive_uv_sphere_add": {
+      "mutates": [
+        "scene.objects",
+        "active_object"
+      ],
+      "postconditions": [
+        "new_object_active",
+        "object_kind == 'MESH'"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'"
+      ]
+    },
+    "bpy.ops.mesh.subdivide": {
+      "mutates": [
+        "active_mesh.vertices",
+        "active_mesh.edges",
+        "active_mesh.polygons"
+      ],
+      "postconditions": [
+        "mesh_vertex_count_increased"
+      ],
+      "preconditions": [
+        "context.mode == 'EDIT_MESH'",
+        "active_mesh_has_selection"
+      ]
+    },
+    "bpy.ops.object.delete": {
+      "mutates": [
+        "scene.objects",
+        "active_object"
+      ],
+      "postconditions": [
+        "selected_objects_removed"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "selected_objects_nonempty"
+      ]
+    },
+    "bpy.ops.object.modifier_add": {
+      "mutates": [
+        "active_object.modifiers"
+      ],
+      "postconditions": [
+        "active_object.modifiers_count_increased"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "active_object_supports_modifiers"
+      ]
+    },
+    "bpy.ops.object.modifier_apply": {
+      "mutates": [
+        "active_object.data",
+        "active_object.modifiers"
+      ],
+      "postconditions": [
+        "named_modifier_removed",
+        "geometry_baked"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "named_modifier_exists"
+      ]
+    },
+    "bpy.ops.object.modifier_remove": {
+      "mutates": [
+        "active_object.modifiers"
+      ],
+      "postconditions": [
+        "named_modifier_removed"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "named_modifier_exists"
+      ]
+    },
+    "bpy.ops.object.origin_set": {
+      "mutates": [
+        "object.location",
+        "object.data"
+      ],
+      "postconditions": [
+        "object_origin_changed"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "selected_objects_nonempty"
+      ]
+    },
+    "bpy.ops.object.parent_set": {
+      "mutates": [
+        "object.parent",
+        "object.matrix_parent_inverse"
+      ],
+      "postconditions": [
+        "children_have_parent_active"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "active_object_set",
+        "selected_objects_count >= 2"
+      ]
+    },
+    "bpy.ops.object.select_all": {
+      "mutates": [
+        "scene.selection"
+      ],
+      "postconditions": [
+        "selection_state_predictable"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'"
+      ]
+    },
+    "bpy.ops.object.shade_flat": {
+      "mutates": [
+        "object.data.polygons.use_smooth"
+      ],
+      "postconditions": [
+        "selected_meshes_have_flat_shading"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "selected_objects_nonempty"
+      ]
+    },
+    "bpy.ops.object.shade_smooth": {
+      "mutates": [
+        "object.data.polygons.use_smooth"
+      ],
+      "postconditions": [
+        "selected_meshes_have_smooth_shading"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "selected_objects_nonempty"
+      ]
+    },
+    "bpy.ops.object.transform_apply": {
+      "mutates": [
+        "object.location",
+        "object.rotation_euler",
+        "object.scale",
+        "object.data"
+      ],
+      "postconditions": [
+        "object_transform_identity_for_chosen_axes"
+      ],
+      "preconditions": [
+        "context.mode == 'OBJECT'",
+        "selected_objects_nonempty"
+      ]
+    },
+    "bpy.ops.render.render": {
+      "mutates": [
+        "bpy.data.images['Render Result']"
+      ],
+      "postconditions": [
+        "render_result_available"
+      ],
+      "preconditions": [
+        "scene.camera_set",
+        "render_engine_configured"
+      ]
+    },
+    "bpy.ops.wm.open_mainfile": {
+      "mutates": [
+        "bpy.data",
+        "bpy.context.scene"
+      ],
+      "postconditions": [
+        "scene_replaced",
+        "bpy.data.filepath_updated"
+      ],
+      "preconditions": [
+        "filepath_exists",
+        "filepath_is_blend"
+      ]
+    },
+    "bpy.ops.wm.quit_blender": {
+      "mutates": [
+        "process_lifecycle"
+      ],
+      "postconditions": [
+        "process_terminating"
+      ],
+      "preconditions": []
+    },
+    "bpy.ops.wm.read_factory_settings": {
+      "mutates": [
+        "bpy.data",
+        "bpy.context.scene"
+      ],
+      "postconditions": [
+        "scene_reset_to_defaults"
+      ],
+      "preconditions": []
+    },
+    "bpy.ops.wm.save_as_mainfile": {
+      "mutates": [
+        "filesystem",
+        "bpy.data.filepath"
+      ],
+      "postconditions": [
+        "blend_file_written",
+        "bpy.data.filepath_updated"
+      ],
+      "preconditions": [
+        "filepath_dir_writable"
+      ]
+    },
+    "bpy.ops.wm.save_mainfile": {
+      "mutates": [
+        "filesystem"
+      ],
+      "postconditions": [
+        "blend_file_overwritten"
+      ],
+      "preconditions": [
+        "bpy.data.filepath_set"
+      ]
+    }
+  },
+  "schema_tag": "blender-5.0.0-v1"
+}
