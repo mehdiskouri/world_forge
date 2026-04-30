@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from forge_mcp.realize import RpcMethods
+from forge_mcp.realize.rpc import RpcMethods
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

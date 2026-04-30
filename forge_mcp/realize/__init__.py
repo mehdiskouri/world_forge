@@ -24,6 +24,11 @@ from forge_mcp.realize.rpc import (
     RpcResponse,
 )
 
+# Note: ``forge_mcp.realize.engine`` is intentionally not re-exported here
+# to avoid an import cycle: ``engine`` imports
+# ``forge_mcp.bpy_hypergraph.sequences``, which imports ``RpcMethods`` from
+# this package. Callers should ``from forge_mcp.realize.engine import ...``.
+
 __all__ = [
     "BLENDER_BIN_ENV",
     "BlenderNotConfiguredError",
