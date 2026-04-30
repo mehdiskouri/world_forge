@@ -18,6 +18,7 @@ from forge_mcp.realize.blender_proc import (
 from forge_mcp.realize.rpc import (
     RpcClient,
     RpcError,
+    RpcMethods,
     RpcProtocolError,
     RpcRequest,
     RpcResponse,
@@ -29,6 +30,7 @@ __all__ = [
     "BlenderProcess",
     "RpcClient",
     "RpcError",
+    "RpcMethods",
     "RpcProtocolError",
     "RpcRequest",
     "RpcResponse",

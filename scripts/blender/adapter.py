@@ -21,6 +21,16 @@ realizer is Phase 4):
 * ``set_property`` / ``get_property`` — read/write attribute paths on
   a named datablock (e.g., `Object.location`)
 * ``set_idprop`` / ``get_idprop``   — IDProperty round-trip on Object/Mesh
+* ``mesh.from_pydata``              — create a Mesh + Object from raw
+  vertex/edge/face data (Phase 4 realize path)
+* ``image.from_file``               — load an image file into
+  ``bpy.data.images`` (Phase 4 displacement texture path)
+* ``render.to_file``                — render the active scene to a
+  PNG path with controlled resolution / compression (Phase 4 preview)
+* ``material.build_terrain``        — build a single elevation-driven
+  terrain material and assign it to a mesh object (Phase 4)
+* ``scene.diff``                    — return per-collection counts
+  for postcondition checks (Phase 4 engine)
 
 Errors follow JSON-RPC 2.0: ``-32601`` method not found, ``-32602``
 invalid params, ``-32000`` Blender execution error.
@@ -33,8 +43,10 @@ invalid params, ``-32000`` Blender execution error.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
+from pathlib import Path
 from typing import Any
 
 import bpy  # type: ignore[import-not-found]  # Blender-provided
@@ -180,6 +192,155 @@ def _handle_get_idprop(params: dict[str, Any]) -> dict[str, Any]:
     return {"value": _serialize(target[key])}
 
 
+# ---------------------------------------------------------------------------
+# Phase 4 additions: mesh / image / render / material / scene-diff
+# ---------------------------------------------------------------------------
+
+
+def _handle_mesh_from_pydata(params: dict[str, Any]) -> dict[str, Any]:
+    name = params.get("name")
+    vertices = params.get("vertices", [])
+    edges = params.get("edges", [])
+    faces = params.get("faces", [])
+    if not isinstance(name, str):
+        msg = "mesh.from_pydata requires string 'name'"
+        raise ValueError(msg)
+    if not isinstance(vertices, list) or not isinstance(edges, list) or not isinstance(faces, list):
+        msg = "mesh.from_pydata requires list 'vertices', 'edges', 'faces'"
+        raise ValueError(msg)
+    mesh = bpy.data.meshes.new(name=name)
+    mesh.from_pydata(
+        [tuple(v) for v in vertices],
+        [tuple(e) for e in edges],
+        [tuple(f) for f in faces],
+    )
+    mesh.update()
+    obj = bpy.data.objects.new(name=name, object_data=mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    return {"mesh_name": mesh.name, "object_name": obj.name}
+
+
+def _handle_image_from_file(params: dict[str, Any]) -> dict[str, Any]:
+    filepath = params.get("filepath")
+    if not isinstance(filepath, str):
+        msg = "image.from_file requires string 'filepath'"
+        raise ValueError(msg)
+    if not Path(filepath).exists():
+        msg = f"image file does not exist: {filepath!r}"
+        raise FileNotFoundError(msg)
+    image = bpy.data.images.load(filepath, check_existing=False)
+    return {
+        "name": image.name,
+        "width": int(image.size[0]),
+        "height": int(image.size[1]),
+    }
+
+
+def _handle_render_to_file(params: dict[str, Any]) -> dict[str, Any]:
+    filepath = params.get("filepath")
+    resolution_x = int(params.get("resolution_x", 1024))
+    resolution_y = int(params.get("resolution_y", 768))
+    file_format = params.get("file_format", "PNG")
+    color_mode = params.get("color_mode", "RGB")
+    color_depth = str(params.get("color_depth", "8"))
+    compression = int(params.get("compression", 15))
+    camera_name = params.get("camera_name")
+    engine = params.get("engine")
+    if not isinstance(filepath, str):
+        msg = "render.to_file requires string 'filepath'"
+        raise ValueError(msg)
+    scene = bpy.context.scene
+    if engine is not None:
+        scene.render.engine = engine
+    if camera_name is not None:
+        cam = bpy.data.objects.get(camera_name)
+        if cam is None:
+            msg = f"no camera object named {camera_name!r}"
+            raise KeyError(msg)
+        scene.camera = cam
+    Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+    scene.render.filepath = filepath
+    scene.render.image_settings.file_format = file_format
+    scene.render.image_settings.color_mode = color_mode
+    scene.render.image_settings.color_depth = color_depth
+    scene.render.image_settings.compression = compression
+    scene.render.resolution_x = resolution_x
+    scene.render.resolution_y = resolution_y
+    bpy.ops.render.render(write_still=True)
+    size_bytes = Path(filepath).stat().st_size
+    return {
+        "path": filepath,
+        "file_size_bytes": size_bytes,
+        "width": resolution_x,
+        "height": resolution_y,
+    }
+
+
+def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
+    material_name = params.get("material_name")
+    target_object = params.get("target_object")
+    color_ramp_stops = params.get("color_ramp_stops", [])
+    slope_threshold = float(params.get("slope_threshold", 0.5))
+    if not isinstance(material_name, str) or not isinstance(target_object, str):
+        msg = "material.build_terrain requires string 'material_name' and 'target_object'"
+        raise ValueError(msg)
+    if not isinstance(color_ramp_stops, list) or not color_ramp_stops:
+        msg = "material.build_terrain requires non-empty 'color_ramp_stops'"
+        raise ValueError(msg)
+    obj = bpy.data.objects.get(target_object)
+    if obj is None:
+        msg = f"no object named {target_object!r}"
+        raise KeyError(msg)
+    mat = bpy.data.materials.new(name=material_name)
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    for node in list(nodes):
+        nodes.remove(node)
+    output = nodes.new("ShaderNodeOutputMaterial")
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    geom = nodes.new("ShaderNodeNewGeometry")
+    sep = nodes.new("ShaderNodeSeparateXYZ")
+    ramp = nodes.new("ShaderNodeValToRGB")
+    cr = ramp.color_ramp
+    while len(cr.elements) > 1:
+        cr.elements.remove(cr.elements[-1])
+    for index, stop in enumerate(color_ramp_stops):
+        position = float(stop["position"])
+        color = stop["color"]
+        elem = cr.elements[0] if index == 0 else cr.elements.new(position)
+        if index == 0:
+            elem.position = position
+        rgba_min = 4
+        r, g, b = float(color[0]), float(color[1]), float(color[2])
+        a = float(color[3]) if len(color) >= rgba_min else 1.0
+        elem.color = (r, g, b, a)
+    bsdf.inputs["Roughness"].default_value = slope_threshold
+    links.new(geom.outputs["Position"], sep.inputs["Vector"])
+    links.new(sep.outputs["Z"], ramp.inputs["Fac"])
+    links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
+    if obj.data is not None and hasattr(obj.data, "materials"):
+        if len(obj.data.materials) > 0:
+            obj.data.materials[0] = mat
+        else:
+            obj.data.materials.append(mat)
+    return {"material_name": mat.name}
+
+
+def _handle_scene_diff(_params: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "objects": len(bpy.data.objects),
+        "meshes": len(bpy.data.meshes),
+        "materials": len(bpy.data.materials),
+        "images": len(bpy.data.images),
+        "lights": len(bpy.data.lights),
+        "cameras": len(bpy.data.cameras),
+        "curves": len(bpy.data.curves),
+        "worlds": len(bpy.data.worlds),
+    }
+
+
 def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     if method == "ping":
         return _handle_ping(params)
@@ -197,6 +358,16 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_set_idprop(params)
     if method == "get_idprop":
         return _handle_get_idprop(params)
+    if method == "mesh.from_pydata":
+        return _handle_mesh_from_pydata(params)
+    if method == "image.from_file":
+        return _handle_image_from_file(params)
+    if method == "render.to_file":
+        return _handle_render_to_file(params)
+    if method == "material.build_terrain":
+        return _handle_material_build_terrain(params)
+    if method == "scene.diff":
+        return _handle_scene_diff(params)
     msg = f"unknown method: {method!r}"
     raise LookupError(msg)
 
@@ -232,7 +403,7 @@ def _process_line(line: str) -> tuple[str | None, bool]:
         result = _dispatch(method, params_raw)
     except LookupError as exc:
         return _make_response(req_id, None, {"code": ERR_METHOD_NOT_FOUND, "message": str(exc)}), False
-    except (ValueError, KeyError, TypeError) as exc:
+    except (ValueError, KeyError, TypeError, FileNotFoundError) as exc:
         return _make_response(req_id, None, {"code": ERR_INVALID_PARAMS, "message": str(exc)}), False
     except Exception as exc:
         traceback.print_exc(file=sys.stderr)
@@ -241,13 +412,20 @@ def _process_line(line: str) -> tuple[str | None, bool]:
 
 
 def main() -> int:
+    # Blender's renderer (and any C-level Blender chatter) writes to fd 1
+    # (stdout) directly, which would corrupt the JSON-RPC framing. Save a
+    # duplicate of fd 1 for our own response stream and redirect fd 1 to
+    # fd 2 so all foreign chatter ends up on stderr.
+    rpc_fd = os.dup(1)
+    os.dup2(2, 1)
+    rpc_out = os.fdopen(rpc_fd, "w", buffering=1)
     print(f"adapter: blender={_bpy_version()} ready", file=sys.stderr)
     sys.stderr.flush()
     for raw in sys.stdin:
         response, done = _process_line(raw)
         if response is not None:
-            sys.stdout.write(response + "\n")
-            sys.stdout.flush()
+            rpc_out.write(response + "\n")
+            rpc_out.flush()
         if done:
             break
     print("adapter: shutdown", file=sys.stderr)
