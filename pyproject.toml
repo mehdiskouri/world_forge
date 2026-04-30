@@ -36,6 +36,11 @@ Homepage = "https://github.com/mehdi/world_forge"
 Repository = "https://github.com/mehdi/world_forge"
 Issues = "https://github.com/mehdi/world_forge/issues"
 
+[project.scripts]
+# Phase 1 spike 3: ``forge-mcp`` is the MCP server entry point that an
+# agent host (Claude Desktop / Claude Code / Cursor) launches over stdio.
+forge-mcp = "forge_mcp.server.mcp:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
