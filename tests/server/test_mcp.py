@@ -68,9 +68,11 @@ def test_forge_echo_round_trips_empty_string() -> None:
 
 def test_forge_get_descriptor_schema_returns_schema_or_placeholder() -> None:
     result = forge_get_descriptor_schema()
-    # Either the real schema (descriptor branch merged) or the
-    # placeholder ($schema + x-status) — both expose ``$schema``.
-    assert "$schema" in result
+    # Either the real schema (descriptor branch merged — has 'properties'
+    # at the top level because it is a Pydantic-generated object schema)
+    # or the placeholder (has '$schema' + 'x-status'). Both are valid
+    # JSON Schema documents from a host's perspective.
+    assert "properties" in result or "$schema" in result
 
 
 def test_forge_version_is_non_empty_string() -> None:
