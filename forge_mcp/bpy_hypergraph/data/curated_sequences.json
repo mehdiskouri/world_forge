@@ -1,0 +1,265 @@
+{
+  "schema_tag": "blender-5.0.0-v1",
+  "blender_version": "5.0.0",
+  "sequences": [
+    {
+      "name": "reset_scene",
+      "version": "v1",
+      "description": "Wipe the current scene back to an empty state. Uses bpy.ops.wm.read_factory_settings(use_empty=True) which is the supported way to drop every datablock at once.",
+      "inputs_schema": {},
+      "outputs_schema": {},
+      "steps": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "params": {"use_empty": true},
+          "expects": {
+            "scene_diff": {
+              "objects": {"eq": 0},
+              "meshes": {"eq": 0},
+              "materials": {"eq": 0},
+              "images": {"eq": 0},
+              "lights": {"eq": 0},
+              "cameras": {"eq": 0},
+              "curves": {"eq": 0}
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "create_terrain_from_heightmap",
+      "version": "v1",
+      "description": "Build a Mesh+Object terrain grid from raw vertex/face data, then tag it with forge_node_id / forge_spec_id / forge_kind IDProperties.",
+      "inputs_schema": {
+        "object_name": "str",
+        "vertices": "list[list[float]]",
+        "faces": "list[list[int]]",
+        "region_id": "str",
+        "spec_id": "str"
+      },
+      "outputs_schema": {"object_name": "str"},
+      "steps": [
+        {
+          "call": "mesh.from_pydata",
+          "params": {
+            "name": "${object_name}",
+            "vertices": "${vertices}",
+            "edges": [],
+            "faces": "${faces}"
+          },
+          "expects": {"scene_diff": {"objects": {"delta": 1}, "meshes": {"delta": 1}}}
+        },
+        {
+          "call": "set_idprop",
+          "params": {
+            "collection": "objects",
+            "name": "${object_name}",
+            "key": "forge_node_id",
+            "value": "${region_id}"
+          }
+        },
+        {
+          "call": "set_idprop",
+          "params": {
+            "collection": "objects",
+            "name": "${object_name}",
+            "key": "forge_spec_id",
+            "value": "${spec_id}"
+          }
+        },
+        {
+          "call": "set_idprop",
+          "params": {
+            "collection": "objects",
+            "name": "${object_name}",
+            "key": "forge_kind",
+            "value": "terrain_mesh"
+          }
+        }
+      ]
+    },
+    {
+      "name": "apply_terrain_material",
+      "version": "v1",
+      "description": "Build the elevation-driven terrain material and bind it to the target mesh.",
+      "inputs_schema": {
+        "object_name": "str",
+        "material_name": "str",
+        "color_ramp_stops": "list[ColorStop]",
+        "slope_threshold": "float"
+      },
+      "outputs_schema": {"material_name": "str"},
+      "steps": [
+        {
+          "call": "material.build_terrain",
+          "params": {
+            "material_name": "${material_name}",
+            "target_object": "${object_name}",
+            "color_ramp_stops": "${color_ramp_stops}",
+            "slope_threshold": "${slope_threshold}"
+          },
+          "expects": {"scene_diff": {"materials": {"delta": 1}}}
+        }
+      ]
+    },
+    {
+      "name": "carve_stream",
+      "version": "v1",
+      "description": "Materialise the optional stream geometry as a curve object with a water material. Engine skips this entry when stream_geometry is None.",
+      "inputs_schema": {
+        "curve_name": "str",
+        "region_id": "str"
+      },
+      "outputs_schema": {"curve_name": "str"},
+      "steps": [
+        {
+          "call": "bpy.data.curves.new",
+          "params": {"name": "${curve_name}", "type": "CURVE"},
+          "expects": {"scene_diff": {"curves": {"delta": 1}}}
+        },
+        {
+          "call": "set_idprop",
+          "params": {
+            "collection": "curves",
+            "name": "${curve_name}",
+            "key": "forge_node_id",
+            "value": "${region_id}"
+          }
+        },
+        {
+          "call": "set_idprop",
+          "params": {
+            "collection": "curves",
+            "name": "${curve_name}",
+            "key": "forge_kind",
+            "value": "stream_curve"
+          }
+        }
+      ]
+    },
+    {
+      "name": "set_camera_overview",
+      "version": "v1",
+      "description": "Add ortho-top and SE-perspective cameras framing the world bounds. Engine sets render camera per render_preview invocation.",
+      "inputs_schema": {
+        "ortho_camera_name": "str",
+        "perspective_camera_name": "str"
+      },
+      "outputs_schema": {
+        "ortho_camera_name": "str",
+        "perspective_camera_name": "str"
+      },
+      "steps": [
+        {
+          "call": "bpy.data.cameras.new",
+          "params": {"name": "${ortho_camera_name}"},
+          "expects": {"scene_diff": {"cameras": {"delta": 1}}}
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "params": {"name": "${perspective_camera_name}"},
+          "expects": {"scene_diff": {"cameras": {"delta": 1}}}
+        }
+      ]
+    },
+    {
+      "name": "add_basic_lighting",
+      "version": "v1",
+      "description": "Sun lamp plus procedural sky world. Constants chosen for shadow consistency across regions.",
+      "inputs_schema": {
+        "sun_name": "str",
+        "world_name": "str"
+      },
+      "outputs_schema": {},
+      "steps": [
+        {
+          "call": "bpy.data.lights.new",
+          "params": {"name": "${sun_name}", "type": "SUN"},
+          "expects": {"scene_diff": {"lights": {"delta": 1}}}
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "params": {"name": "${world_name}"},
+          "expects": {"scene_diff": {"worlds": {"delta": 1}}}
+        }
+      ]
+    },
+    {
+      "name": "render_preview",
+      "version": "v1",
+      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. Engine enforces the NF-1.5 200KB ceiling and retries once with compression bumped from 15 to 30.",
+      "inputs_schema": {
+        "filepath": "str",
+        "resolution_x": "int",
+        "resolution_y": "int",
+        "camera_name": "str",
+        "engine": "str"
+      },
+      "outputs_schema": {
+        "path": "str",
+        "file_size_bytes": "int"
+      },
+      "steps": [
+        {
+          "call": "render.to_file",
+          "params": {
+            "filepath": "${filepath}",
+            "resolution_x": "${resolution_x}",
+            "resolution_y": "${resolution_y}",
+            "camera_name": "${camera_name}",
+            "engine": "${engine}",
+            "file_format": "PNG",
+            "color_mode": "RGB",
+            "color_depth": "8",
+            "compression": 15
+          },
+          "expects": {"png_max_bytes": 200000}
+        }
+      ]
+    },
+    {
+      "name": "save_blend",
+      "version": "v1",
+      "description": "Save the current main file via bpy.ops.wm.save_as_mainfile. Engine writes through a .blend.tmp + os.replace at the host side for atomicity (the actual rename is host-side, not in this sequence).",
+      "inputs_schema": {"filepath": "str"},
+      "outputs_schema": {"filepath": "str"},
+      "steps": [
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "params": {"filepath": "${filepath}"}
+        }
+      ]
+    },
+    {
+      "name": "realize_region",
+      "version": "v1",
+      "description": "Composite v1 macro: empty scene → terrain mesh → material → optional stream → cameras → lighting → save .blend. Render is driven separately by render_preview because both ortho and perspective views need to flow through the same realised scene.",
+      "inputs_schema": {
+        "object_name": "str",
+        "vertices": "list[list[float]]",
+        "faces": "list[list[int]]",
+        "region_id": "str",
+        "spec_id": "str",
+        "material_name": "str",
+        "color_ramp_stops": "list[ColorStop]",
+        "slope_threshold": "float",
+        "curve_name": "str",
+        "ortho_camera_name": "str",
+        "perspective_camera_name": "str",
+        "sun_name": "str",
+        "world_name": "str",
+        "blend_filepath": "str"
+      },
+      "outputs_schema": {"blend_filepath": "str"},
+      "steps": [
+        {"call": "seq:reset_scene", "params": {}},
+        {"call": "seq:create_terrain_from_heightmap", "params": {}},
+        {"call": "seq:apply_terrain_material", "params": {}},
+        {"call": "seq:carve_stream", "params": {}},
+        {"call": "seq:set_camera_overview", "params": {}},
+        {"call": "seq:add_basic_lighting", "params": {}},
+        {"call": "seq:save_blend", "params": {}}
+      ]
+    }
+  ]
+}
