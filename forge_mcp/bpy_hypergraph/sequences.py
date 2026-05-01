@@ -62,6 +62,8 @@ _FIXED_ADAPTER_METHODS: Final[frozenset[str]] = frozenset(
         RpcMethods.IMAGE_FROM_FILE,
         RpcMethods.RENDER_TO_FILE,
         RpcMethods.MATERIAL_BUILD_TERRAIN,
+        RpcMethods.OBJECT_FROM_DATA,
+        RpcMethods.SCENE_ASSIGN_WORLD,
         RpcMethods.SCENE_DIFF,
     },
 )

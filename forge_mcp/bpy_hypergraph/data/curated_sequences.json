@@ -156,7 +156,7 @@
     {
       "name": "set_camera_overview",
       "version": "v1",
-      "description": "Add ortho-top and SE-perspective cameras framing the world bounds. Engine sets render camera per render_preview invocation.",
+      "description": "Add ortho-top and SE-perspective cameras framing the world bounds. Each camera data-block is wrapped in a scene-linked object so render.to_file can resolve it as scene.camera.",
       "inputs_schema": {
         "ortho_camera_name": "str",
         "perspective_camera_name": "str"
@@ -172,16 +172,34 @@
           "expects": {"scene_diff": {"cameras": {"delta": 1}}}
         },
         {
+          "call": "object.from_data",
+          "params": {
+            "name": "${ortho_camera_name}",
+            "data_collection": "cameras",
+            "data_name": "${ortho_camera_name}"
+          },
+          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
           "call": "bpy.data.cameras.new",
           "params": {"name": "${perspective_camera_name}"},
           "expects": {"scene_diff": {"cameras": {"delta": 1}}}
+        },
+        {
+          "call": "object.from_data",
+          "params": {
+            "name": "${perspective_camera_name}",
+            "data_collection": "cameras",
+            "data_name": "${perspective_camera_name}"
+          },
+          "expects": {"scene_diff": {"objects": {"delta": 1}}}
         }
       ]
     },
     {
       "name": "add_basic_lighting",
       "version": "v1",
-      "description": "Sun lamp plus procedural sky world. Constants chosen for shadow consistency across regions.",
+      "description": "Sun lamp plus procedural sky world. The sun data-block is wrapped in a scene-linked object so it actually casts; the world data-block is bound via scene.assign_world. Constants chosen for shadow consistency across regions.",
       "inputs_schema": {
         "sun_name": "str",
         "world_name": "str"
@@ -194,23 +212,37 @@
           "expects": {"scene_diff": {"lights": {"delta": 1}}}
         },
         {
+          "call": "object.from_data",
+          "params": {
+            "name": "${sun_name}",
+            "data_collection": "lights",
+            "data_name": "${sun_name}"
+          },
+          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
           "call": "bpy.data.worlds.new",
           "params": {"name": "${world_name}"},
           "expects": {"scene_diff": {"worlds": {"delta": 1}}}
+        },
+        {
+          "call": "scene.assign_world",
+          "params": {"name": "${world_name}"}
         }
       ]
     },
     {
       "name": "render_preview",
       "version": "v1",
-      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. The host facade re-runs this macro once with compression bumped from 15 to 30 if the engine reports the file exceeded NF-1.5 (200 KB).",
+      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. The host facade re-runs this macro once with compression bumped from 15 to 100 if the engine reports the file exceeded ${png_max_bytes}.",
       "inputs_schema": {
         "filepath": "str",
         "resolution_x": "int",
         "resolution_y": "int",
         "camera_name": "str",
         "engine": "str",
-        "compression": "int"
+        "compression": "int",
+        "png_max_bytes": "int"
       },
       "outputs_schema": {
         "path": "str",
@@ -230,7 +262,7 @@
             "color_depth": "8",
             "compression": "${compression}"
           },
-          "expects": {"png_max_bytes": 200000}
+          "expects": {"png_max_bytes": "${png_max_bytes}"}
         }
       ]
     },
@@ -280,7 +312,7 @@
         {"call": "seq:carve_stream", "params": {}},
         {"call": "seq:set_camera_overview", "params": {}},
         {"call": "seq:add_basic_lighting", "params": {}},
-        {"call": "seq:save_blend", "params": {}}
+        {"call": "seq:save_blend", "params": {"filepath": "${blend_filepath}"}}
       ]
     }
   ]
