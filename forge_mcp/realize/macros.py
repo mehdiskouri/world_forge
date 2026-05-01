@@ -31,7 +31,8 @@ if TYPE_CHECKING:
 
 
 DEFAULT_PNG_COMPRESSION: Final[int] = 15
-RETRY_PNG_COMPRESSION: Final[int] = 30
+RETRY_PNG_COMPRESSION: Final[int] = 100
+DEFAULT_PNG_MAX_BYTES: Final[int] = 280_000
 
 
 # --- Macro input models ------------------------------------------------------
@@ -97,6 +98,7 @@ class RenderPreviewInputs:
     camera_name: str
     engine: str
     compression: int = DEFAULT_PNG_COMPRESSION
+    png_max_bytes: int = DEFAULT_PNG_MAX_BYTES
 
 
 @dataclass(frozen=True, slots=True)
@@ -211,7 +213,7 @@ def render_preview(
     macro's ``expects.png_max_bytes``); on the first overflow this
     facade transparently re-runs the macro once with PNG ``compression``
     bumped from :data:`DEFAULT_PNG_COMPRESSION` (15) to
-    :data:`RETRY_PNG_COMPRESSION` (30) before re-raising. Any second
+    :data:`RETRY_PNG_COMPRESSION` (100) before re-raising. Any second
     failure (or a non-budget step error) propagates unchanged so the
     trace reaches the caller.
     """

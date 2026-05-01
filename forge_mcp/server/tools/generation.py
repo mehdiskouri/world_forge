@@ -78,6 +78,15 @@ _RESOLUTIONS: Final[dict[str, tuple[int, int]]] = {
     RESOLUTION_FULL: (2048, 1536),
 }
 
+# Per-resolution PNG ceilings (bytes). Phase 4 measured ~213 KB at the
+# default resolution under zlib level 9 for a textured terrain scene; we
+# add headroom and scale linearly with pixel count for the larger views.
+_PNG_MAX_BYTES: Final[dict[str, int]] = {
+    RESOLUTION_PREVIEW: 100_000,
+    RESOLUTION_DEFAULT: 280_000,
+    RESOLUTION_FULL: 1_120_000,
+}
+
 _DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
     {"position": 0.0, "color": [0.18, 0.34, 0.12, 1.0]},
     {"position": 0.5, "color": [0.45, 0.36, 0.27, 1.0]},
@@ -250,6 +259,7 @@ def _run_realizer(
             resolution_y=height,
             camera_name=_camera_name_for_view(region_id, view_kind),
             engine=_RENDER_ENGINE,
+            png_max_bytes=_PNG_MAX_BYTES[resolution],
         )
         plan.append((view_kind, resolution, preview_path, preview_tmp, trace_path, render_inputs))
 
