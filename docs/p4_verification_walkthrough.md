@@ -40,13 +40,24 @@ Install Blender 5.0.0 per [`docs/blender_setup.md`](blender_setup.md)
 and confirm:
 
 ```bash
-echo "$FORGE_BLENDER_BIN"
-"$FORGE_BLENDER_BIN" --version | head -1   # → "Blender 5.0.0 …"
+# 1. Find the binary (adjust to wherever your install lives).
+which blender                 # e.g. /usr/bin/blender
+blender --version | head -1   # → "Blender 5.0.0"
+
+# 2. Export the env var the realizer keys off — every later command
+#    in this walkthrough assumes it's set in the current shell.
+export FORGE_BLENDER_BIN="$(command -v blender)"
+echo "$FORGE_BLENDER_BIN"                 # must print a non-empty path
+"$FORGE_BLENDER_BIN" --version | head -1  # → "Blender 5.0.0"
 ```
 
-If `--version` prints anything else, **stop here** — the realizer is
-designed to refuse to operate (see §7 below) and every demo will fail
-with `BlenderVersionMismatchError`.
+If `$FORGE_BLENDER_BIN` is empty the next command expands to a bare
+`"" --version` and your shell prints "Command '' not found" — that
+means you skipped the `export` step.
+
+If `--version` prints anything other than `Blender 5.0.0`, **stop
+here** — the realizer is designed to refuse to operate (see §7
+below) and every demo will fail with `BlenderVersionMismatchError`.
 
 ---
 
