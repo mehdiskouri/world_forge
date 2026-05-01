@@ -156,10 +156,15 @@
     {
       "name": "set_camera_overview",
       "version": "v1",
-      "description": "Add ortho-top and SE-perspective cameras framing the world bounds. Each camera data-block is wrapped in a scene-linked object so render.to_file can resolve it as scene.camera.",
+      "description": "Create and configure the ortho-top and SE-perspective cameras that frame the realised region. Each camera data-block is wrapped in a scene-linked object so render.to_file can resolve it as scene.camera; the data-block itself is then switched to ORTHO / sized via ortho_scale, and the wrapping object is positioned + rotated to actually look at the terrain. Without these set_property steps the cameras stay at the Blender default (0,0,0)/PERSP and the renders come out solid grey.",
       "inputs_schema": {
         "ortho_camera_name": "str",
-        "perspective_camera_name": "str"
+        "perspective_camera_name": "str",
+        "ortho_location": "list[float]",
+        "ortho_rotation_euler": "list[float]",
+        "ortho_scale": "float",
+        "perspective_location": "list[float]",
+        "perspective_rotation_euler": "list[float]"
       },
       "outputs_schema": {
         "ortho_camera_name": "str",
@@ -181,6 +186,42 @@
           "expects": {"scene_diff": {"objects": {"delta": 1}}}
         },
         {
+          "call": "set_property",
+          "params": {
+            "collection": "cameras",
+            "name": "${ortho_camera_name}",
+            "path": "type",
+            "value": "ORTHO"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "cameras",
+            "name": "${ortho_camera_name}",
+            "path": "ortho_scale",
+            "value": "${ortho_scale}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${ortho_camera_name}",
+            "path": "location",
+            "value": "${ortho_location}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${ortho_camera_name}",
+            "path": "rotation_euler",
+            "value": "${ortho_rotation_euler}"
+          }
+        },
+        {
           "call": "bpy.data.cameras.new",
           "params": {"name": "${perspective_camera_name}"},
           "expects": {"scene_diff": {"cameras": {"delta": 1}}}
@@ -193,16 +234,36 @@
             "data_name": "${perspective_camera_name}"
           },
           "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${perspective_camera_name}",
+            "path": "location",
+            "value": "${perspective_location}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${perspective_camera_name}",
+            "path": "rotation_euler",
+            "value": "${perspective_rotation_euler}"
+          }
         }
       ]
     },
     {
       "name": "add_basic_lighting",
       "version": "v1",
-      "description": "Sun lamp plus procedural sky world. The sun data-block is wrapped in a scene-linked object so it actually casts; the world data-block is bound via scene.assign_world. Constants chosen for shadow consistency across regions.",
+      "description": "Sun lamp plus procedural sky world. The sun data-block is wrapped in a scene-linked object so it actually casts and is then rotated to a fixed off-zenith angle (default Euler is (0,0,0) which makes the sun point straight down, washing out terrain relief); the world data-block is bound via scene.assign_world. Constants chosen for shadow consistency across regions.",
       "inputs_schema": {
         "sun_name": "str",
-        "world_name": "str"
+        "world_name": "str",
+        "sun_location": "list[float]",
+        "sun_rotation_euler": "list[float]"
       },
       "outputs_schema": {},
       "steps": [
@@ -219,6 +280,24 @@
             "data_name": "${sun_name}"
           },
           "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${sun_name}",
+            "path": "location",
+            "value": "${sun_location}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${sun_name}",
+            "path": "rotation_euler",
+            "value": "${sun_rotation_euler}"
+          }
         },
         {
           "call": "bpy.data.worlds.new",
@@ -295,8 +374,15 @@
         "curve_name": "str",
         "ortho_camera_name": "str",
         "perspective_camera_name": "str",
+        "ortho_location": "list[float]",
+        "ortho_rotation_euler": "list[float]",
+        "ortho_scale": "float",
+        "perspective_location": "list[float]",
+        "perspective_rotation_euler": "list[float]",
         "sun_name": "str",
         "world_name": "str",
+        "sun_location": "list[float]",
+        "sun_rotation_euler": "list[float]",
         "blend_filepath": "str",
         "heightmap_image_filepath": "str",
         "displace_strength": "float",

@@ -40,7 +40,11 @@ from forge_mcp.project.service import (
     _now,
 )
 from forge_mcp.realize.engine import RealizerError
-from forge_mcp.realize.heightmap_mesh import mesh_from_heightmap
+from forge_mcp.realize.heightmap_mesh import (
+    SceneFraming,
+    mesh_from_heightmap,
+    scene_framing_from_heightmap,
+)
 from forge_mcp.realize.macros import (
     RealizeRegionInputs,
     RenderPreviewInputs,
@@ -78,13 +82,16 @@ _RESOLUTIONS: Final[dict[str, tuple[int, int]]] = {
     RESOLUTION_FULL: (2048, 1536),
 }
 
-# Per-resolution PNG ceilings (bytes). Phase 4 measured ~213 KB at the
-# default resolution under zlib level 9 for a textured terrain scene; we
-# add headroom and scale linearly with pixel count for the larger views.
+# Per-resolution PNG ceilings (bytes). Earlier measurements (~213 KB at
+# the default resolution) were taken when cameras and lights were created
+# but never positioned, so renders were near-blank gray. Once the
+# realizer was fixed to frame the heightmap and orient the sun, default
+# 1024x768 renders measured ~350 KB under zlib level 9 (post-retry); we
+# add headroom and scale by pixel count for the other resolutions.
 _PNG_MAX_BYTES: Final[dict[str, int]] = {
-    RESOLUTION_PREVIEW: 100_000,
-    RESOLUTION_DEFAULT: 280_000,
-    RESOLUTION_FULL: 1_120_000,
+    RESOLUTION_PREVIEW: 200_000,
+    RESOLUTION_DEFAULT: 500_000,
+    RESOLUTION_FULL: 2_000_000,
 }
 
 _DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
@@ -93,6 +100,7 @@ _DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
     {"position": 1.0, "color": [0.95, 0.95, 0.95, 1.0]},
 )
 _DEFAULT_SLOPE_THRESHOLD: Final[float] = 0.35
+
 _RENDER_ENGINE: Final[str] = "BLENDER_EEVEE"  # Blender 5.0 enum identifier
 
 
@@ -186,6 +194,7 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     blend_filepath: Path,
     heightmap_image_filepath: Path,
     displace_strength: float,
+    framing: SceneFraming,
 ) -> RealizeRegionInputs:
     """Assemble the per-region :class:`RealizeRegionInputs` payload."""
     rid_str = str(region_id)
@@ -202,8 +211,15 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
         curve_name=f"stream_{rid_str}",
         ortho_camera_name=f"cam_ortho_{rid_str}",
         perspective_camera_name=f"cam_persp_{rid_str}",
+        ortho_location=list(framing.ortho_location),
+        ortho_rotation_euler=list(framing.ortho_rotation_euler),
+        ortho_scale=framing.ortho_scale,
+        perspective_location=list(framing.perspective_location),
+        perspective_rotation_euler=list(framing.perspective_rotation_euler),
         sun_name=f"sun_{rid_str}",
         world_name=f"world_{rid_str}",
+        sun_location=list(framing.sun_location),
+        sun_rotation_euler=list(framing.sun_rotation_euler),
         blend_filepath=str(blend_filepath),
         heightmap_image_filepath=str(heightmap_image_filepath),
         displace_strength=displace_strength,
@@ -234,8 +250,17 @@ def _run_realizer(
     heightmap_png = paths.heightmap_png_path(region_id)
 
     vertices, faces = mesh_from_heightmap(heightmap)
-    elev_lo, elev_hi = heightmap.elevation_band
-    displace_strength = max(float(elev_hi) - float(elev_lo), 0.0)
+    # The mesh vertices emitted by ``mesh_from_heightmap`` already carry
+    # ``z = data_meters`` (i.e. the heightmap value in metres above sea
+    # level). Blender's DISPLACE modifier adds ``(texture - midlevel) *
+    # strength`` along the vertex normal *on top* of that, so a non-zero
+    # ``displace_strength`` would double the elevation and turn high-
+    # relief regions (alpine, canyon) into unrenderable vertical spikes.
+    # The displace step is kept attached for future detail-recovery use
+    # when the heightmap is downsampled past ``MAX_RESOLUTION`` (not
+    # currently exercised) but its strength must be zero today.
+    displace_strength = 0.0
+    framing = scene_framing_from_heightmap(heightmap)
 
     realize_inputs = _build_realize_inputs(
         region_id,
@@ -245,6 +270,7 @@ def _run_realizer(
         blend_tmp,
         heightmap_png,
         displace_strength,
+        framing,
     )
 
     plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs]] = []

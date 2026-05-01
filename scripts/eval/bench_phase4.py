@@ -47,7 +47,7 @@ from forge_mcp.generate.heightmap import save_png16
 from forge_mcp.generate.terrain import run as run_terrain
 from forge_mcp.realize import BLENDER_BIN_ENV, BlenderNotConfiguredError, BlenderProcess
 from forge_mcp.realize.engine import RealizerEngine
-from forge_mcp.realize.heightmap_mesh import mesh_from_heightmap
+from forge_mcp.realize.heightmap_mesh import mesh_from_heightmap, scene_framing_from_heightmap
 from forge_mcp.realize.macros import (
     RealizeRegionInputs,
     RenderPreviewInputs,
@@ -104,8 +104,9 @@ def _bench_one(
     preview_path = out_dir / f"{label}.preview.png"
     heightmap_png = out_dir / f"{label}.heightmap.png"
     save_png16(gen_result.heightmap, heightmap_png)
-    elev_lo, elev_hi = gen_result.heightmap.elevation_band
-    displace_strength = max(float(elev_hi) - float(elev_lo), 0.0)
+    # See generation._run_realizer for why this is zero.
+    displace_strength = 0.0
+    framing = scene_framing_from_heightmap(gen_result.heightmap)
 
     inputs = RealizeRegionInputs(
         object_name=f"terrain_{label}",
@@ -119,8 +120,15 @@ def _bench_one(
         curve_name=f"stream_{label}",
         ortho_camera_name=f"cam_ortho_{label}",
         perspective_camera_name=f"cam_persp_{label}",
+        ortho_location=list(framing.ortho_location),
+        ortho_rotation_euler=list(framing.ortho_rotation_euler),
+        ortho_scale=framing.ortho_scale,
+        perspective_location=list(framing.perspective_location),
+        perspective_rotation_euler=list(framing.perspective_rotation_euler),
         sun_name=f"sun_{label}",
         world_name=f"world_{label}",
+        sun_location=list(framing.sun_location),
+        sun_rotation_euler=list(framing.sun_rotation_euler),
         blend_filepath=str(blend_path),
         heightmap_image_filepath=str(heightmap_png),
         displace_strength=displace_strength,

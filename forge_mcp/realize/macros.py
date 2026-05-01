@@ -74,18 +74,37 @@ class CarveStreamInputs:
 
 @dataclass(frozen=True, slots=True)
 class SetCameraOverviewInputs:
-    """Inputs for the ``set_camera_overview`` macro."""
+    """Inputs for the ``set_camera_overview`` macro.
+
+    The location / rotation / ortho_scale fields are mandatory in v1
+    because Blender's default camera (location=(0,0,0), rotation=(0,0,0),
+    type=PERSP) sits underground for any non-trivial terrain and would
+    render solid grey. The host computes them from the heightmap's
+    world extent and elevation band.
+    """
 
     ortho_camera_name: str
     perspective_camera_name: str
+    ortho_location: Sequence[float]
+    ortho_rotation_euler: Sequence[float]
+    ortho_scale: float
+    perspective_location: Sequence[float]
+    perspective_rotation_euler: Sequence[float]
 
 
 @dataclass(frozen=True, slots=True)
 class AddBasicLightingInputs:
-    """Inputs for the ``add_basic_lighting`` macro."""
+    """Inputs for the ``add_basic_lighting`` macro.
+
+    The sun's rotation must be set explicitly: a sun lamp at Euler
+    (0, 0, 0) points straight down, which kills every cast shadow and
+    flattens the terrain in the render.
+    """
 
     sun_name: str
     world_name: str
+    sun_location: Sequence[float]
+    sun_rotation_euler: Sequence[float]
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,8 +142,15 @@ class RealizeRegionInputs:
     curve_name: str
     ortho_camera_name: str
     perspective_camera_name: str
+    ortho_location: Sequence[float]
+    ortho_rotation_euler: Sequence[float]
+    ortho_scale: float
+    perspective_location: Sequence[float]
+    perspective_rotation_euler: Sequence[float]
     sun_name: str
     world_name: str
+    sun_location: Sequence[float]
+    sun_rotation_euler: Sequence[float]
     blend_filepath: str
     heightmap_image_filepath: str
     displace_strength: float

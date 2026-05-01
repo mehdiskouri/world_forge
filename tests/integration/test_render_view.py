@@ -17,9 +17,9 @@ if TYPE_CHECKING:
 # level 9 for textured terrain. See docs/p4_verification_walkthrough.md
 # for the NF-1.5 measurement notes (default ~213 KB observed).
 _PNG_CEILING_BYTES_BY_RESOLUTION: dict[str, int] = {
-    "preview": 100_000,
-    "default": 280_000,
-    "full": 1_120_000,
+    "preview": 200_000,
+    "default": 500_000,
+    "full": 2_000_000,
 }
 
 
