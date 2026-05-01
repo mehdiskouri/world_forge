@@ -150,6 +150,7 @@ xfail_strict = true
 testpaths = ["tests"]
 markers = [
     "blender_integration: tests that spawn a real Blender 5.0 process; gated on $FORGE_BLENDER_BIN",
+    "slow: tests that take more than a couple of seconds; filtered out by the default integration runner",
 ]
 
 # ---------------------------------------------------------------------------
