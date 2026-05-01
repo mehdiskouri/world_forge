@@ -45,6 +45,7 @@ _SEQ_PREFIX: Final[str] = "seq:"
 _PNG_BUDGET_KEY: Final[str] = "png_max_bytes"
 _SCENE_DIFF_KEY: Final[str] = "scene_diff"
 _FILE_SIZE_KEY: Final[str] = "file_size_bytes"
+REASON_PNG_OVERSIZE: Final[str] = "png_oversize"
 
 
 class BlenderVersionMismatchError(RuntimeError):
@@ -58,7 +59,7 @@ class RealizerError(RuntimeError):
 class RealizerStepError(RealizerError):
     """A single step failed (RPC error, postcondition mismatch, ...)."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - error captures full step coordinates
         self,
         message: str,
         *,
@@ -66,12 +67,14 @@ class RealizerStepError(RealizerError):
         step_index: int,
         trace: tuple[RealizationTraceStep, ...],
         cause: Exception | None = None,
+        reason_code: str | None = None,
     ) -> None:
         """Carry the partial trace plus the originating step coordinates."""
         super().__init__(message)
         self.sequence_name = sequence_name
         self.step_index = step_index
         self.trace = trace
+        self.reason_code = reason_code
         self.__cause__ = cause
 
 
@@ -430,6 +433,7 @@ class RealizerEngine:
                 obs,
                 state,
                 f"render exceeded png budget: {size} > {budget} bytes",
+                reason_code=REASON_PNG_OVERSIZE,
             )
 
     def _record_failure(
@@ -438,6 +442,8 @@ class RealizerEngine:
         obs: _StepObs,
         state: _ExecState,
         message: str,
+        *,
+        reason_code: str | None = None,
     ) -> None:
         state.trace.append(
             RealizationTraceStep(
@@ -455,6 +461,7 @@ class RealizerEngine:
             sequence_name=ctx.sequence_name,
             step_index=ctx.index,
             trace=tuple(state.trace),
+            reason_code=reason_code,
         )
 
     def _snapshot_scene_diff(self) -> Mapping[str, int]:

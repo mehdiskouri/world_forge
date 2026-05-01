@@ -15,14 +15,23 @@ engine; macros only build the input payload and call the engine.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, is_dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, fields, is_dataclass, replace
+from typing import TYPE_CHECKING, Final
+
+from forge_mcp.realize.engine import REASON_PNG_OVERSIZE, RealizerStepError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from forge_mcp.realize.engine import RealizationResult, RealizerEngine
     from forge_mcp.realize.rpc import JsonValue
+
+
+# --- Constants ---------------------------------------------------------------
+
+
+DEFAULT_PNG_COMPRESSION: Final[int] = 15
+RETRY_PNG_COMPRESSION: Final[int] = 30
 
 
 # --- Macro input models ------------------------------------------------------
@@ -37,6 +46,11 @@ class CreateTerrainInputs:
     faces: Sequence[Sequence[int]]
     region_id: str
     spec_id: str
+    heightmap_image_filepath: str
+    displace_strength: float
+    displace_midlevel: float
+    displace_modifier_name: str
+    displace_texture_name: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +96,7 @@ class RenderPreviewInputs:
     resolution_y: int
     camera_name: str
     engine: str
+    compression: int = DEFAULT_PNG_COMPRESSION
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +124,11 @@ class RealizeRegionInputs:
     sun_name: str
     world_name: str
     blend_filepath: str
+    heightmap_image_filepath: str
+    displace_strength: float
+    displace_midlevel: float = 0.5
+    displace_modifier_name: str = "forge_displace"
+    displace_texture_name: str = "forge_heightmap"
 
 
 # --- Macro names -------------------------------------------------------------
@@ -188,12 +208,22 @@ def render_preview(
     """Run the ``render_preview`` curated macro.
 
     The engine enforces the NF-1.5 200 KB ceiling automatically (via the
-    macro's ``expects.png_max_bytes``); on failure the
-    :class:`~forge_mcp.realize.engine.RealizerStepError` carries the
-    rendered file size in its trace so callers can decide whether to
-    re-render at a tighter compression / lower resolution.
+    macro's ``expects.png_max_bytes``); on the first overflow this
+    facade transparently re-runs the macro once with PNG ``compression``
+    bumped from :data:`DEFAULT_PNG_COMPRESSION` (15) to
+    :data:`RETRY_PNG_COMPRESSION` (30) before re-raising. Any second
+    failure (or a non-budget step error) propagates unchanged so the
+    trace reaches the caller.
     """
-    return engine.execute_macro(MACRO_RENDER_PREVIEW, _to_inputs(inputs))
+    try:
+        return engine.execute_macro(MACRO_RENDER_PREVIEW, _to_inputs(inputs))
+    except RealizerStepError as exc:
+        if exc.reason_code != REASON_PNG_OVERSIZE:
+            raise
+        if inputs.compression >= RETRY_PNG_COMPRESSION:
+            raise
+        retry_inputs = replace(inputs, compression=RETRY_PNG_COMPRESSION)
+        return engine.execute_macro(MACRO_RENDER_PREVIEW, _to_inputs(retry_inputs))
 
 
 def save_blend(

@@ -148,6 +148,7 @@ class RpcMethods:
     SET_IDPROP: Final[str] = "set_idprop"
     GET_IDPROP: Final[str] = "get_idprop"
     MESH_FROM_PYDATA: Final[str] = "mesh.from_pydata"
+    MESH_ADD_DISPLACE: Final[str] = "mesh.add_displace_modifier"
     IMAGE_FROM_FILE: Final[str] = "image.from_file"
     RENDER_TO_FILE: Final[str] = "render.to_file"
     MATERIAL_BUILD_TERRAIN: Final[str] = "material.build_terrain"

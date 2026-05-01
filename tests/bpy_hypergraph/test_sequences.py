@@ -77,6 +77,7 @@ def test_calls_validate_against_hypergraph_when_provided() -> None:
         "set_idprop",
         "get_idprop",
         "mesh.from_pydata",
+        "mesh.add_displace_modifier",
         "image.from_file",
         "render.to_file",
         "material.build_terrain",

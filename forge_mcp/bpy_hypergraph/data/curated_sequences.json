@@ -29,13 +29,18 @@
     {
       "name": "create_terrain_from_heightmap",
       "version": "v1",
-      "description": "Build a Mesh+Object terrain grid from raw vertex/face data, then tag it with forge_node_id / forge_spec_id / forge_kind IDProperties.",
+      "description": "Build a Mesh+Object terrain grid from raw vertex/face data, tag it with forge_node_id / forge_spec_id / forge_kind IDProperties, then attach a DISPLACE modifier driven by the full-res 16-bit heightmap PNG so the high-frequency detail returns even though the mesh itself is capped at 256x256.",
       "inputs_schema": {
         "object_name": "str",
         "vertices": "list[list[float]]",
         "faces": "list[list[int]]",
         "region_id": "str",
-        "spec_id": "str"
+        "spec_id": "str",
+        "heightmap_image_filepath": "str",
+        "displace_strength": "float",
+        "displace_midlevel": "float",
+        "displace_modifier_name": "str",
+        "displace_texture_name": "str"
       },
       "outputs_schema": {"object_name": "str"},
       "steps": [
@@ -74,6 +79,17 @@
             "name": "${object_name}",
             "key": "forge_kind",
             "value": "terrain_mesh"
+          }
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "params": {
+            "object_name": "${object_name}",
+            "image_filepath": "${heightmap_image_filepath}",
+            "modifier_name": "${displace_modifier_name}",
+            "texture_name": "${displace_texture_name}",
+            "strength": "${displace_strength}",
+            "midlevel": "${displace_midlevel}"
           }
         }
       ]
@@ -187,13 +203,14 @@
     {
       "name": "render_preview",
       "version": "v1",
-      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. Engine enforces the NF-1.5 200KB ceiling and retries once with compression bumped from 15 to 30.",
+      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. The host facade re-runs this macro once with compression bumped from 15 to 30 if the engine reports the file exceeded NF-1.5 (200 KB).",
       "inputs_schema": {
         "filepath": "str",
         "resolution_x": "int",
         "resolution_y": "int",
         "camera_name": "str",
-        "engine": "str"
+        "engine": "str",
+        "compression": "int"
       },
       "outputs_schema": {
         "path": "str",
@@ -211,7 +228,7 @@
             "file_format": "PNG",
             "color_mode": "RGB",
             "color_depth": "8",
-            "compression": 15
+            "compression": "${compression}"
           },
           "expects": {"png_max_bytes": 200000}
         }
@@ -248,7 +265,12 @@
         "perspective_camera_name": "str",
         "sun_name": "str",
         "world_name": "str",
-        "blend_filepath": "str"
+        "blend_filepath": "str",
+        "heightmap_image_filepath": "str",
+        "displace_strength": "float",
+        "displace_midlevel": "float",
+        "displace_modifier_name": "str",
+        "displace_texture_name": "str"
       },
       "outputs_schema": {"blend_filepath": "str"},
       "steps": [

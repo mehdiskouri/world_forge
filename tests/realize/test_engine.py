@@ -267,6 +267,7 @@ def test_png_budget_ceiling_violation_raises() -> None:
         engine.execute_macro("one", {})
 
     assert "exceeded png budget" in str(excinfo.value)
+    assert excinfo.value.reason_code == "png_oversize"
 
 
 def test_png_budget_ok_passes() -> None:

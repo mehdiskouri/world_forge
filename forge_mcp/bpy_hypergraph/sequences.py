@@ -58,6 +58,7 @@ _FIXED_ADAPTER_METHODS: Final[frozenset[str]] = frozenset(
         RpcMethods.SET_IDPROP,
         RpcMethods.GET_IDPROP,
         RpcMethods.MESH_FROM_PYDATA,
+        RpcMethods.MESH_ADD_DISPLACE,
         RpcMethods.IMAGE_FROM_FILE,
         RpcMethods.RENDER_TO_FILE,
         RpcMethods.MATERIAL_BUILD_TERRAIN,

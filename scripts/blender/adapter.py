@@ -328,6 +328,41 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
     return {"material_name": mat.name}
 
 
+def _handle_mesh_add_displace_modifier(params: dict[str, Any]) -> dict[str, Any]:
+    object_name = params.get("object_name")
+    image_filepath = params.get("image_filepath")
+    modifier_name = params.get("modifier_name", "forge_displace")
+    texture_name = params.get("texture_name", "forge_heightmap")
+    strength = float(params.get("strength", 1.0))
+    midlevel = float(params.get("midlevel", 0.5))
+    if not isinstance(object_name, str) or not isinstance(image_filepath, str):
+        msg = "mesh.add_displace_modifier requires string 'object_name' and 'image_filepath'"
+        raise ValueError(msg)
+    if not Path(image_filepath).exists():
+        msg = f"image file does not exist: {image_filepath!r}"
+        raise FileNotFoundError(msg)
+    obj = bpy.data.objects.get(object_name)
+    if obj is None:
+        msg = f"no object named {object_name!r}"
+        raise KeyError(msg)
+    image = bpy.data.images.load(image_filepath, check_existing=True)
+    texture = bpy.data.textures.new(name=texture_name, type="IMAGE")
+    texture.image = image
+    modifier = obj.modifiers.new(name=modifier_name, type="DISPLACE")
+    modifier.texture = texture
+    modifier.strength = strength
+    modifier.mid_level = midlevel
+    modifier.texture_coords = "UV"
+    return {
+        "object_name": object_name,
+        "modifier_name": modifier.name,
+        "texture_name": texture.name,
+        "image_name": image.name,
+        "strength": strength,
+        "midlevel": midlevel,
+    }
+
+
 def _handle_scene_diff(_params: dict[str, Any]) -> dict[str, Any]:
     return {
         "objects": len(bpy.data.objects),
@@ -338,6 +373,7 @@ def _handle_scene_diff(_params: dict[str, Any]) -> dict[str, Any]:
         "cameras": len(bpy.data.cameras),
         "curves": len(bpy.data.curves),
         "worlds": len(bpy.data.worlds),
+        "textures": len(bpy.data.textures),
     }
 
 
@@ -360,6 +396,8 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_get_idprop(params)
     if method == "mesh.from_pydata":
         return _handle_mesh_from_pydata(params)
+    if method == "mesh.add_displace_modifier":
+        return _handle_mesh_add_displace_modifier(params)
     if method == "image.from_file":
         return _handle_image_from_file(params)
     if method == "render.to_file":
