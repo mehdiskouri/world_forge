@@ -61,3 +61,41 @@ def test_mesh_from_heightmap_rejects_too_small_grid() -> None:
     data = np.zeros((1, 5), dtype=np.float32)
     with pytest.raises(ValueError, match="at least 2x2"):
         mesh_from_heightmap(_hm(data))
+
+
+def test_mesh_from_heightmap_rejects_invalid_max_resolution() -> None:
+    data = np.zeros((4, 4), dtype=np.float32)
+    with pytest.raises(ValueError, match="max_resolution must be >= 2"):
+        mesh_from_heightmap(_hm(data), max_resolution=1)
+
+
+_SMALL_CAP = 4
+_EXPECTED_VERTS_CAPPED = _SMALL_CAP * _SMALL_CAP
+_EXPECTED_FACES_CAPPED = (_SMALL_CAP - 1) * (_SMALL_CAP - 1)
+
+
+def test_mesh_from_heightmap_subsamples_when_above_cap() -> None:
+    # 8x8 source, cap 4 -> 4x4 mesh of 16 vertices and 9 quads.
+    data = np.arange(64, dtype=np.float32).reshape((8, 8))
+    vertices, faces = mesh_from_heightmap(
+        _hm(data, res=1.0, origin=(0.0, 0.0)),
+        max_resolution=_SMALL_CAP,
+    )
+    assert len(vertices) == _EXPECTED_VERTS_CAPPED
+    assert len(faces) == _EXPECTED_FACES_CAPPED
+    # First and last vertex track outer extent of the source grid.
+    first_x, first_y, _ = vertices[0]
+    last_x, last_y, _ = vertices[-1]
+    assert first_x == 0.0
+    assert first_y == 0.0
+    assert last_x == 7.0  # noqa: PLR2004 - source grid extent
+    assert last_y == 7.0  # noqa: PLR2004 - source grid extent
+    # Subsampled elevations are byte-identical picks from the source grid.
+    assert {round(v[2]) for v in vertices}.issubset(set(range(64)))
+
+
+def test_mesh_from_heightmap_passes_through_when_below_cap() -> None:
+    data = np.zeros((4, 4), dtype=np.float32)
+    vertices, faces = mesh_from_heightmap(_hm(data), max_resolution=_SMALL_CAP)
+    assert len(vertices) == _EXPECTED_VERTS_CAPPED
+    assert len(faces) == _EXPECTED_FACES_CAPPED
