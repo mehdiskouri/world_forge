@@ -287,6 +287,11 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
     target_object = params.get("target_object")
     color_ramp_stops = params.get("color_ramp_stops", [])
     slope_threshold = float(params.get("slope_threshold", 0.5))
+    elevation_min = float(params.get("elevation_min", 0.0))
+    elevation_max = float(params.get("elevation_max", 1.0))
+    elevation_span = elevation_max - elevation_min
+    if elevation_span <= 0.0:
+        elevation_span = 1.0
     if not isinstance(material_name, str) or not isinstance(target_object, str):
         msg = "material.build_terrain requires string 'material_name' and 'target_object'"
         raise ValueError(msg)
@@ -322,8 +327,21 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
         a = float(color[3]) if len(color) >= rgba_min else 1.0
         elem.color = (r, g, b, a)
     bsdf.inputs["Roughness"].default_value = slope_threshold
+    # Normalize world-space Z (in metres) into the color ramp's [0, 1]
+    # input domain. Without this the ramp Fac receives raw metres, every
+    # vertex past the first stop clamps to the top colour, and the whole
+    # terrain renders in a single flat shade.
+    sub = nodes.new("ShaderNodeMath")
+    sub.operation = "SUBTRACT"
+    sub.inputs[1].default_value = elevation_min
+    div = nodes.new("ShaderNodeMath")
+    div.operation = "DIVIDE"
+    div.inputs[1].default_value = elevation_span
+    div.use_clamp = True
     links.new(geom.outputs["Position"], sep.inputs["Vector"])
-    links.new(sep.outputs["Z"], ramp.inputs["Fac"])
+    links.new(sep.outputs["Z"], sub.inputs[0])
+    links.new(sub.outputs["Value"], div.inputs[0])
+    links.new(div.outputs["Value"], ramp.inputs["Fac"])
     links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
     links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
     if obj.data is not None and hasattr(obj.data, "materials"):

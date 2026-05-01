@@ -47,8 +47,8 @@ MAX_RESOLUTION: Final[int] = 256
 # :func:`scene_framing_from_heightmap`.
 _ORTHO_FRAME_PADDING: Final[float] = 1.05  # 5% margin around the world bounds
 _ORTHO_HEIGHT_CLEARANCE: Final[float] = 100.0  # metres above the highest peak
-_PERSPECTIVE_OFFSET_FACTOR: Final[float] = 1.4  # camera distance vs. world span
-_PERSPECTIVE_HEIGHT_FACTOR: Final[float] = 1.0  # camera lift vs. world span
+_PERSPECTIVE_OFFSET_FACTOR: Final[float] = 0.6  # camera distance vs. world span
+_PERSPECTIVE_HEIGHT_FACTOR: Final[float] = 0.35  # camera lift vs. world span
 _SUN_PITCH_RAD: Final[float] = math.radians(45.0)
 _SUN_YAW_RAD: Final[float] = math.radians(-45.0)  # light comes from NW → SE-cam sees lit faces
 _SUN_HEIGHT_CLEARANCE: Final[float] = 200.0  # metres above the highest peak

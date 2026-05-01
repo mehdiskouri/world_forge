@@ -117,6 +117,8 @@ def _bench_one(
         material_name=f"mat_{label}",
         color_ramp_stops=list(_DEFAULT_COLOR_RAMP_STOPS),
         slope_threshold=_DEFAULT_SLOPE_THRESHOLD,
+        elevation_min=float(gen_result.heightmap.elevation_band[0]),
+        elevation_max=float(gen_result.heightmap.elevation_band[1]),
         curve_name=f"stream_{label}",
         ortho_camera_name=f"cam_ortho_{label}",
         perspective_camera_name=f"cam_persp_{label}",

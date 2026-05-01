@@ -62,6 +62,8 @@ class ApplyTerrainMaterialInputs:
     material_name: str
     color_ramp_stops: Sequence[JsonValue]
     slope_threshold: float
+    elevation_min: float
+    elevation_max: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +141,8 @@ class RealizeRegionInputs:
     material_name: str
     color_ramp_stops: Sequence[JsonValue]
     slope_threshold: float
+    elevation_min: float
+    elevation_max: float
     curve_name: str
     ortho_camera_name: str
     perspective_camera_name: str

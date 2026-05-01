@@ -97,12 +97,14 @@
     {
       "name": "apply_terrain_material",
       "version": "v1",
-      "description": "Build the elevation-driven terrain material and bind it to the target mesh.",
+      "description": "Build the elevation-driven terrain material and bind it to the target mesh. The material's color ramp is fed the geometry Z position (world metres) normalised by the region's elevation band so each stop's [0,1] position maps onto the actual elevation range; without elevation_min/max the ramp would receive raw metres and clamp every vertex to the top stop.",
       "inputs_schema": {
         "object_name": "str",
         "material_name": "str",
         "color_ramp_stops": "list[ColorStop]",
-        "slope_threshold": "float"
+        "slope_threshold": "float",
+        "elevation_min": "float",
+        "elevation_max": "float"
       },
       "outputs_schema": {"material_name": "str"},
       "steps": [
@@ -112,7 +114,9 @@
             "material_name": "${material_name}",
             "target_object": "${object_name}",
             "color_ramp_stops": "${color_ramp_stops}",
-            "slope_threshold": "${slope_threshold}"
+            "slope_threshold": "${slope_threshold}",
+            "elevation_min": "${elevation_min}",
+            "elevation_max": "${elevation_max}"
           },
           "expects": {"scene_diff": {"materials": {"delta": 1}}}
         }
@@ -206,6 +210,15 @@
         {
           "call": "set_property",
           "params": {
+            "collection": "cameras",
+            "name": "${ortho_camera_name}",
+            "path": "clip_end",
+            "value": 100000.0
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
             "collection": "objects",
             "name": "${ortho_camera_name}",
             "path": "location",
@@ -234,6 +247,15 @@
             "data_name": "${perspective_camera_name}"
           },
           "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "cameras",
+            "name": "${perspective_camera_name}",
+            "path": "clip_end",
+            "value": 100000.0
+          }
         },
         {
           "call": "set_property",
@@ -371,6 +393,8 @@
         "material_name": "str",
         "color_ramp_stops": "list[ColorStop]",
         "slope_threshold": "float",
+        "elevation_min": "float",
+        "elevation_max": "float",
         "curve_name": "str",
         "ortho_camera_name": "str",
         "perspective_camera_name": "str",

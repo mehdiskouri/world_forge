@@ -1,26 +1,225 @@
 {
   "entries": [
     {
-      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/alpine_valley_with_creek.blend",
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/alpine_valley_with_creek.blend",
       "label": "alpine_valley_with_creek",
-      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/alpine_valley_with_creek.preview.png",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/alpine_valley_with_creek.preview.png",
       "primary": "alpine_valley",
       "realize_trace": [
         {
           "call": "bpy.ops.wm.read_factory_settings",
-          "duration_ms": 278.187,
+          "duration_ms": 210.989,
           "sequence_name": "reset_scene",
           "step_index": 0
         },
         {
           "call": "mesh.from_pydata",
-          "duration_ms": 348.155,
+          "duration_ms": 1282.012,
           "sequence_name": "create_terrain_from_heightmap",
           "step_index": 0
         },
         {
           "call": "set_idprop",
-          "duration_ms": 0.12,
+          "duration_ms": 1.537,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 2.431,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 5.917,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 32.679,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 4.811,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 3.891,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 3.921,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 2.985,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 2.975,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 2.977,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 1.13,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.177,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.102,
+          "sequence_name": "set_camera_overview",
+          "step_index": 4
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.099,
+          "sequence_name": "set_camera_overview",
+          "step_index": 5
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.097,
+          "sequence_name": "set_camera_overview",
+          "step_index": 6
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.093,
+          "sequence_name": "set_camera_overview",
+          "step_index": 7
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.111,
+          "sequence_name": "set_camera_overview",
+          "step_index": 8
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.093,
+          "sequence_name": "set_camera_overview",
+          "step_index": 9
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.1,
+          "sequence_name": "set_camera_overview",
+          "step_index": 10
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.099,
+          "sequence_name": "set_camera_overview",
+          "step_index": 11
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.159,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.124,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.092,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.1,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.151,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 4
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.093,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 5
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 60.811,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 1648.695,
+      "render_final": {
+        "file_size_bytes": 247059,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/alpine_valley_with_creek.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 1835.39,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 1835.67,
+      "spec_id": "spec_b879897a5533"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/rolling_hills_dry.blend",
+      "label": "rolling_hills_dry",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/rolling_hills_dry.preview.png",
+      "primary": "rolling_hills",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 211.791,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 1044.239,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.133,
           "sequence_name": "create_terrain_from_heightmap",
           "step_index": 1
         },
@@ -32,37 +231,634 @@
         },
         {
           "call": "set_idprop",
+          "duration_ms": 0.102,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 39.852,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 4.436,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.129,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.113,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.159,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.12,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.581,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.442,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.112,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.115,
+          "sequence_name": "set_camera_overview",
+          "step_index": 4
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 1.098,
+          "sequence_name": "set_camera_overview",
+          "step_index": 5
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.112,
+          "sequence_name": "set_camera_overview",
+          "step_index": 6
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.101,
+          "sequence_name": "set_camera_overview",
+          "step_index": 7
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.126,
+          "sequence_name": "set_camera_overview",
+          "step_index": 8
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.096,
+          "sequence_name": "set_camera_overview",
+          "step_index": 9
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.585,
+          "sequence_name": "set_camera_overview",
+          "step_index": 10
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.121,
+          "sequence_name": "set_camera_overview",
+          "step_index": 11
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.145,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.805,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.101,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.103,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.59,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 4
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.104,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 5
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 53.309,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 1365.734,
+      "render_final": {
+        "file_size_bytes": 255373,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/rolling_hills_dry.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 1330.153,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 1330.434,
+      "spec_id": "spec_68e25b554527"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/desert_mesa.blend",
+      "label": "desert_mesa",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/desert_mesa.preview.png",
+      "primary": "desert_mesa",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 197.241,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 1378.185,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 6.475,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.132,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
           "duration_ms": 0.092,
           "sequence_name": "create_terrain_from_heightmap",
           "step_index": 3
         },
         {
           "call": "mesh.add_displace_modifier",
-          "duration_ms": 39.511,
+          "duration_ms": 34.648,
           "sequence_name": "create_terrain_from_heightmap",
           "step_index": 4
         },
         {
           "call": "material.build_terrain",
-          "duration_ms": 2.888,
+          "duration_ms": 4.632,
           "sequence_name": "apply_terrain_material",
           "step_index": 0
         },
         {
           "call": "bpy.data.curves.new",
-          "duration_ms": 0.132,
+          "duration_ms": 0.995,
           "sequence_name": "carve_stream",
           "step_index": 0
         },
         {
           "call": "set_idprop",
-          "duration_ms": 0.105,
+          "duration_ms": 0.099,
           "sequence_name": "carve_stream",
           "step_index": 1
         },
         {
           "call": "set_idprop",
+          "duration_ms": 0.088,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.111,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.129,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.103,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.11,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.095,
+          "sequence_name": "set_camera_overview",
+          "step_index": 4
+        },
+        {
+          "call": "set_property",
           "duration_ms": 0.093,
+          "sequence_name": "set_camera_overview",
+          "step_index": 5
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.086,
+          "sequence_name": "set_camera_overview",
+          "step_index": 6
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.096,
+          "sequence_name": "set_camera_overview",
+          "step_index": 7
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.106,
+          "sequence_name": "set_camera_overview",
+          "step_index": 8
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.091,
+          "sequence_name": "set_camera_overview",
+          "step_index": 9
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.111,
+          "sequence_name": "set_camera_overview",
+          "step_index": 10
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.11,
+          "sequence_name": "set_camera_overview",
+          "step_index": 11
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.137,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.105,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.093,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.098,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.164,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 4
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.099,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 5
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 56.775,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 1697.06,
+      "render_final": {
+        "file_size_bytes": 265402,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/desert_mesa.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 1518.875,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 1519.118,
+      "spec_id": "spec_47f0853485b9"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/boreal_lowland_meander.blend",
+      "label": "boreal_lowland_meander",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/boreal_lowland_meander.preview.png",
+      "primary": "boreal_lowland",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 206.846,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 1031.209,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.146,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.126,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.183,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 18.823,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 1.952,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.126,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.092,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.104,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.14,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.137,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.185,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.105,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.11,
+          "sequence_name": "set_camera_overview",
+          "step_index": 4
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.105,
+          "sequence_name": "set_camera_overview",
+          "step_index": 5
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.151,
+          "sequence_name": "set_camera_overview",
+          "step_index": 6
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.106,
+          "sequence_name": "set_camera_overview",
+          "step_index": 7
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.119,
+          "sequence_name": "set_camera_overview",
+          "step_index": 8
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.103,
+          "sequence_name": "set_camera_overview",
+          "step_index": 9
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.126,
+          "sequence_name": "set_camera_overview",
+          "step_index": 10
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.117,
+          "sequence_name": "set_camera_overview",
+          "step_index": 11
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.147,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.168,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.206,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.113,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.163,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 4
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.1,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 5
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 54.143,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 1321.794,
+      "render_final": {
+        "file_size_bytes": 251888,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/boreal_lowland_meander.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 1297.097,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 1297.379,
+      "spec_id": "spec_bb1003e76368"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/canyon_dry_wash.blend",
+      "label": "canyon_dry_wash",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/canyon_dry_wash.preview.png",
+      "primary": "canyon",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 232.019,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 1302.985,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 3.602,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.122,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.098,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 32.149,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 5.439,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.13,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 4.654,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.102,
           "sequence_name": "carve_stream",
           "step_index": 2
         },
@@ -74,865 +870,129 @@
         },
         {
           "call": "object.from_data",
-          "duration_ms": 0.151,
+          "duration_ms": 0.122,
           "sequence_name": "set_camera_overview",
           "step_index": 1
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.104,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 0.102,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
         },
         {
           "call": "set_property",
           "duration_ms": 0.11,
           "sequence_name": "set_camera_overview",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.098,
-          "sequence_name": "set_camera_overview",
-          "step_index": 3
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.101,
-          "sequence_name": "set_camera_overview",
           "step_index": 4
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.096,
-          "sequence_name": "set_camera_overview",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.098,
-          "sequence_name": "set_camera_overview",
-          "step_index": 6
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.162,
-          "sequence_name": "set_camera_overview",
-          "step_index": 7
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.112,
-          "sequence_name": "set_camera_overview",
-          "step_index": 8
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.121,
-          "sequence_name": "set_camera_overview",
-          "step_index": 9
-        },
-        {
-          "call": "bpy.data.lights.new",
-          "duration_ms": 0.149,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.115,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 1
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.1,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.105,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 3
-        },
-        {
-          "call": "bpy.data.worlds.new",
-          "duration_ms": 1.238,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 4
-        },
-        {
-          "call": "scene.assign_world",
-          "duration_ms": 0.113,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.ops.wm.save_as_mainfile",
-          "duration_ms": 38.785,
-          "sequence_name": "save_blend",
-          "step_index": 0
-        }
-      ],
-      "realize_wall_ms": 717.489,
-      "render_final": {
-        "file_size_bytes": 93213,
-        "height": 384,
-        "path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/alpine_valley_with_creek.preview.png",
-        "width": 512
-      },
-      "render_trace": [
-        {
-          "call": "render.to_file",
-          "duration_ms": 1258.853,
-          "sequence_name": "render_preview",
-          "step_index": 0
-        }
-      ],
-      "render_wall_ms": 1259.134,
-      "spec_id": "spec_b879897a5533"
-    },
-    {
-      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/rolling_hills_dry.blend",
-      "label": "rolling_hills_dry",
-      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/rolling_hills_dry.preview.png",
-      "primary": "rolling_hills",
-      "realize_trace": [
-        {
-          "call": "bpy.ops.wm.read_factory_settings",
-          "duration_ms": 197.084,
-          "sequence_name": "reset_scene",
-          "step_index": 0
-        },
-        {
-          "call": "mesh.from_pydata",
-          "duration_ms": 313.669,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.113,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.109,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 2
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 3.611,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 3
-        },
-        {
-          "call": "mesh.add_displace_modifier",
-          "duration_ms": 34.849,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 4
-        },
-        {
-          "call": "material.build_terrain",
-          "duration_ms": 2.341,
-          "sequence_name": "apply_terrain_material",
-          "step_index": 0
-        },
-        {
-          "call": "bpy.data.curves.new",
-          "duration_ms": 3.911,
-          "sequence_name": "carve_stream",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.132,
-          "sequence_name": "carve_stream",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.091,
-          "sequence_name": "carve_stream",
-          "step_index": 2
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.114,
-          "sequence_name": "set_camera_overview",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.13,
-          "sequence_name": "set_camera_overview",
-          "step_index": 1
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.131,
-          "sequence_name": "set_camera_overview",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.094,
-          "sequence_name": "set_camera_overview",
-          "step_index": 3
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.098,
-          "sequence_name": "set_camera_overview",
-          "step_index": 4
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.094,
-          "sequence_name": "set_camera_overview",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.092,
-          "sequence_name": "set_camera_overview",
-          "step_index": 6
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.117,
-          "sequence_name": "set_camera_overview",
-          "step_index": 7
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.1,
-          "sequence_name": "set_camera_overview",
-          "step_index": 8
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.1,
-          "sequence_name": "set_camera_overview",
-          "step_index": 9
-        },
-        {
-          "call": "bpy.data.lights.new",
-          "duration_ms": 0.133,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.163,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 1
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.77,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.108,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 3
-        },
-        {
-          "call": "bpy.data.worlds.new",
-          "duration_ms": 0.155,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 4
-        },
-        {
-          "call": "scene.assign_world",
-          "duration_ms": 0.121,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.ops.wm.save_as_mainfile",
-          "duration_ms": 28.919,
-          "sequence_name": "save_blend",
-          "step_index": 0
-        }
-      ],
-      "realize_wall_ms": 606.598,
-      "render_final": {
-        "file_size_bytes": 118968,
-        "height": 384,
-        "path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/rolling_hills_dry.preview.png",
-        "width": 512
-      },
-      "render_trace": [
-        {
-          "call": "render.to_file",
-          "duration_ms": 1384.329,
-          "sequence_name": "render_preview",
-          "step_index": 0
-        }
-      ],
-      "render_wall_ms": 1384.578,
-      "spec_id": "spec_68e25b554527"
-    },
-    {
-      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/desert_mesa.blend",
-      "label": "desert_mesa",
-      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/desert_mesa.preview.png",
-      "primary": "desert_mesa",
-      "realize_trace": [
-        {
-          "call": "bpy.ops.wm.read_factory_settings",
-          "duration_ms": 286.901,
-          "sequence_name": "reset_scene",
-          "step_index": 0
-        },
-        {
-          "call": "mesh.from_pydata",
-          "duration_ms": 415.672,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.123,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 2.879,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 2
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.095,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 3
-        },
-        {
-          "call": "mesh.add_displace_modifier",
-          "duration_ms": 45.409,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 4
-        },
-        {
-          "call": "material.build_terrain",
-          "duration_ms": 4.685,
-          "sequence_name": "apply_terrain_material",
-          "step_index": 0
-        },
-        {
-          "call": "bpy.data.curves.new",
-          "duration_ms": 2.96,
-          "sequence_name": "carve_stream",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.099,
-          "sequence_name": "carve_stream",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.095,
-          "sequence_name": "carve_stream",
-          "step_index": 2
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.117,
-          "sequence_name": "set_camera_overview",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.119,
-          "sequence_name": "set_camera_overview",
-          "step_index": 1
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.101,
-          "sequence_name": "set_camera_overview",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.105,
-          "sequence_name": "set_camera_overview",
-          "step_index": 3
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.097,
-          "sequence_name": "set_camera_overview",
-          "step_index": 4
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.092,
-          "sequence_name": "set_camera_overview",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.093,
-          "sequence_name": "set_camera_overview",
-          "step_index": 6
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.098,
-          "sequence_name": "set_camera_overview",
-          "step_index": 7
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.095,
-          "sequence_name": "set_camera_overview",
-          "step_index": 8
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.096,
-          "sequence_name": "set_camera_overview",
-          "step_index": 9
-        },
-        {
-          "call": "bpy.data.lights.new",
-          "duration_ms": 0.151,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.109,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 1
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.1,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.099,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 3
-        },
-        {
-          "call": "bpy.data.worlds.new",
-          "duration_ms": 0.149,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 4
-        },
-        {
-          "call": "scene.assign_world",
-          "duration_ms": 0.111,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.ops.wm.save_as_mainfile",
-          "duration_ms": 43.915,
-          "sequence_name": "save_blend",
-          "step_index": 0
-        }
-      ],
-      "realize_wall_ms": 834.085,
-      "render_final": {
-        "file_size_bytes": 115833,
-        "height": 384,
-        "path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/desert_mesa.preview.png",
-        "width": 512
-      },
-      "render_trace": [
-        {
-          "call": "render.to_file",
-          "duration_ms": 1840.803,
-          "sequence_name": "render_preview",
-          "step_index": 0
-        }
-      ],
-      "render_wall_ms": 1841.048,
-      "spec_id": "spec_47f0853485b9"
-    },
-    {
-      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/boreal_lowland_meander.blend",
-      "label": "boreal_lowland_meander",
-      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/boreal_lowland_meander.preview.png",
-      "primary": "boreal_lowland",
-      "realize_trace": [
-        {
-          "call": "bpy.ops.wm.read_factory_settings",
-          "duration_ms": 118.102,
-          "sequence_name": "reset_scene",
-          "step_index": 0
-        },
-        {
-          "call": "mesh.from_pydata",
-          "duration_ms": 241.704,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.106,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.114,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 2
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.081,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 3
-        },
-        {
-          "call": "mesh.add_displace_modifier",
-          "duration_ms": 17.581,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 4
-        },
-        {
-          "call": "material.build_terrain",
-          "duration_ms": 4.788,
-          "sequence_name": "apply_terrain_material",
-          "step_index": 0
-        },
-        {
-          "call": "bpy.data.curves.new",
-          "duration_ms": 0.149,
-          "sequence_name": "carve_stream",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.099,
-          "sequence_name": "carve_stream",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.092,
-          "sequence_name": "carve_stream",
-          "step_index": 2
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.112,
-          "sequence_name": "set_camera_overview",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.122,
-          "sequence_name": "set_camera_overview",
-          "step_index": 1
         },
         {
           "call": "set_property",
           "duration_ms": 0.103,
           "sequence_name": "set_camera_overview",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.092,
-          "sequence_name": "set_camera_overview",
-          "step_index": 3
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.089,
-          "sequence_name": "set_camera_overview",
-          "step_index": 4
+          "step_index": 5
         },
         {
           "call": "set_property",
           "duration_ms": 0.088,
           "sequence_name": "set_camera_overview",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.087,
-          "sequence_name": "set_camera_overview",
           "step_index": 6
         },
         {
-          "call": "object.from_data",
-          "duration_ms": 0.097,
-          "sequence_name": "set_camera_overview",
-          "step_index": 7
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.109,
-          "sequence_name": "set_camera_overview",
-          "step_index": 8
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.092,
-          "sequence_name": "set_camera_overview",
-          "step_index": 9
-        },
-        {
-          "call": "bpy.data.lights.new",
-          "duration_ms": 0.146,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.103,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 1
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.095,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.099,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 3
-        },
-        {
-          "call": "bpy.data.worlds.new",
-          "duration_ms": 0.174,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 4
-        },
-        {
-          "call": "scene.assign_world",
-          "duration_ms": 0.096,
-          "sequence_name": "add_basic_lighting",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.ops.wm.save_as_mainfile",
-          "duration_ms": 35.176,
-          "sequence_name": "save_blend",
-          "step_index": 0
-        }
-      ],
-      "realize_wall_ms": 428.458,
-      "render_final": {
-        "file_size_bytes": 117793,
-        "height": 384,
-        "path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/boreal_lowland_meander.preview.png",
-        "width": 512
-      },
-      "render_trace": [
-        {
-          "call": "render.to_file",
-          "duration_ms": 1665.567,
-          "sequence_name": "render_preview",
-          "step_index": 0
-        }
-      ],
-      "render_wall_ms": 1665.801,
-      "spec_id": "spec_bb1003e76368"
-    },
-    {
-      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/canyon_dry_wash.blend",
-      "label": "canyon_dry_wash",
-      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/canyon_dry_wash.preview.png",
-      "primary": "canyon",
-      "realize_trace": [
-        {
-          "call": "bpy.ops.wm.read_factory_settings",
-          "duration_ms": 195.865,
-          "sequence_name": "reset_scene",
-          "step_index": 0
-        },
-        {
-          "call": "mesh.from_pydata",
-          "duration_ms": 304.691,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.152,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.122,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 2
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 4.597,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 3
-        },
-        {
-          "call": "mesh.add_displace_modifier",
-          "duration_ms": 35.16,
-          "sequence_name": "create_terrain_from_heightmap",
-          "step_index": 4
-        },
-        {
-          "call": "material.build_terrain",
-          "duration_ms": 4.769,
-          "sequence_name": "apply_terrain_material",
-          "step_index": 0
-        },
-        {
-          "call": "bpy.data.curves.new",
-          "duration_ms": 2.893,
-          "sequence_name": "carve_stream",
-          "step_index": 0
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.092,
-          "sequence_name": "carve_stream",
-          "step_index": 1
-        },
-        {
-          "call": "set_idprop",
-          "duration_ms": 0.09,
-          "sequence_name": "carve_stream",
-          "step_index": 2
-        },
-        {
           "call": "bpy.data.cameras.new",
-          "duration_ms": 0.115,
-          "sequence_name": "set_camera_overview",
-          "step_index": 0
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.13,
-          "sequence_name": "set_camera_overview",
-          "step_index": 1
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.101,
-          "sequence_name": "set_camera_overview",
-          "step_index": 2
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.129,
-          "sequence_name": "set_camera_overview",
-          "step_index": 3
-        },
-        {
-          "call": "set_property",
-          "duration_ms": 0.107,
-          "sequence_name": "set_camera_overview",
-          "step_index": 4
-        },
-        {
-          "call": "set_property",
           "duration_ms": 0.093,
           "sequence_name": "set_camera_overview",
-          "step_index": 5
-        },
-        {
-          "call": "bpy.data.cameras.new",
-          "duration_ms": 0.095,
-          "sequence_name": "set_camera_overview",
-          "step_index": 6
-        },
-        {
-          "call": "object.from_data",
-          "duration_ms": 0.132,
-          "sequence_name": "set_camera_overview",
           "step_index": 7
         },
         {
-          "call": "set_property",
-          "duration_ms": 0.108,
+          "call": "object.from_data",
+          "duration_ms": 0.105,
           "sequence_name": "set_camera_overview",
           "step_index": 8
         },
         {
           "call": "set_property",
-          "duration_ms": 0.091,
+          "duration_ms": 0.095,
           "sequence_name": "set_camera_overview",
           "step_index": 9
         },
         {
+          "call": "set_property",
+          "duration_ms": 2.243,
+          "sequence_name": "set_camera_overview",
+          "step_index": 10
+        },
+        {
+          "call": "set_property",
+          "duration_ms": 2.981,
+          "sequence_name": "set_camera_overview",
+          "step_index": 11
+        },
+        {
           "call": "bpy.data.lights.new",
-          "duration_ms": 0.136,
+          "duration_ms": 2.976,
           "sequence_name": "add_basic_lighting",
           "step_index": 0
         },
         {
           "call": "object.from_data",
-          "duration_ms": 5.27,
+          "duration_ms": 0.113,
           "sequence_name": "add_basic_lighting",
           "step_index": 1
         },
         {
           "call": "set_property",
-          "duration_ms": 2.972,
+          "duration_ms": 0.098,
           "sequence_name": "add_basic_lighting",
           "step_index": 2
         },
         {
           "call": "set_property",
-          "duration_ms": 1.419,
+          "duration_ms": 0.1,
           "sequence_name": "add_basic_lighting",
           "step_index": 3
         },
         {
           "call": "bpy.data.worlds.new",
-          "duration_ms": 0.171,
+          "duration_ms": 0.152,
           "sequence_name": "add_basic_lighting",
           "step_index": 4
         },
         {
           "call": "scene.assign_world",
-          "duration_ms": 3.295,
+          "duration_ms": 0.106,
           "sequence_name": "add_basic_lighting",
           "step_index": 5
         },
         {
           "call": "bpy.ops.wm.save_as_mainfile",
-          "duration_ms": 34.465,
+          "duration_ms": 54.178,
           "sequence_name": "save_blend",
           "step_index": 0
         }
       ],
-      "realize_wall_ms": 616.582,
+      "realize_wall_ms": 1662.443,
       "render_final": {
-        "file_size_bytes": 98892,
+        "file_size_bytes": 254749,
         "height": 384,
-        "path": "/workspace/world_forge/docs/eval/phase4/20260501T162056Z/canyon_dry_wash.preview.png",
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T170603Z/canyon_dry_wash.preview.png",
         "width": 512
       },
       "render_trace": [
         {
           "call": "render.to_file",
-          "duration_ms": 1570.869,
+          "duration_ms": 1617.319,
           "sequence_name": "render_preview",
           "step_index": 0
         }
       ],
-      "render_wall_ms": 1571.102,
+      "render_wall_ms": 1617.488,
       "spec_id": "spec_4889bb2c15e4"
     }
   ],
@@ -943,7 +1003,7 @@
   "render_engine": "BLENDER_EEVEE",
   "seed": 17,
   "shape": [
-    128,
-    128
+    512,
+    512
   ]
 }

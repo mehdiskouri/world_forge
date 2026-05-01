@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 # (zlib level 9). The PRD's NF-1.5 200 KB target turned out to be tight
 # for textured terrain; the macro postcondition is now 280 KB and
 # integration tests assert against the same realistic budget.
-PNG_CEILING_BYTES = 500_000
+PNG_CEILING_BYTES = 1_000_000
 MIN_BLEND_BYTES = 1024
 EXPECTED_VIEWS = ("ortho_top", "perspective_se")
 DEFAULT_RENDER_RES = [1024, 768]

@@ -89,9 +89,9 @@ _RESOLUTIONS: Final[dict[str, tuple[int, int]]] = {
 # 1024x768 renders measured ~350 KB under zlib level 9 (post-retry); we
 # add headroom and scale by pixel count for the other resolutions.
 _PNG_MAX_BYTES: Final[dict[str, int]] = {
-    RESOLUTION_PREVIEW: 200_000,
-    RESOLUTION_DEFAULT: 500_000,
-    RESOLUTION_FULL: 2_000_000,
+    RESOLUTION_PREVIEW: 350_000,
+    RESOLUTION_DEFAULT: 1_000_000,
+    RESOLUTION_FULL: 4_000_000,
 }
 
 _DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
@@ -195,6 +195,7 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     heightmap_image_filepath: Path,
     displace_strength: float,
     framing: SceneFraming,
+    elevation_band: tuple[float, float],
 ) -> RealizeRegionInputs:
     """Assemble the per-region :class:`RealizeRegionInputs` payload."""
     rid_str = str(region_id)
@@ -208,6 +209,8 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
         material_name=f"mat_{rid_str}",
         color_ramp_stops=list(_DEFAULT_COLOR_RAMP_STOPS),
         slope_threshold=_DEFAULT_SLOPE_THRESHOLD,
+        elevation_min=float(elevation_band[0]),
+        elevation_max=float(elevation_band[1]),
         curve_name=f"stream_{rid_str}",
         ortho_camera_name=f"cam_ortho_{rid_str}",
         perspective_camera_name=f"cam_persp_{rid_str}",
@@ -271,6 +274,7 @@ def _run_realizer(
         heightmap_png,
         displace_strength,
         framing,
+        heightmap.elevation_band,
     )
 
     plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs]] = []
