@@ -26,6 +26,8 @@ from forge_mcp.server.mcp import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pytest
 
 EXPECTED_TOOLS: frozenset[str] = frozenset(
@@ -159,5 +161,76 @@ def test_main_invokes_server_run(monkeypatch: pytest.MonkeyPatch) -> None:
         return _Stub()
 
     monkeypatch.setattr(server_mcp, "build_server", _build)
+    monkeypatch.setattr(server_mcp, "_install_default_realizer_factory", lambda: False)
     main()
     assert calls == ["run"]
+
+
+def test_install_default_realizer_factory_skips_when_env_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When ``$FORGE_BLENDER_BIN`` is unset, no factory should be installed."""
+    from forge_mcp.realize import BLENDER_BIN_ENV  # noqa: PLC0415
+    from forge_mcp.server.tools import (  # noqa: PLC0415
+        get_realizer_factory,
+        set_realizer_factory,
+    )
+
+    monkeypatch.delenv(BLENDER_BIN_ENV, raising=False)
+    set_realizer_factory(None)
+    try:
+        installed = server_mcp._install_default_realizer_factory()  # noqa: SLF001
+        assert installed is False
+        assert get_realizer_factory() is None
+    finally:
+        set_realizer_factory(None)
+
+
+def test_install_default_realizer_factory_wires_factory_when_env_valid(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A valid ``$FORGE_BLENDER_BIN`` installs a factory; the closure is lazy."""
+    from forge_mcp.realize import BLENDER_BIN_ENV  # noqa: PLC0415
+    from forge_mcp.server.tools import (  # noqa: PLC0415
+        get_realizer_factory,
+        set_realizer_factory,
+    )
+
+    fake_binary = tmp_path / "blender"
+    fake_binary.write_text("#!/bin/sh\nexit 0\n")
+    monkeypatch.setenv(BLENDER_BIN_ENV, str(fake_binary))
+    set_realizer_factory(None)
+    try:
+        installed = server_mcp._install_default_realizer_factory()  # noqa: SLF001
+        assert installed is True
+        factory = get_realizer_factory()
+        assert factory is not None
+        # Sanity-check that the factory itself is a callable; we do *not*
+        # call it because that would actually spawn Blender.
+        assert callable(factory)
+    finally:
+        set_realizer_factory(None)
+
+
+def test_main_installs_realizer_factory_before_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``main`` wires the realizer factory before handing off to ``run``."""
+    order: list[str] = []
+
+    def _install() -> bool:
+        order.append("install")
+        return False
+
+    class _Stub:
+        def run(self) -> None:
+            order.append("run")
+
+    def _build() -> _Stub:
+        return _Stub()
+
+    monkeypatch.setattr(server_mcp, "_install_default_realizer_factory", _install)
+    monkeypatch.setattr(server_mcp, "build_server", _build)
+    main()
+    assert order == ["install", "run"]

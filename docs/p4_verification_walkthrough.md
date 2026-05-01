@@ -127,9 +127,25 @@ claude mcp add forge \
 ```
 
 Anything after the bare `--` is the command Claude Code will spawn.
-The `--env` is essential: without it the realizer factory falls back
-to the unconfigured-Blender error path and `forge.generate_region`
-returns a `realizer_unavailable` envelope.
+The `--env` is essential: at startup `forge-mcp` reads
+`$FORGE_BLENDER_BIN` and installs the default Blender realizer
+factory (`forge_mcp.server.mcp._install_default_realizer_factory`).
+Without it the factory is left unset and every realization-aware tool
+returns a structured `realizer_not_configured` (`generate_region`,
+`render_view`) or `realizer_unavailable` (version mismatch) envelope —
+that is the symptom to look for if the agent reports
+"realizer_not_configured: no realizer factory installed".
+
+Common ways the env var goes missing in the spawned `forge-mcp`:
+
+* You forgot the `--env` flag on `claude mcp add`. The host process
+  has the variable but the child does not inherit it.
+* You re-registered the server with `claude mcp set forge` and
+  dropped the `--env` arg.
+* `$FORGE_BLENDER_BIN` was empty in the shell that ran
+  `claude mcp add`, so the registered command line literally contains
+  `--env FORGE_BLENDER_BIN=`. Re-export the variable per §0 and
+  re-register.
 
 Restart Claude Code and confirm Forge appears in the MCP server list
 (`/mcp` slash command). The handshake should print the 19 tools from
