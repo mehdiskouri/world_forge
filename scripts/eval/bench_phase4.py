@@ -63,7 +63,7 @@ _TILE_W = 256
 _TILE_H = 192
 _PREVIEW_W = 512
 _PREVIEW_H = 384
-_RENDER_ENGINE = "BLENDER_EEVEE_NEXT"
+_RENDER_ENGINE = "BLENDER_EEVEE"  # Blender 5.0 enum identifier
 _DEFAULT_COLOR_RAMP_STOPS = (
     {"position": 0.0, "color": [0.18, 0.34, 0.12, 1.0]},
     {"position": 0.5, "color": [0.45, 0.36, 0.27, 1.0]},

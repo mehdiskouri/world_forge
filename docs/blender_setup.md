@@ -45,12 +45,19 @@ Blender install.
 
 ## Render-engine notes
 
-The default render engine string used by the realizer is currently
-``BLENDER_EEVEE_NEXT`` (the Blender 5.0 engine identifier). If your
-local 5.0 install reports a different identifier, override it on the
-``render_preview`` macro inputs (the ``engine`` field in
-``RenderPreviewInputs``). Cycles is also supported but is markedly
-slower; the preview path stays on EEVEE so the NF-1.5 200 KB ceiling
+The render engine string the realizer passes to Blender is
+``BLENDER_EEVEE`` (Blender 5.0 reports a single ``BLENDER_EEVEE``
+identifier; the previous ``BLENDER_EEVEE_NEXT`` identifier from 4.x
+is gone). To verify against your local install:
+
+```bash
+blender --background --factory-startup --python-expr \
+  "import bpy; print([i.identifier for i in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items])"
+```
+
+Override per call by passing the ``engine`` field on
+``RenderPreviewInputs`` (e.g. ``CYCLES`` for higher-fidelity v2
+work). The preview path stays on EEVEE so the NF-1.5 200 KB ceiling
 is comfortably met.
 
 ## Why a subprocess?
