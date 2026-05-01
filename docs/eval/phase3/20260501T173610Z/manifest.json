@@ -3,13 +3,14 @@
     {
       "generators_used": [
         "noise.ridged_multifractal",
+        "macro.valley_trough",
         "erosion.hydraulic",
         "erosion.thermal",
         "stream.injector"
       ],
       "label": "alpine_valley_with_creek",
       "primary": "alpine_valley",
-      "spec_id": "spec_b879897a5533"
+      "spec_id": "spec_5e6667548dfe"
     },
     {
       "generators_used": [
@@ -19,44 +20,47 @@
       ],
       "label": "rolling_hills_dry",
       "primary": "rolling_hills",
-      "spec_id": "spec_68e25b554527"
+      "spec_id": "spec_e3647e3de58a"
     },
     {
       "generators_used": [
         "noise.ridged_multifractal",
+        "macro.mesa_terraces",
         "erosion.hydraulic",
         "erosion.thermal"
       ],
       "label": "desert_mesa",
       "primary": "desert_mesa",
-      "spec_id": "spec_47f0853485b9"
+      "spec_id": "spec_0e2388fc29ca"
     },
     {
       "generators_used": [
         "noise.ridged_multifractal",
+        "macro.lowland_lowpass",
         "erosion.hydraulic",
         "erosion.thermal",
         "stream.injector"
       ],
       "label": "boreal_lowland_meander",
       "primary": "boreal_lowland",
-      "spec_id": "spec_bb1003e76368"
+      "spec_id": "spec_ccfec0262a6b"
     },
     {
       "generators_used": [
         "noise.ridged_multifractal",
+        "macro.canyon_chasm",
         "erosion.hydraulic",
         "erosion.thermal",
         "stream.injector"
       ],
       "label": "canyon_dry_wash",
       "primary": "canyon",
-      "spec_id": "spec_4889bb2c15e4"
+      "spec_id": "spec_f93defb7719f"
     }
   ],
   "seed": 17,
   "shape": [
-    128,
-    128
+    512,
+    512
   ]
 }

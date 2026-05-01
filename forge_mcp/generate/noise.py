@@ -1,11 +1,17 @@
 """Deterministic ridged-multifractal noise on a 2-D grid.
 
 The terrain generator stacks octaves of a permutation-table Perlin
-noise, ridges each octave (``1 - |n|``), and accumulates them with
-fractional Brownian motion weights. A second RNG-derived offset map
-warps the input domain before sampling, which breaks up the axis-
-aligned grid artefacts Perlin is known for and produces the meandering
-ridgelines characteristic of mountain terrain.
+noise, optionally ridges each octave (``1 - |n|``), and accumulates
+them with fractional Brownian motion weights. A second RNG-derived
+offset map warps the input domain before sampling, which breaks up the
+axis-aligned grid artefacts Perlin is known for and produces the
+meandering ridgelines characteristic of mountain terrain.
+
+A final per-archetype Gaussian post-smooth optionally launders away
+the highest-frequency content. This matters at modest mesh resolutions
+(Phase 4 caps the realizer mesh at 256 verts/axis): noise frequencies
+finer than the mesh sample interval would otherwise alias as random
+per-vertex spikes regardless of how lovely the underlying field is.
 
 Public surface:
 
@@ -22,6 +28,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final, cast
 
 import numpy as np
+from scipy.ndimage import gaussian_filter
 
 from forge_mcp.generate.deterministic import make_rng
 
@@ -116,8 +123,10 @@ def ridged_multifractal(  # noqa: PLR0913 - noise params are an irreducible bloc
     warp: float,
     scale_meters: float,
     resolution_meters_per_pixel: float,
+    ridged: bool = True,
+    smooth_sigma_pixels: float = 0.0,
 ) -> NDArray[np.float32]:
-    """Return a ridged-multifractal noise field in ``[0, 1]``.
+    """Return a noise field in ``[0, 1]``.
 
     Pipeline:
 
@@ -126,10 +135,17 @@ def ridged_multifractal(  # noqa: PLR0913 - noise params are an irreducible bloc
     2. If ``warp > 0``, perturb the grid with a low-frequency Perlin
        offset map keyed on a separate RNG (``purpose="noise.warp"``).
     3. For each octave, sample Perlin at increasing frequency
-       (``lacunarity``) and decreasing amplitude (``persistence``),
-       ridge it (``1 - |n|``), and accumulate.
+       (``lacunarity``) and decreasing amplitude (``persistence``);
+       if ``ridged`` is True apply ``1 - |n|`` to each octave (the
+       classic ridged-multifractal operator); otherwise accumulate the
+       octaves directly as plain fBm. Ridged terrain reads as crisp
+       creased ridgelines (alpine, canyon); plain fBm reads as soft
+       rolling shapes.
     4. Normalise the accumulator into ``[0, 1]`` so downstream erosion
        / elevation-band remapping operates on a known range.
+    5. If ``smooth_sigma_pixels > 0``, apply a Gaussian post-smooth
+       and re-normalise. Used by soft archetypes (rolling hills,
+       boreal lowland) to launder away sub-mesh-resolution detail.
     """
     base_rng = make_rng(seed, purpose="noise.base")
     perm_base = _build_perm_table(base_rng)
@@ -154,19 +170,30 @@ def ridged_multifractal(  # noqa: PLR0913 - noise params are an irreducible bloc
     weight_sum = 0.0
     for _ in range(octaves):
         sample = _perlin2d(perm_base, x_grid * frequency, y_grid * frequency)
-        ridged = (1.0 - np.abs(sample)).astype(np.float32, copy=False)
-        accumulator = accumulator + ridged * amplitude
+        if ridged:
+            octave = (1.0 - np.abs(sample)).astype(np.float32, copy=False)
+        else:
+            # Map plain Perlin from [-1, 1]-ish to [0, 1] so the final
+            # min-max stretch behaves the same as in the ridged path.
+            octave = (sample * 0.5 + 0.5).astype(np.float32, copy=False)
+        accumulator = accumulator + octave * amplitude
         weight_sum += amplitude
         amplitude *= persistence
         frequency *= lacunarity
 
-    normalised = accumulator / weight_sum
-    lo = float(normalised.min())
-    hi = float(normalised.max())
+    field = accumulator / weight_sum
+
+    if smooth_sigma_pixels > 0.0:
+        field = gaussian_filter(field, sigma=float(smooth_sigma_pixels)).astype(
+            np.float32, copy=False
+        )
+
+    lo = float(field.min())
+    hi = float(field.max())
     span = hi - lo
     if span <= 0.0:
         return np.zeros(shape, dtype=np.float32)
-    return ((normalised - lo) / span).astype(np.float32, copy=False)
+    return cast("NDArray[np.float32]", ((field - lo) / span).astype(np.float32, copy=False))
 
 
 __all__ = ["ridged_multifractal"]

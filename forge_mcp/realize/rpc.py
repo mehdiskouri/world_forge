@@ -152,6 +152,8 @@ class RpcMethods:
     IMAGE_FROM_FILE: Final[str] = "image.from_file"
     RENDER_TO_FILE: Final[str] = "render.to_file"
     MATERIAL_BUILD_TERRAIN: Final[str] = "material.build_terrain"
+    OBJECT_FROM_DATA: Final[str] = "object.from_data"
+    SCENE_ASSIGN_WORLD: Final[str] = "scene.assign_world"
     SCENE_DIFF: Final[str] = "scene.diff"
 
     @staticmethod

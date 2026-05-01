@@ -82,6 +82,8 @@ def test_calls_validate_against_hypergraph_when_provided() -> None:
         "render.to_file",
         "material.build_terrain",
         "scene.diff",
+        "object.from_data",
+        "scene.assign_world",
     }
     for seq in bundle.sequences:
         for step in seq.steps:

@@ -29,6 +29,11 @@ realizer is Phase 4):
   PNG path with controlled resolution / compression (Phase 4 preview)
 * ``material.build_terrain``        — build a single elevation-driven
   terrain material and assign it to a mesh object (Phase 4)
+* ``object.from_data``              — wrap a named ``bpy.data.<coll>``
+  data-block in an object and link it into the scene collection
+  (Phase 4 camera / lamp creation path)
+* ``scene.assign_world``            — assign a named
+  ``bpy.data.worlds`` entry to ``bpy.context.scene.world`` (Phase 4)
 * ``scene.diff``                    — return per-collection counts
   for postcondition checks (Phase 4 engine)
 
@@ -260,6 +265,7 @@ def _handle_render_to_file(params: dict[str, Any]) -> dict[str, Any]:
         scene.camera = cam
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = filepath
+    scene.render.use_file_extension = False
     scene.render.image_settings.file_format = file_format
     scene.render.image_settings.color_mode = color_mode
     scene.render.image_settings.color_depth = color_depth
@@ -281,6 +287,11 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
     target_object = params.get("target_object")
     color_ramp_stops = params.get("color_ramp_stops", [])
     slope_threshold = float(params.get("slope_threshold", 0.5))
+    elevation_min = float(params.get("elevation_min", 0.0))
+    elevation_max = float(params.get("elevation_max", 1.0))
+    elevation_span = elevation_max - elevation_min
+    if elevation_span <= 0.0:
+        elevation_span = 1.0
     if not isinstance(material_name, str) or not isinstance(target_object, str):
         msg = "material.build_terrain requires string 'material_name' and 'target_object'"
         raise ValueError(msg)
@@ -316,8 +327,21 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
         a = float(color[3]) if len(color) >= rgba_min else 1.0
         elem.color = (r, g, b, a)
     bsdf.inputs["Roughness"].default_value = slope_threshold
+    # Normalize world-space Z (in metres) into the color ramp's [0, 1]
+    # input domain. Without this the ramp Fac receives raw metres, every
+    # vertex past the first stop clamps to the top colour, and the whole
+    # terrain renders in a single flat shade.
+    sub = nodes.new("ShaderNodeMath")
+    sub.operation = "SUBTRACT"
+    sub.inputs[1].default_value = elevation_min
+    div = nodes.new("ShaderNodeMath")
+    div.operation = "DIVIDE"
+    div.inputs[1].default_value = elevation_span
+    div.use_clamp = True
     links.new(geom.outputs["Position"], sep.inputs["Vector"])
-    links.new(sep.outputs["Z"], ramp.inputs["Fac"])
+    links.new(sep.outputs["Z"], sub.inputs[0])
+    links.new(sub.outputs["Value"], div.inputs[0])
+    links.new(div.outputs["Value"], ramp.inputs["Fac"])
     links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
     links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
     if obj.data is not None and hasattr(obj.data, "materials"):
@@ -363,6 +387,43 @@ def _handle_mesh_add_displace_modifier(params: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def _handle_object_from_data(params: dict[str, Any]) -> dict[str, Any]:
+    name = params.get("name")
+    data_collection = params.get("data_collection")
+    data_name = params.get("data_name")
+    if not isinstance(name, str) or not isinstance(data_collection, str) or not isinstance(
+        data_name, str,
+    ):
+        msg = (
+            "object.from_data requires string 'name', 'data_collection', 'data_name'"
+        )
+        raise ValueError(msg)
+    coll = getattr(bpy.data, data_collection, None)
+    if coll is None:
+        msg = f"unknown bpy.data collection {data_collection!r}"
+        raise KeyError(msg)
+    data_block = coll.get(data_name)
+    if data_block is None:
+        msg = f"no datablock named {data_name!r} in bpy.data.{data_collection}"
+        raise KeyError(msg)
+    obj = bpy.data.objects.new(name=name, object_data=data_block)
+    bpy.context.scene.collection.objects.link(obj)
+    return {"object_name": obj.name, "data_name": data_block.name}
+
+
+def _handle_scene_assign_world(params: dict[str, Any]) -> dict[str, Any]:
+    name = params.get("name")
+    if not isinstance(name, str):
+        msg = "scene.assign_world requires string 'name'"
+        raise ValueError(msg)
+    world = bpy.data.worlds.get(name)
+    if world is None:
+        msg = f"no world named {name!r}"
+        raise KeyError(msg)
+    bpy.context.scene.world = world
+    return {"world_name": world.name}
+
+
 def _handle_scene_diff(_params: dict[str, Any]) -> dict[str, Any]:
     return {
         "objects": len(bpy.data.objects),
@@ -404,6 +465,10 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_render_to_file(params)
     if method == "material.build_terrain":
         return _handle_material_build_terrain(params)
+    if method == "object.from_data":
+        return _handle_object_from_data(params)
+    if method == "scene.assign_world":
+        return _handle_scene_assign_world(params)
     if method == "scene.diff":
         return _handle_scene_diff(params)
     msg = f"unknown method: {method!r}"

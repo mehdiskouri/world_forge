@@ -28,6 +28,7 @@ from forge_mcp.descriptor.schema import (
 from forge_mcp.project.schemas import (
     GenerationMetadata,
     HydraulicErosionPass,
+    MacroShape,
     PostPass,
     SpecBody,
     SpecId,
@@ -53,12 +54,25 @@ __all__ = [
 ]
 
 
-COMPILER_VERSION: Final[str] = "0.1.0"
+COMPILER_VERSION: Final[str] = "0.2.0"
 """Bumped whenever the descriptor->spec mapping changes shape or behavior.
 
 Recorded on :class:`GenerationMetadata.compiler_version`. Bumping
 invalidates content-addressed spec ids and requires regenerating the
 golden spec corpus.
+
+History:
+
+* ``0.1.0`` — initial Phase-3 mapping (single ridged-multifractal
+  generator across every archetype, no macro-shape pre-pass, no
+  per-archetype smoothing, octaves frequently > 6).
+* ``0.2.0`` — Phase-3 visual-quality pass: each archetype now carries a
+  ``MacroShape`` silhouette + a ``ridged`` toggle + a Gaussian
+  post-smooth. Octave/persistence ceilings tightened so noise
+  frequencies finer than the mesh sample interval no longer alias as
+  per-vertex spikes. Erosion thresholds now interpret talus and slope
+  in metres-per-metre rather than per-grid-cell, so the spec's
+  ``resolution_meters_per_pixel`` finally affects the post-passes.
 """
 
 GENERATOR_NAME: Final[str] = "ridged_multifractal_v1"
@@ -72,14 +86,28 @@ class TerrainProfile:
     Field semantics:
 
     - ``octaves_base`` / ``lacunarity_base`` / ``persistence_base`` /
-      ``warp_base`` / ``scale_meters_base`` — base ridged-multifractal
-      params, perturbed by descriptor.terrain.ruggedness in
+      ``warp_base`` / ``scale_meters_base`` — base noise params,
+      perturbed by ``descriptor.terrain.ruggedness`` in
       :func:`map_to_spec`.
+    - ``ridged`` — whether the noise stack applies the ``1 - |perlin|``
+      ridge operator per octave. True for crisp archetypes (alpine,
+      canyon, mesa, coastal, volcanic); False for soft archetypes where
+      ridges would manufacture sharp creases that the descriptor never
+      asked for.
+    - ``smooth_sigma_pixels_base`` — final Gaussian post-smooth on the
+      noise field, in pixels. Used by soft archetypes to launder away
+      sub-mesh-resolution detail. Ruggedness reduces smoothing.
+    - ``macro_shape`` / ``macro_strength_base`` — per-archetype
+      large-scale silhouette (U-trough, terraces, chasm, …). Strength
+      is in ``[0, 1]``; ruggedness scales it.
     - ``erosion_iterations_base`` — base hydraulic + thermal iteration
       count; ruggedness multiplies it.
     - ``hydraulic_rain`` / ``hydraulic_evaporation`` — fixed per
       archetype.
-    - ``talus_angle_degrees_base`` — fixed per archetype.
+    - ``talus_angle_degrees_base`` — fixed per archetype. The erosion
+      passes interpret this against the spec's
+      ``resolution_meters_per_pixel``; the value is the literal
+      slope-angle threshold in degrees.
     - ``default_elevation_band`` — meters; overridden by descriptor.
     - ``notes`` — short rationale surfaced via ``forge.inspect_spec``.
     """
@@ -89,6 +117,10 @@ class TerrainProfile:
     persistence_base: float
     warp_base: float
     scale_meters_base: float
+    ridged: bool
+    smooth_sigma_pixels_base: float
+    macro_shape: MacroShape
+    macro_strength_base: float
     erosion_iterations_base: int
     talus_angle_degrees_base: float
     hydraulic_rain: float
@@ -111,115 +143,151 @@ class StreamProfile:
 
 TERRAIN_PROFILES: Final[Mapping[TerrainPrimary, TerrainProfile]] = {
     TerrainPrimary.ALPINE_VALLEY: TerrainProfile(
-        octaves_base=6,
+        octaves_base=4,
         lacunarity_base=2.1,
-        persistence_base=0.55,
-        warp_base=0.6,
-        scale_meters_base=180.0,
+        persistence_base=0.42,
+        warp_base=0.45,
+        scale_meters_base=320.0,
+        ridged=True,
+        smooth_sigma_pixels_base=0.4,
+        macro_shape="valley_trough",
+        macro_strength_base=0.7,
         erosion_iterations_base=80,
         talus_angle_degrees_base=38.0,
         hydraulic_rain=0.18,
         hydraulic_evaporation=0.06,
         default_elevation_band=(800.0, 2400.0),
-        notes="Steep U-shaped relief; strong hydraulic carving along the valley floor.",
+        notes="U-shaped trough across the y axis with ridged peaks on the rim.",
     ),
     TerrainPrimary.ALPINE_PEAKS: TerrainProfile(
-        octaves_base=7,
+        octaves_base=5,
         lacunarity_base=2.3,
-        persistence_base=0.6,
+        persistence_base=0.48,
         warp_base=0.4,
-        scale_meters_base=220.0,
+        scale_meters_base=300.0,
+        ridged=True,
+        smooth_sigma_pixels_base=0.3,
+        macro_shape="none",
+        macro_strength_base=0.0,
         erosion_iterations_base=60,
         talus_angle_degrees_base=42.0,
         hydraulic_rain=0.12,
         hydraulic_evaporation=0.05,
         default_elevation_band=(1500.0, 3500.0),
-        notes="High-frequency ridges; thermal erosion dominates over hydraulic.",
+        notes="Crisp ridges; thermal erosion dominates over hydraulic.",
     ),
     TerrainPrimary.ROLLING_HILLS: TerrainProfile(
-        octaves_base=4,
-        lacunarity_base=2.0,
-        persistence_base=0.45,
-        warp_base=0.3,
-        scale_meters_base=140.0,
-        erosion_iterations_base=30,
-        talus_angle_degrees_base=28.0,
-        hydraulic_rain=0.08,
-        hydraulic_evaporation=0.05,
-        default_elevation_band=(80.0, 320.0),
-        notes="Soft rolling relief, moderate erosion, no sharp ridges.",
-    ),
-    TerrainPrimary.PLAINS: TerrainProfile(
         octaves_base=3,
         lacunarity_base=2.0,
         persistence_base=0.35,
-        warp_base=0.15,
-        scale_meters_base=200.0,
+        warp_base=0.25,
+        scale_meters_base=320.0,
+        ridged=False,
+        smooth_sigma_pixels_base=1.6,
+        macro_shape="none",
+        macro_strength_base=0.0,
+        erosion_iterations_base=30,
+        talus_angle_degrees_base=22.0,
+        hydraulic_rain=0.08,
+        hydraulic_evaporation=0.05,
+        default_elevation_band=(80.0, 320.0),
+        notes="Soft fBm with heavy post-smooth; no ridges, no macro shape.",
+    ),
+    TerrainPrimary.PLAINS: TerrainProfile(
+        octaves_base=2,
+        lacunarity_base=2.0,
+        persistence_base=0.3,
+        warp_base=0.1,
+        scale_meters_base=400.0,
+        ridged=False,
+        smooth_sigma_pixels_base=2.0,
+        macro_shape="none",
+        macro_strength_base=0.0,
         erosion_iterations_base=15,
-        talus_angle_degrees_base=20.0,
+        talus_angle_degrees_base=15.0,
         hydraulic_rain=0.05,
         hydraulic_evaporation=0.04,
         default_elevation_band=(0.0, 60.0),
-        notes="Low-relief flat with subtle undulations; minimal erosion.",
+        notes="Near-flat with subtle undulations; minimal erosion.",
     ),
     TerrainPrimary.DESERT_MESA: TerrainProfile(
-        octaves_base=5,
+        octaves_base=3,
         lacunarity_base=2.4,
-        persistence_base=0.5,
-        warp_base=0.2,
-        scale_meters_base=160.0,
+        persistence_base=0.4,
+        warp_base=0.15,
+        scale_meters_base=260.0,
+        ridged=True,
+        smooth_sigma_pixels_base=0.6,
+        macro_shape="mesa_terraces",
+        macro_strength_base=0.75,
         erosion_iterations_base=40,
         talus_angle_degrees_base=55.0,
         hydraulic_rain=0.02,
         hydraulic_evaporation=0.12,
         default_elevation_band=(400.0, 900.0),
-        notes="Flat-topped step plateaus with sharp talus risers; dry hydrology.",
+        notes="Quantised flat-topped plateaus; sharp talus risers; dry hydrology.",
     ),
     TerrainPrimary.DESERT_DUNES: TerrainProfile(
-        octaves_base=4,
+        octaves_base=3,
         lacunarity_base=2.2,
-        persistence_base=0.4,
-        warp_base=0.9,
-        scale_meters_base=80.0,
+        persistence_base=0.35,
+        warp_base=0.8,
+        scale_meters_base=120.0,
+        ridged=False,
+        smooth_sigma_pixels_base=0.8,
+        macro_shape="dunes_ridges",
+        macro_strength_base=0.6,
         erosion_iterations_base=20,
         talus_angle_degrees_base=33.0,
         hydraulic_rain=0.01,
         hydraulic_evaporation=0.15,
         default_elevation_band=(150.0, 280.0),
-        notes="Wind-warped low ridges; no hydraulic detail; aeolian look.",
+        notes="Repeating sinusoidal dunes warped by domain noise; no hydraulic detail.",
     ),
     TerrainPrimary.BOREAL_LOWLAND: TerrainProfile(
-        octaves_base=4,
+        octaves_base=3,
         lacunarity_base=2.0,
-        persistence_base=0.45,
-        warp_base=0.35,
-        scale_meters_base=160.0,
+        persistence_base=0.4,
+        warp_base=0.3,
+        scale_meters_base=320.0,
+        ridged=False,
+        smooth_sigma_pixels_base=1.8,
+        macro_shape="lowland_lowpass",
+        macro_strength_base=0.5,
         erosion_iterations_base=45,
-        talus_angle_degrees_base=25.0,
+        talus_angle_degrees_base=22.0,
         hydraulic_rain=0.2,
         hydraulic_evaporation=0.04,
         default_elevation_band=(50.0, 280.0),
-        notes="Soft glaciated lowland; abundant hydrology; gentle slopes.",
+        notes="Soft glaciated lowland with a faint regional tilt; gentle slopes.",
     ),
     TerrainPrimary.MARSH: TerrainProfile(
-        octaves_base=3,
+        octaves_base=2,
         lacunarity_base=2.0,
         persistence_base=0.3,
         warp_base=0.2,
-        scale_meters_base=110.0,
+        scale_meters_base=200.0,
+        ridged=False,
+        smooth_sigma_pixels_base=2.4,
+        macro_shape="lowland_lowpass",
+        macro_strength_base=0.3,
         erosion_iterations_base=25,
-        talus_angle_degrees_base=18.0,
+        talus_angle_degrees_base=12.0,
         hydraulic_rain=0.25,
         hydraulic_evaporation=0.03,
         default_elevation_band=(0.0, 25.0),
-        notes="Near-flat with capillary channels; very wet; very low relief.",
+        notes="Near-flat low-lying terrain; capillary channels; very wet.",
     ),
     TerrainPrimary.VOLCANIC_CONE: TerrainProfile(
-        octaves_base=5,
+        octaves_base=4,
         lacunarity_base=2.2,
-        persistence_base=0.55,
-        warp_base=0.25,
-        scale_meters_base=200.0,
+        persistence_base=0.45,
+        warp_base=0.2,
+        scale_meters_base=280.0,
+        ridged=True,
+        smooth_sigma_pixels_base=0.5,
+        macro_shape="volcanic_cone",
+        macro_strength_base=0.7,
         erosion_iterations_base=35,
         talus_angle_degrees_base=40.0,
         hydraulic_rain=0.08,
@@ -228,43 +296,55 @@ TERRAIN_PROFILES: Final[Mapping[TerrainPrimary, TerrainProfile]] = {
         notes="Single dominant cone; radial drainage; moderate thermal erosion.",
     ),
     TerrainPrimary.COASTAL_CLIFFS: TerrainProfile(
-        octaves_base=5,
+        octaves_base=4,
         lacunarity_base=2.3,
-        persistence_base=0.5,
+        persistence_base=0.45,
         warp_base=0.3,
-        scale_meters_base=120.0,
+        scale_meters_base=200.0,
+        ridged=True,
+        smooth_sigma_pixels_base=0.4,
+        macro_shape="coastal_cliff",
+        macro_strength_base=0.7,
         erosion_iterations_base=50,
         talus_angle_degrees_base=60.0,
         hydraulic_rain=0.15,
         hydraulic_evaporation=0.07,
         default_elevation_band=(0.0, 180.0),
-        notes="Sharp coastal escarpment; near-vertical talus; strong wave-cut feel.",
+        notes="Sea-floor / inland plateau dichotomy; near-vertical talus along the cliff.",
     ),
     TerrainPrimary.RIVER_VALLEY: TerrainProfile(
-        octaves_base=5,
+        octaves_base=4,
         lacunarity_base=2.1,
-        persistence_base=0.5,
-        warp_base=0.45,
-        scale_meters_base=170.0,
+        persistence_base=0.42,
+        warp_base=0.4,
+        scale_meters_base=300.0,
+        ridged=True,
+        smooth_sigma_pixels_base=0.6,
+        macro_shape="valley_trough",
+        macro_strength_base=0.5,
         erosion_iterations_base=70,
-        talus_angle_degrees_base=30.0,
+        talus_angle_degrees_base=28.0,
         hydraulic_rain=0.22,
         hydraulic_evaporation=0.05,
         default_elevation_band=(60.0, 420.0),
-        notes="Broad fluvial valley with terraces; hydraulic carving dominant.",
+        notes="Broad fluvial trough with terraces; hydraulic carving dominant.",
     ),
     TerrainPrimary.CANYON: TerrainProfile(
-        octaves_base=6,
-        lacunarity_base=2.5,
-        persistence_base=0.6,
-        warp_base=0.35,
-        scale_meters_base=140.0,
+        octaves_base=4,
+        lacunarity_base=2.4,
+        persistence_base=0.45,
+        warp_base=0.25,
+        scale_meters_base=260.0,
+        ridged=True,
+        smooth_sigma_pixels_base=0.4,
+        macro_shape="canyon_chasm",
+        macro_strength_base=0.85,
         erosion_iterations_base=90,
         talus_angle_degrees_base=65.0,
         hydraulic_rain=0.1,
         hydraulic_evaporation=0.08,
         default_elevation_band=(200.0, 1400.0),
-        notes="Deep narrow chasm with sheer walls; hydraulic + thermal sharpening.",
+        notes="Deep narrow chasm cut diagonally; near-vertical walls.",
     ),
 }
 
@@ -281,11 +361,19 @@ STREAM_PROFILES: Final[Mapping[StreamCharacter, StreamProfile]] = {
 # ---------------------------------------------------------------------------
 
 _RUGGEDNESS_DEFAULT: Final[float] = 0.5
-_OCTAVE_BONUS_MAX: Final[int] = 3
-_PERSISTENCE_BONUS_MAX: Final[float] = 0.15
-_PERSISTENCE_CEILING: Final[float] = 0.95
+_OCTAVE_BONUS_MAX: Final[int] = 2
+_OCTAVE_CEILING: Final[int] = 5
+_PERSISTENCE_BONUS_MAX: Final[float] = 0.08
+_PERSISTENCE_CEILING: Final[float] = 0.5
 _EROSION_MULTIPLIER_MIN: Final[float] = 1.0
 _EROSION_MULTIPLIER_RANGE: Final[float] = 0.5
+_SMOOTH_REDUCTION_RANGE: Final[float] = 0.6
+"""Ruggedness reduces ``smooth_sigma_pixels`` by up to this fraction
+(rugged terrain wants its detail preserved; soft archetypes do not)."""
+_MACRO_STRENGTH_BONUS_MAX: Final[float] = 0.15
+"""Ruggedness pushes macro-shape strength up by up to this much, never
+past 1.0. Pinned conservatively because the per-archetype base values
+already encode the expected strength."""
 _DEFAULT_RESOLUTION_M_PER_PX: Final[float] = 2.0
 
 
@@ -299,11 +387,28 @@ def _modulated_params(
     profile: TerrainProfile,
     ruggedness: float,
 ) -> TerrainGeneratorParams:
-    """Apply ruggedness modulation to the profile's noise params."""
-    octaves = profile.octaves_base + round(ruggedness * _OCTAVE_BONUS_MAX)
+    """Apply ruggedness modulation to the profile's noise params.
+
+    Octaves are capped at :data:`_OCTAVE_CEILING` so the finest octave
+    cell never falls below the realizer mesh sample interval (a 256²
+    mesh over a 1024 m vista samples one vertex per 4 m; with the
+    profile scale_meters at 200-400 m, 5 octaves leaves the finest
+    cell at 6-12 m, which the mesh can resolve without aliasing). The
+    ruggedness ``smooth_sigma`` reduction lets crisp terrain keep its
+    detail while soft terrain stays soft.
+    """
+    octaves = min(
+        profile.octaves_base + round(ruggedness * _OCTAVE_BONUS_MAX),
+        _OCTAVE_CEILING,
+    )
     persistence = min(
         profile.persistence_base + ruggedness * _PERSISTENCE_BONUS_MAX,
         _PERSISTENCE_CEILING,
+    )
+    smooth_reduction = ruggedness * _SMOOTH_REDUCTION_RANGE
+    smooth_sigma = max(
+        0.0,
+        profile.smooth_sigma_pixels_base * (1.0 - smooth_reduction),
     )
     return TerrainGeneratorParams(
         octaves=octaves,
@@ -311,6 +416,8 @@ def _modulated_params(
         persistence=persistence,
         warp=profile.warp_base,
         scale_meters=profile.scale_meters_base,
+        ridged=profile.ridged,
+        smooth_sigma_pixels=smooth_sigma,
     )
 
 
@@ -390,6 +497,10 @@ def map_to_spec(
     profile = TERRAIN_PROFILES[descriptor.terrain.primary]
     ruggedness = _ruggedness(descriptor)
     elevation_band = descriptor.terrain.elevation_band or profile.default_elevation_band
+    macro_strength = min(
+        1.0,
+        profile.macro_strength_base + ruggedness * _MACRO_STRENGTH_BONUS_MAX,
+    )
 
     axis = TerrainAxisSpec(
         params=_modulated_params(profile, ruggedness),
@@ -397,6 +508,8 @@ def map_to_spec(
         feature_injectors=_stream_injectors(descriptor.hydrology),
         elevation_band=elevation_band,
         resolution_meters_per_pixel=_DEFAULT_RESOLUTION_M_PER_PX,
+        macro_shape=profile.macro_shape,
+        macro_strength=macro_strength,
     )
     body = SpecBody(
         axes={"terrain": axis},

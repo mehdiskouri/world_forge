@@ -309,7 +309,7 @@ class RealizerEngine:
             return self._dispatch_sub_sequence(ctx, inputs, state)
         params = self._bind_or_fail(ctx, inputs, state)
 
-        expects = ctx.step.expects
+        expects = self._bind_expects_or_fail(ctx, inputs, state)
         wants_diff = expects is not None and _SCENE_DIFF_KEY in expects
         before = state.last_diff if wants_diff else None
         if wants_diff and before is None:
@@ -359,7 +359,26 @@ class RealizerEngine:
                 trace=tuple(state.trace),
                 cause=exc,
             ) from exc
-        return self._execute_sequence(sub_seq, inputs, state)
+        # ``seq:`` step params (after placeholder substitution against the
+        # parent inputs) act as a translation layer: they are merged into
+        # the parent inputs and override on key collision. Empty params
+        # preserve the original "pass parent inputs through" behaviour.
+        if ctx.step.params:
+            try:
+                bound = _bind_params(ctx.step.params, inputs)
+            except KeyError as exc:
+                msg = f"placeholder substitution failed: {exc}"
+                raise RealizerStepError(
+                    msg,
+                    sequence_name=ctx.sequence_name,
+                    step_index=ctx.index,
+                    trace=tuple(state.trace),
+                    cause=exc,
+                ) from exc
+            sub_inputs: Mapping[str, JsonValue] = {**inputs, **bound}
+        else:
+            sub_inputs = inputs
+        return self._execute_sequence(sub_seq, sub_inputs, state)
 
     def _bind_or_fail(
         self,
@@ -371,6 +390,26 @@ class RealizerEngine:
             return _bind_params(ctx.step.params, inputs)
         except KeyError as exc:
             msg = f"placeholder substitution failed: {exc}"
+            raise RealizerStepError(
+                msg,
+                sequence_name=ctx.sequence_name,
+                step_index=ctx.index,
+                trace=tuple(state.trace),
+                cause=exc,
+            ) from exc
+
+    def _bind_expects_or_fail(
+        self,
+        ctx: _StepCtx,
+        inputs: Mapping[str, JsonValue],
+        state: _ExecState,
+    ) -> JsonObject | None:
+        if ctx.step.expects is None:
+            return None
+        try:
+            return _bind_params(ctx.step.expects, inputs)
+        except KeyError as exc:
+            msg = f"expects substitution failed: {exc}"
             raise RealizerStepError(
                 msg,
                 sequence_name=ctx.sequence_name,

@@ -423,6 +423,28 @@
           "title": "Generator",
           "type": "string"
         },
+        "macro_shape": {
+          "default": "none",
+          "enum": [
+            "none",
+            "valley_trough",
+            "mesa_terraces",
+            "canyon_chasm",
+            "lowland_lowpass",
+            "dunes_ridges",
+            "volcanic_cone",
+            "coastal_cliff"
+          ],
+          "title": "Macro Shape",
+          "type": "string"
+        },
+        "macro_strength": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Macro Strength",
+          "type": "number"
+        },
         "params": {
           "$ref": "#/$defs/TerrainGeneratorParams"
         },
@@ -477,9 +499,21 @@
           "title": "Persistence",
           "type": "number"
         },
+        "ridged": {
+          "default": true,
+          "title": "Ridged",
+          "type": "boolean"
+        },
         "scale_meters": {
           "exclusiveMinimum": 0.0,
           "title": "Scale Meters",
+          "type": "number"
+        },
+        "smooth_sigma_pixels": {
+          "default": 0.0,
+          "maximum": 8.0,
+          "minimum": 0.0,
+          "title": "Smooth Sigma Pixels",
           "type": "number"
         },
         "warp": {

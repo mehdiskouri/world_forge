@@ -9,10 +9,19 @@ Phases 3-5 and are intentionally not registered here yet.
 
 from __future__ import annotations
 
+import sys
+from contextlib import contextmanager
 from importlib.metadata import PackageNotFoundError, version
+from typing import TYPE_CHECKING
 
 from mcp.server.fastmcp import FastMCP
 
+from forge_mcp.realize import (
+    BLENDER_BIN_ENV,
+    BlenderNotConfiguredError,
+    BlenderProcess,
+    blender_binary,
+)
 from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
@@ -20,6 +29,12 @@ from forge_mcp.server.tools import inspection as inspection_tools
 from forge_mcp.server.tools import projects as project_tools
 from forge_mcp.server.tools import regions as region_tools
 from forge_mcp.server.tools import schema as schema_tools
+from forge_mcp.server.tools import set_realizer_factory
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from forge_mcp.realize.engine import RealizerEngine
 
 _SERVER_NAME = "forge"
 
@@ -214,10 +229,50 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
     return server
 
 
+def _install_default_realizer_factory() -> bool:
+    """Wire the Blender realizer factory if ``$FORGE_BLENDER_BIN`` is valid.
+
+    Returns ``True`` when a factory was installed, ``False`` when the
+    environment is not configured for a real Blender binary (in which
+    case the realization-aware tools return a structured
+    ``realizer_not_configured`` envelope instead of crashing the
+    server).
+
+    The factory itself is lazy: each ``with factory()`` call spawns a
+    fresh ``BlenderProcess`` and yields a ``RealizerEngine`` bound to
+    its RPC client. We import :class:`RealizerEngine` inside the
+    closure to keep startup cheap and to avoid an import cycle through
+    ``forge_mcp.realize``.
+    """
+    try:
+        binary = blender_binary()
+    except BlenderNotConfiguredError as exc:
+        sys.stderr.write(
+            f"forge: realizer disabled — {exc}; "
+            f"set ${BLENDER_BIN_ENV} to a Blender 5.0 binary to enable "
+            f"forge.generate_region / forge.render_view\n",
+        )
+        return False
+
+    @contextmanager
+    def factory() -> Iterator[RealizerEngine]:
+        from forge_mcp.realize.engine import RealizerEngine  # noqa: PLC0415 - break import cycle
+
+        with BlenderProcess(blender=binary) as proc:
+            yield RealizerEngine(proc.client)
+
+    set_realizer_factory(factory)
+    return True
+
+
 def main() -> None:
     """Entry point for ``forge-mcp`` (declared in ``[project.scripts]``).
 
     Runs the server on the stdio transport. The MCP SDK's stdio runner
-    coordinates the asyncio loop; we just delegate.
+    coordinates the asyncio loop; we just delegate. Before handing off
+    we attempt to install the default Blender realizer factory so that
+    Phase 4 tools (``forge.generate_region``, ``forge.render_view``)
+    can actually drive Blender when ``$FORGE_BLENDER_BIN`` is set.
     """
+    _install_default_realizer_factory()
     build_server().run()

@@ -20,7 +20,17 @@ from forge_mcp.descriptor.schema import (
     TerrainPrimary,
 )
 
-EVAL_SHAPE: Final[tuple[int, int]] = (128, 128)
+EVAL_SHAPE: Final[tuple[int, int]] = (512, 512)
+"""Per-axis pixel count used by every eval-set render.
+
+At the default ``resolution_meters_per_pixel = 2`` from
+:mod:`forge_mcp.descriptor.map_to_spec`, this gives a 1024 m x 1024 m
+world per region — wide enough that the 80-220 m noise scales in
+:data:`TERRAIN_PROFILES` produce ~5-12 visible features per axis
+instead of one or two blobs. The realizer mesh stays capped at
+``MAX_RESOLUTION = 256`` verts/axis (see :mod:`heightmap_mesh`), so
+this only costs heightmap-generation time, not Blender time.
+"""
 EVAL_SEED: Final[int] = 17
 EVAL_NOW: Final[datetime] = datetime(2026, 4, 30, tzinfo=UTC)
 EVAL_BLENDER_VERSION: Final[str] = "5.0.0"

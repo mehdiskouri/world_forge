@@ -97,12 +97,14 @@
     {
       "name": "apply_terrain_material",
       "version": "v1",
-      "description": "Build the elevation-driven terrain material and bind it to the target mesh.",
+      "description": "Build the elevation-driven terrain material and bind it to the target mesh. The material's color ramp is fed the geometry Z position (world metres) normalised by the region's elevation band so each stop's [0,1] position maps onto the actual elevation range; without elevation_min/max the ramp would receive raw metres and clamp every vertex to the top stop.",
       "inputs_schema": {
         "object_name": "str",
         "material_name": "str",
         "color_ramp_stops": "list[ColorStop]",
-        "slope_threshold": "float"
+        "slope_threshold": "float",
+        "elevation_min": "float",
+        "elevation_max": "float"
       },
       "outputs_schema": {"material_name": "str"},
       "steps": [
@@ -112,7 +114,9 @@
             "material_name": "${material_name}",
             "target_object": "${object_name}",
             "color_ramp_stops": "${color_ramp_stops}",
-            "slope_threshold": "${slope_threshold}"
+            "slope_threshold": "${slope_threshold}",
+            "elevation_min": "${elevation_min}",
+            "elevation_max": "${elevation_max}"
           },
           "expects": {"scene_diff": {"materials": {"delta": 1}}}
         }
@@ -156,10 +160,15 @@
     {
       "name": "set_camera_overview",
       "version": "v1",
-      "description": "Add ortho-top and SE-perspective cameras framing the world bounds. Engine sets render camera per render_preview invocation.",
+      "description": "Create and configure the ortho-top and SE-perspective cameras that frame the realised region. Each camera data-block is wrapped in a scene-linked object so render.to_file can resolve it as scene.camera; the data-block itself is then switched to ORTHO / sized via ortho_scale, and the wrapping object is positioned + rotated to actually look at the terrain. Without these set_property steps the cameras stay at the Blender default (0,0,0)/PERSP and the renders come out solid grey.",
       "inputs_schema": {
         "ortho_camera_name": "str",
-        "perspective_camera_name": "str"
+        "perspective_camera_name": "str",
+        "ortho_location": "list[float]",
+        "ortho_rotation_euler": "list[float]",
+        "ortho_scale": "float",
+        "perspective_location": "list[float]",
+        "perspective_rotation_euler": "list[float]"
       },
       "outputs_schema": {
         "ortho_camera_name": "str",
@@ -172,19 +181,111 @@
           "expects": {"scene_diff": {"cameras": {"delta": 1}}}
         },
         {
+          "call": "object.from_data",
+          "params": {
+            "name": "${ortho_camera_name}",
+            "data_collection": "cameras",
+            "data_name": "${ortho_camera_name}"
+          },
+          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "cameras",
+            "name": "${ortho_camera_name}",
+            "path": "type",
+            "value": "ORTHO"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "cameras",
+            "name": "${ortho_camera_name}",
+            "path": "ortho_scale",
+            "value": "${ortho_scale}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "cameras",
+            "name": "${ortho_camera_name}",
+            "path": "clip_end",
+            "value": 100000.0
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${ortho_camera_name}",
+            "path": "location",
+            "value": "${ortho_location}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${ortho_camera_name}",
+            "path": "rotation_euler",
+            "value": "${ortho_rotation_euler}"
+          }
+        },
+        {
           "call": "bpy.data.cameras.new",
           "params": {"name": "${perspective_camera_name}"},
           "expects": {"scene_diff": {"cameras": {"delta": 1}}}
+        },
+        {
+          "call": "object.from_data",
+          "params": {
+            "name": "${perspective_camera_name}",
+            "data_collection": "cameras",
+            "data_name": "${perspective_camera_name}"
+          },
+          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "cameras",
+            "name": "${perspective_camera_name}",
+            "path": "clip_end",
+            "value": 100000.0
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${perspective_camera_name}",
+            "path": "location",
+            "value": "${perspective_location}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${perspective_camera_name}",
+            "path": "rotation_euler",
+            "value": "${perspective_rotation_euler}"
+          }
         }
       ]
     },
     {
       "name": "add_basic_lighting",
       "version": "v1",
-      "description": "Sun lamp plus procedural sky world. Constants chosen for shadow consistency across regions.",
+      "description": "Sun lamp plus procedural sky world. The sun data-block is wrapped in a scene-linked object so it actually casts and is then rotated to a fixed off-zenith angle (default Euler is (0,0,0) which makes the sun point straight down, washing out terrain relief); the world data-block is bound via scene.assign_world. Constants chosen for shadow consistency across regions.",
       "inputs_schema": {
         "sun_name": "str",
-        "world_name": "str"
+        "world_name": "str",
+        "sun_location": "list[float]",
+        "sun_rotation_euler": "list[float]"
       },
       "outputs_schema": {},
       "steps": [
@@ -194,23 +295,55 @@
           "expects": {"scene_diff": {"lights": {"delta": 1}}}
         },
         {
+          "call": "object.from_data",
+          "params": {
+            "name": "${sun_name}",
+            "data_collection": "lights",
+            "data_name": "${sun_name}"
+          },
+          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${sun_name}",
+            "path": "location",
+            "value": "${sun_location}"
+          }
+        },
+        {
+          "call": "set_property",
+          "params": {
+            "collection": "objects",
+            "name": "${sun_name}",
+            "path": "rotation_euler",
+            "value": "${sun_rotation_euler}"
+          }
+        },
+        {
           "call": "bpy.data.worlds.new",
           "params": {"name": "${world_name}"},
           "expects": {"scene_diff": {"worlds": {"delta": 1}}}
+        },
+        {
+          "call": "scene.assign_world",
+          "params": {"name": "${world_name}"}
         }
       ]
     },
     {
       "name": "render_preview",
       "version": "v1",
-      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. The host facade re-runs this macro once with compression bumped from 15 to 30 if the engine reports the file exceeded NF-1.5 (200 KB).",
+      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. The host facade re-runs this macro once with compression bumped from 15 to 100 if the engine reports the file exceeded ${png_max_bytes}.",
       "inputs_schema": {
         "filepath": "str",
         "resolution_x": "int",
         "resolution_y": "int",
         "camera_name": "str",
         "engine": "str",
-        "compression": "int"
+        "compression": "int",
+        "png_max_bytes": "int"
       },
       "outputs_schema": {
         "path": "str",
@@ -230,7 +363,7 @@
             "color_depth": "8",
             "compression": "${compression}"
           },
-          "expects": {"png_max_bytes": 200000}
+          "expects": {"png_max_bytes": "${png_max_bytes}"}
         }
       ]
     },
@@ -260,11 +393,20 @@
         "material_name": "str",
         "color_ramp_stops": "list[ColorStop]",
         "slope_threshold": "float",
+        "elevation_min": "float",
+        "elevation_max": "float",
         "curve_name": "str",
         "ortho_camera_name": "str",
         "perspective_camera_name": "str",
+        "ortho_location": "list[float]",
+        "ortho_rotation_euler": "list[float]",
+        "ortho_scale": "float",
+        "perspective_location": "list[float]",
+        "perspective_rotation_euler": "list[float]",
         "sun_name": "str",
         "world_name": "str",
+        "sun_location": "list[float]",
+        "sun_rotation_euler": "list[float]",
         "blend_filepath": "str",
         "heightmap_image_filepath": "str",
         "displace_strength": "float",
@@ -280,7 +422,7 @@
         {"call": "seq:carve_stream", "params": {}},
         {"call": "seq:set_camera_overview", "params": {}},
         {"call": "seq:add_basic_lighting", "params": {}},
-        {"call": "seq:save_blend", "params": {}}
+        {"call": "seq:save_blend", "params": {"filepath": "${blend_filepath}"}}
       ]
     }
   ]
