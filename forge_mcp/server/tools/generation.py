@@ -169,12 +169,14 @@ def _persist_realization(
     return str(npy_path), str(png_path), stream_path
 
 
-def _build_realize_inputs(
+def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     region_id: RegionId,
     spec_id: SpecId,
     vertices: list[tuple[float, float, float]],
     faces: list[tuple[int, int, int, int]],
     blend_filepath: Path,
+    heightmap_image_filepath: Path,
+    displace_strength: float,
 ) -> RealizeRegionInputs:
     """Assemble the per-region :class:`RealizeRegionInputs` payload."""
     rid_str = str(region_id)
@@ -194,6 +196,8 @@ def _build_realize_inputs(
         sun_name=f"sun_{rid_str}",
         world_name=f"world_{rid_str}",
         blend_filepath=str(blend_filepath),
+        heightmap_image_filepath=str(heightmap_image_filepath),
+        displace_strength=displace_strength,
     )
 
 
@@ -218,8 +222,11 @@ def _run_realizer(
     paths.blender_dir.mkdir(parents=True, exist_ok=True)
     blend_path = paths.blend_path(region_id)
     blend_tmp = blend_path.with_name(blend_path.name + ".tmp")
+    heightmap_png = paths.heightmap_png_path(region_id)
 
     vertices, faces = mesh_from_heightmap(heightmap)
+    elev_lo, elev_hi = heightmap.elevation_band
+    displace_strength = max(float(elev_hi) - float(elev_lo), 0.0)
 
     realize_inputs = _build_realize_inputs(
         region_id,
@@ -227,6 +234,8 @@ def _run_realizer(
         vertices,
         faces,
         blend_tmp,
+        heightmap_png,
+        displace_strength,
     )
 
     plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs]] = []

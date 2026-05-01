@@ -13,7 +13,7 @@ from forge_mcp.bpy_hypergraph.sequences import (
     load_curated_sequences,
 )
 from forge_mcp.realize import macros
-from forge_mcp.realize.engine import RealizerEngine
+from forge_mcp.realize.engine import RealizerEngine, RealizerStepError
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -140,7 +140,57 @@ def test_render_preview_facade_threads_render_inputs() -> None:
     assert result.final_result == {"file_size_bytes": 500}
 
 
-def test_no_bpy_imports_in_macros_module() -> None:
+def test_render_preview_facade_retries_with_higher_compression_when_oversize() -> None:
+    bundle = _trivial_bundle(
+        macros.MACRO_RENDER_PREVIEW,
+        SequenceStep(
+            call="render.to_file",
+            params={"filepath": "${filepath}", "compression": "${compression}"},
+            expects={"png_max_bytes": 200},
+        ),
+    )
+    # First render exceeds budget; second succeeds.
+    engine = _engine(bundle, [{"file_size_bytes": 250}, {"file_size_bytes": 180}])
+    result = macros.render_preview(
+        engine,
+        macros.RenderPreviewInputs(
+            filepath="out.png",
+            resolution_x=512,
+            resolution_y=384,
+            camera_name="cam",
+            engine="BLENDER_EEVEE",
+        ),
+    )
+    fake = cast("_ScriptedClient", engine._client)  # noqa: SLF001
+    assert result.final_result == {"file_size_bytes": 180}
+    first_params = cast("dict[str, object]", fake.calls[0][1])
+    second_params = cast("dict[str, object]", fake.calls[1][1])
+    assert first_params["compression"] == macros.DEFAULT_PNG_COMPRESSION
+    assert second_params["compression"] == macros.RETRY_PNG_COMPRESSION
+
+
+def test_render_preview_facade_propagates_when_retry_also_oversize() -> None:
+    bundle = _trivial_bundle(
+        macros.MACRO_RENDER_PREVIEW,
+        SequenceStep(
+            call="render.to_file",
+            params={"filepath": "${filepath}", "compression": "${compression}"},
+            expects={"png_max_bytes": 200},
+        ),
+    )
+    engine = _engine(bundle, [{"file_size_bytes": 300}, {"file_size_bytes": 280}])
+    with pytest.raises(RealizerStepError) as excinfo:
+        macros.render_preview(
+            engine,
+            macros.RenderPreviewInputs(
+                filepath="out.png",
+                resolution_x=512,
+                resolution_y=384,
+                camera_name="cam",
+                engine="BLENDER_EEVEE",
+            ),
+        )
+    assert excinfo.value.reason_code == "png_oversize"
     src = Path(macros.__file__).read_text(encoding="utf-8")
     forbidden = [ln for ln in src.splitlines() if "import bpy" in ln or "from bpy" in ln]
     assert not forbidden, f"forge_mcp/realize/macros.py must not import bpy: {forbidden!r}"
