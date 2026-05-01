@@ -43,6 +43,7 @@ from forge_mcp.eval import (
     EVAL_SEED,
     EVAL_SHAPE,
 )
+from forge_mcp.generate.heightmap import save_png16
 from forge_mcp.generate.terrain import run as run_terrain
 from forge_mcp.realize import BLENDER_BIN_ENV, BlenderNotConfiguredError, BlenderProcess
 from forge_mcp.realize.engine import RealizerEngine
@@ -101,6 +102,10 @@ def _bench_one(
 
     blend_path = out_dir / f"{label}.blend"
     preview_path = out_dir / f"{label}.preview.png"
+    heightmap_png = out_dir / f"{label}.heightmap.png"
+    save_png16(gen_result.heightmap, heightmap_png)
+    elev_lo, elev_hi = gen_result.heightmap.elevation_band
+    displace_strength = max(float(elev_hi) - float(elev_lo), 0.0)
 
     inputs = RealizeRegionInputs(
         object_name=f"terrain_{label}",
@@ -117,6 +122,8 @@ def _bench_one(
         sun_name=f"sun_{label}",
         world_name=f"world_{label}",
         blend_filepath=str(blend_path),
+        heightmap_image_filepath=str(heightmap_png),
+        displace_strength=displace_strength,
     )
     render_inputs = RenderPreviewInputs(
         filepath=str(preview_path),

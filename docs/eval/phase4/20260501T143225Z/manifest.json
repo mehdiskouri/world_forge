@@ -1,0 +1,709 @@
+{
+  "entries": [
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/alpine_valley_with_creek.blend",
+      "label": "alpine_valley_with_creek",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/alpine_valley_with_creek.preview.png",
+      "primary": "alpine_valley",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 97.079,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 157.342,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.192,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.172,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.138,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 17.54,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 1.486,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.207,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.144,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.14,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.186,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.16,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.127,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.145,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.169,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.142,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.187,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.131,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 25.192,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 304.607,
+      "render_final": {
+        "file_size_bytes": 91741,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/alpine_valley_with_creek.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 902.545,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 902.943,
+      "spec_id": "spec_b879897a5533"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/rolling_hills_dry.blend",
+      "label": "rolling_hills_dry",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/rolling_hills_dry.preview.png",
+      "primary": "rolling_hills",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 97.005,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 157.676,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.209,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.189,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.167,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 17.764,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 1.497,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.233,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.125,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.114,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.14,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.279,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.144,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.152,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.174,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.142,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.187,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.133,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 36.274,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 316.259,
+      "render_final": {
+        "file_size_bytes": 91727,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/rolling_hills_dry.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 888.593,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 888.92,
+      "spec_id": "spec_68e25b554527"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/desert_mesa.blend",
+      "label": "desert_mesa",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/desert_mesa.preview.png",
+      "primary": "desert_mesa",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 95.531,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 158.841,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.193,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.179,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.139,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 17.658,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 1.522,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.189,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.14,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.127,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.184,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.161,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.126,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.15,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.17,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.139,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.192,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.133,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 36.08,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 315.523,
+      "render_final": {
+        "file_size_bytes": 91715,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/desert_mesa.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 868.795,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 869.208,
+      "spec_id": "spec_47f0853485b9"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/boreal_lowland_meander.blend",
+      "label": "boreal_lowland_meander",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/boreal_lowland_meander.preview.png",
+      "primary": "boreal_lowland",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 97.645,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 154.183,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.19,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.19,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.143,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 17.796,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 1.487,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.195,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.144,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.13,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.182,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.161,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.154,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.14,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.169,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.162,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.186,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.13,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 35.734,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 312.611,
+      "render_final": {
+        "file_size_bytes": 91737,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/boreal_lowland_meander.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 917.5,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 917.819,
+      "spec_id": "spec_bb1003e76368"
+    },
+    {
+      "blend_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/canyon_dry_wash.blend",
+      "label": "canyon_dry_wash",
+      "preview_path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/canyon_dry_wash.preview.png",
+      "primary": "canyon",
+      "realize_trace": [
+        {
+          "call": "bpy.ops.wm.read_factory_settings",
+          "duration_ms": 97.002,
+          "sequence_name": "reset_scene",
+          "step_index": 0
+        },
+        {
+          "call": "mesh.from_pydata",
+          "duration_ms": 174.086,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.195,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.164,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 2
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.141,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 3
+        },
+        {
+          "call": "mesh.add_displace_modifier",
+          "duration_ms": 18.012,
+          "sequence_name": "create_terrain_from_heightmap",
+          "step_index": 4
+        },
+        {
+          "call": "material.build_terrain",
+          "duration_ms": 1.522,
+          "sequence_name": "apply_terrain_material",
+          "step_index": 0
+        },
+        {
+          "call": "bpy.data.curves.new",
+          "duration_ms": 0.191,
+          "sequence_name": "carve_stream",
+          "step_index": 0
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.143,
+          "sequence_name": "carve_stream",
+          "step_index": 1
+        },
+        {
+          "call": "set_idprop",
+          "duration_ms": 0.155,
+          "sequence_name": "carve_stream",
+          "step_index": 2
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.157,
+          "sequence_name": "set_camera_overview",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.189,
+          "sequence_name": "set_camera_overview",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.cameras.new",
+          "duration_ms": 0.13,
+          "sequence_name": "set_camera_overview",
+          "step_index": 2
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.143,
+          "sequence_name": "set_camera_overview",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.data.lights.new",
+          "duration_ms": 0.186,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 0
+        },
+        {
+          "call": "object.from_data",
+          "duration_ms": 0.184,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 1
+        },
+        {
+          "call": "bpy.data.worlds.new",
+          "duration_ms": 0.191,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 2
+        },
+        {
+          "call": "scene.assign_world",
+          "duration_ms": 0.136,
+          "sequence_name": "add_basic_lighting",
+          "step_index": 3
+        },
+        {
+          "call": "bpy.ops.wm.save_as_mainfile",
+          "duration_ms": 35.707,
+          "sequence_name": "save_blend",
+          "step_index": 0
+        }
+      ],
+      "realize_wall_ms": 332.292,
+      "render_final": {
+        "file_size_bytes": 91723,
+        "height": 384,
+        "path": "/workspace/world_forge/docs/eval/phase4/20260501T143225Z/canyon_dry_wash.preview.png",
+        "width": 512
+      },
+      "render_trace": [
+        {
+          "call": "render.to_file",
+          "duration_ms": 885.262,
+          "sequence_name": "render_preview",
+          "step_index": 0
+        }
+      ],
+      "render_wall_ms": 885.589,
+      "spec_id": "spec_4889bb2c15e4"
+    }
+  ],
+  "preview_resolution": [
+    512,
+    384
+  ],
+  "render_engine": "BLENDER_EEVEE",
+  "seed": 17,
+  "shape": [
+    128,
+    128
+  ]
+}
