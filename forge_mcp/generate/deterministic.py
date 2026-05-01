@@ -39,6 +39,7 @@ PURPOSES: Final[frozenset[Purpose]] = frozenset(
         "erosion.hydraulic",
         "erosion.thermal",
         "stream.path_jitter",
+        "macro.lowland_tilt",
     },
 )
 """Closed registry of every RNG purpose the Phase 3 pipeline will consume.

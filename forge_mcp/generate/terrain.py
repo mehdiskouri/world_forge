@@ -1,6 +1,7 @@
 """Terrain orchestrator: SpecRecord -> Heightmap + StreamGeometry.
 
 Wires together :mod:`forge_mcp.generate.noise`,
+:mod:`forge_mcp.generate.macro_shape`,
 :mod:`forge_mcp.generate.erosion`, and
 :mod:`forge_mcp.generate.stream`. Pure (no IO); the caller persists
 results via :class:`forge_mcp.project.service.ProjectService`.
@@ -11,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
-from forge_mcp.generate import erosion, noise, stream
+from forge_mcp.generate import erosion, macro_shape, noise, stream
 from forge_mcp.generate.deterministic import make_rng
 from forge_mcp.generate.heightmap import Heightmap
 from forge_mcp.project.schemas import (
@@ -60,6 +61,7 @@ def _apply_post_pass(
             rain=pass_spec.rain,
             evaporation=pass_spec.evaporation,
             rng=rng,
+            resolution_meters_per_pixel=heightmap.resolution_meters_per_pixel,
         )
         return (
             Heightmap(
@@ -77,6 +79,7 @@ def _apply_post_pass(
             iterations=pass_spec.iterations,
             talus_angle_degrees=pass_spec.talus_angle_degrees,
             rng=rng,
+            resolution_meters_per_pixel=heightmap.resolution_meters_per_pixel,
         )
         return (
             Heightmap(
@@ -155,7 +158,18 @@ def run(
         warp=axis.params.warp,
         scale_meters=axis.params.scale_meters,
         resolution_meters_per_pixel=axis.resolution_meters_per_pixel,
+        ridged=axis.params.ridged,
+        smooth_sigma_pixels=axis.params.smooth_sigma_pixels,
     )
+    generators_used: list[str] = ["noise.ridged_multifractal"]
+    if axis.macro_strength > 0.0 and axis.macro_shape != "none":
+        base = macro_shape.apply_macro_shape(
+            base,
+            shape=axis.macro_shape,
+            strength=axis.macro_strength,
+            seed=seed,
+        )
+        generators_used.append(f"macro.{axis.macro_shape}")
     heightmap = Heightmap(
         data=base,
         resolution_meters_per_pixel=axis.resolution_meters_per_pixel,
@@ -163,7 +177,6 @@ def run(
         elevation_band=(0.0, 1.0),
     )
     heightmap = _apply_elevation_band(heightmap, axis.elevation_band)
-    generators_used: list[str] = ["noise.ridged_multifractal"]
 
     for pass_spec in axis.post_passes:
         heightmap, generator_name = _apply_post_pass(heightmap, pass_spec, seed=seed)

@@ -27,6 +27,7 @@ _EXPECTED_PURPOSES = frozenset(
         "erosion.hydraulic",
         "erosion.thermal",
         "stream.path_jitter",
+        "macro.lowland_tilt",
     },
 )
 

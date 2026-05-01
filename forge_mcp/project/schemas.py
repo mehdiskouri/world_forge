@@ -297,6 +297,20 @@ class TerrainGeneratorParams(BaseModel):  # type: ignore[explicit-any]  # pydant
     persistence: float = Field(gt=0.0, lt=1.0)
     warp: float = Field(ge=0.0, le=2.0)
     scale_meters: float = Field(gt=0.0)
+    ridged: bool = True
+    """Whether to apply the ``1 - |perlin|`` ridge operator per octave.
+
+    True for archetypes with crisp ridgelines (alpine, canyon, mesa,
+    coastal cliffs, volcanic). False for soft archetypes (rolling
+    hills, plains, marsh, boreal lowland, dunes) where the ridge
+    operator would otherwise plant sharp creases everywhere.
+    """
+    smooth_sigma_pixels: float = Field(default=0.0, ge=0.0, le=8.0)
+    """Optional Gaussian post-smooth applied to the noise field, in
+    pixels (sigma). Zero disables. Used to launder away sub-mesh
+    high-frequency content that would otherwise alias as per-vertex
+    spikes after subsampling to the realizer mesh.
+    """
 
 
 class HydraulicErosionPass(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
@@ -345,6 +359,27 @@ FeatureInjector = StreamFeatureInjector
 """Single-arm union today; widens when more feature kinds arrive."""
 
 
+MacroShape = Literal[
+    "none",
+    "valley_trough",
+    "mesa_terraces",
+    "canyon_chasm",
+    "lowland_lowpass",
+    "dunes_ridges",
+    "volcanic_cone",
+    "coastal_cliff",
+]
+"""Discriminator for the optional per-archetype macro-shape pre-pass.
+
+Applied in :mod:`forge_mcp.generate.macro_shape` to the unit-range
+noise field *before* elevation-band remap, so each archetype carries
+its characteristic large-scale silhouette (a U-trough for alpine
+valleys, flat-topped terraces for mesas, a deep narrow chasm for
+canyons, etc.) on top of the shared noise generator. ``"none"`` is the
+identity and matches the pre-Phase-3-revision behaviour.
+"""
+
+
 class TerrainAxisSpec(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
     """Per-axis spec for the terrain axis (the only v1 axis)."""
 
@@ -356,6 +391,14 @@ class TerrainAxisSpec(BaseModel):  # type: ignore[explicit-any]  # pydantic stub
     feature_injectors: tuple[FeatureInjector, ...] = ()
     elevation_band: tuple[float, float]
     resolution_meters_per_pixel: float = Field(gt=0.0)
+    macro_shape: MacroShape = "none"
+    """Per-archetype large-scale silhouette pre-pass; see :data:`MacroShape`."""
+    macro_strength: float = Field(default=0.0, ge=0.0, le=1.0)
+    """Blend weight in ``[0, 1]`` for the macro-shape pre-pass.
+
+    ``0.0`` is the identity (no contribution) regardless of
+    ``macro_shape``; ``1.0`` is the archetype's full silhouette.
+    """
 
     @field_validator("elevation_band")
     @classmethod
@@ -643,6 +686,7 @@ __all__ = [
     "LockKind",
     "LockRecord",
     "LockStoreFile",
+    "MacroShape",
     "NodeId",
     "Polygon2D",
     "PostPass",
