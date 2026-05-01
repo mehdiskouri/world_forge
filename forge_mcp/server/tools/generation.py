@@ -62,14 +62,20 @@ if TYPE_CHECKING:
 _REROLL_DIGEST_BYTES = 8
 
 
-VIEW_KIND_PREVIEW: Final[str] = "preview"
-VIEW_KIND_DEFAULT: Final[str] = "default"
-VIEW_KIND_FULL: Final[str] = "full"
+VIEW_ORTHO_TOP: Final[str] = "ortho_top"
+VIEW_PERSPECTIVE_SE: Final[str] = "perspective_se"
+DEFAULT_VIEW_KIND: Final[str] = VIEW_ORTHO_TOP
 
+RESOLUTION_PREVIEW: Final[str] = "preview"
+RESOLUTION_DEFAULT: Final[str] = "default"
+RESOLUTION_FULL: Final[str] = "full"
+DEFAULT_RESOLUTION: Final[str] = RESOLUTION_DEFAULT
+
+_VIEW_KINDS: Final[tuple[str, ...]] = (VIEW_ORTHO_TOP, VIEW_PERSPECTIVE_SE)
 _RESOLUTIONS: Final[dict[str, tuple[int, int]]] = {
-    VIEW_KIND_PREVIEW: (512, 384),
-    VIEW_KIND_DEFAULT: (1024, 768),
-    VIEW_KIND_FULL: (2048, 1536),
+    RESOLUTION_PREVIEW: (512, 384),
+    RESOLUTION_DEFAULT: (1024, 768),
+    RESOLUTION_FULL: (2048, 1536),
 }
 
 _DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
@@ -81,15 +87,31 @@ _DEFAULT_SLOPE_THRESHOLD: Final[float] = 0.35
 _RENDER_ENGINE: Final[str] = "BLENDER_EEVEE"  # Blender 5.0 enum identifier
 
 
-@dataclass(frozen=True, slots=True)
-class _RealizationArtifacts:
-    """Filesystem locations + trace returned by :func:`_run_realizer`."""
+def _camera_name_for_view(region_id: RegionId, view_kind: str) -> str:
+    """Return the per-region camera object name for ``view_kind``."""
+    if view_kind == VIEW_ORTHO_TOP:
+        return f"cam_ortho_{region_id}"
+    return f"cam_persp_{region_id}"
 
-    blend_path: Path
+
+@dataclass(frozen=True, slots=True)
+class _ViewArtifacts:
+    """Per-(view, resolution) render outputs."""
+
+    view_kind: str
+    resolution: str
     preview_path: Path
     trace_path: Path
-    realize_result: RealizationResult
     render_result: RealizationResult
+
+
+@dataclass(frozen=True, slots=True)
+class _RealizationArtifacts:
+    """Filesystem locations + traces returned by :func:`_run_realizer`."""
+
+    blend_path: Path
+    realize_result: RealizationResult
+    views: tuple[_ViewArtifacts, ...]
 
 
 def _resolve_region(region_id_value: str) -> tuple[RegionId, object]:
@@ -180,11 +202,13 @@ def _run_realizer(
     region_id: RegionId,
     spec_id: SpecId,
     heightmap: Heightmap,
-    view_kind: str,
+    targets: tuple[tuple[str, str], ...],
 ) -> _RealizationArtifacts | None:
-    """Drive the realizer for one region+view, persisting all outputs atomically.
+    """Drive the realizer, persisting all outputs atomically.
 
-    Returns ``None`` when no realizer factory is installed.
+    ``targets`` is a tuple of ``(view_kind, resolution)`` pairs to
+    render after the single ``realize_region`` macro completes. Returns
+    ``None`` when no realizer factory is installed.
     """
     factory = get_realizer_factory()
     if factory is None:
@@ -193,13 +217,9 @@ def _run_realizer(
     paths = service.state.paths
     paths.blender_dir.mkdir(parents=True, exist_ok=True)
     blend_path = paths.blend_path(region_id)
-    preview_path = paths.preview_path(region_id)
-    trace_path = paths.realization_trace_path(region_id)
     blend_tmp = blend_path.with_name(blend_path.name + ".tmp")
-    preview_tmp = preview_path.with_name(preview_path.name + ".tmp")
 
     vertices, faces = mesh_from_heightmap(heightmap)
-    width, height = _RESOLUTIONS[view_kind]
 
     realize_inputs = _build_realize_inputs(
         region_id,
@@ -208,35 +228,68 @@ def _run_realizer(
         faces,
         blend_tmp,
     )
-    render_inputs = RenderPreviewInputs(
-        filepath=str(preview_tmp),
-        resolution_x=width,
-        resolution_y=height,
-        camera_name=f"cam_persp_{region_id}",
-        engine=_RENDER_ENGINE,
-    )
+
+    plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs]] = []
+    for view_kind, resolution in targets:
+        preview_path = paths.preview_path(region_id, view_kind, resolution)
+        preview_tmp = preview_path.with_name(preview_path.name + ".tmp")
+        trace_path = paths.realization_trace_path(region_id, view_kind, resolution)
+        width, height = _RESOLUTIONS[resolution]
+        render_inputs = RenderPreviewInputs(
+            filepath=str(preview_tmp),
+            resolution_x=width,
+            resolution_y=height,
+            camera_name=_camera_name_for_view(region_id, view_kind),
+            engine=_RENDER_ENGINE,
+        )
+        plan.append((view_kind, resolution, preview_path, preview_tmp, trace_path, render_inputs))
 
     with factory() as engine:
         realize_result = realize_region(engine, realize_inputs)
-        render_result = render_preview(engine, render_inputs)
+        render_results = [render_preview(engine, item[5]) for item in plan]
 
-    # Atomic publish: replace any prior outputs only after both writes succeeded.
+    # Atomic publish: only after every render succeeded.
     os.replace(blend_tmp, blend_path)  # noqa: PTH105 - need os primitive on Path
-    os.replace(preview_tmp, preview_path)  # noqa: PTH105 - need os primitive on Path
+    views: list[_ViewArtifacts] = []
+    for (view_kind, resolution, preview_path, preview_tmp, trace_path, _ri), render_result in zip(
+        plan,
+        render_results,
+        strict=True,
+    ):
+        os.replace(preview_tmp, preview_path)  # noqa: PTH105 - need os primitive on Path
+        record = record_from_result(
+            render_result,
+            region_id=str(region_id),
+            view_kind=view_kind,
+        )
+        write_trace_record(trace_path, record)
+        views.append(
+            _ViewArtifacts(
+                view_kind=view_kind,
+                resolution=resolution,
+                preview_path=preview_path,
+                trace_path=trace_path,
+                render_result=render_result,
+            ),
+        )
 
-    record = record_from_result(
-        realize_result,
-        region_id=str(region_id),
-        view_kind=view_kind,
-    )
-    write_trace_record(trace_path, record)
     return _RealizationArtifacts(
         blend_path=blend_path,
-        preview_path=preview_path,
-        trace_path=trace_path,
         realize_result=realize_result,
-        render_result=render_result,
+        views=tuple(views),
     )
+
+
+def _view_summary(view: _ViewArtifacts) -> dict[str, object]:
+    """Pack one :class:`_ViewArtifacts` into the response JSON shape."""
+    return {
+        "view_kind": view.view_kind,
+        "resolution": view.resolution,
+        "preview_path": str(view.preview_path),
+        "realization_trace_path": str(view.trace_path),
+        "render_resolution": list(_RESOLUTIONS[view.resolution]),
+        "render_file_size_bytes": _render_size(view.render_result),
+    }
 
 
 def generate_region(region_id: str) -> dict[str, object]:
@@ -285,30 +338,27 @@ def generate_region(region_id: str) -> dict[str, object]:
     )
 
     blend_path: str | None = None
-    preview_path: str | None = None
-    realization_trace_path: str | None = None
     realization_summary: dict[str, object] | None = None
+    previews: dict[str, dict[str, object]] | None = None
     try:
         artifacts = _run_realizer(
             service,
             rid,
             spec_with_summary.spec_id,
             result.heightmap,
-            VIEW_KIND_PREVIEW,
+            tuple((view, DEFAULT_RESOLUTION) for view in _VIEW_KINDS),
         )
     except RealizerError as exc:
         return fail("realizer_failed", str(exc))
     if artifacts is not None:
         blend_path = str(artifacts.blend_path)
-        preview_path = str(artifacts.preview_path)
-        realization_trace_path = str(artifacts.trace_path)
+        previews = {view.view_kind: _view_summary(view) for view in artifacts.views}
         realization_summary = {
             "macro": artifacts.realize_result.macro,
             "sequence_id": artifacts.realize_result.sequence_id,
-            "view_kind": VIEW_KIND_PREVIEW,
             "render_engine": _RENDER_ENGINE,
-            "render_resolution": list(_RESOLUTIONS[VIEW_KIND_PREVIEW]),
-            "render_file_size_bytes": _render_size(artifacts.render_result),
+            "default_resolution": list(_RESOLUTIONS[DEFAULT_RESOLUTION]),
+            "default_view_kind": DEFAULT_VIEW_KIND,
         }
 
     return ok(
@@ -319,8 +369,7 @@ def generate_region(region_id: str) -> dict[str, object]:
             "heightmap_png_path": png_path,
             "stream_geometry_path": stream_path,
             "blend_path": blend_path,
-            "preview_path": preview_path,
-            "realization_trace_path": realization_trace_path,
+            "previews": previews,
             "realization": realization_summary,
             "generators_used": list(result.generators_used),
             "analysis": analysis.model_dump(mode="json"),
@@ -338,20 +387,34 @@ def _render_size(render_result: RealizationResult) -> int | None:
     return None
 
 
+def _validate_render_view_args(view_kind: str, resolution: str) -> dict[str, object] | None:
+    """Return an error envelope for invalid view_kind / resolution, else ``None``."""
+    if view_kind not in _VIEW_KINDS:
+        return fail(
+            "invalid_view_kind",
+            f"view_kind must be one of {list(_VIEW_KINDS)!r}, got {view_kind!r}",
+        )
+    if resolution not in _RESOLUTIONS:
+        return fail(
+            "invalid_resolution",
+            f"resolution must be one of {sorted(_RESOLUTIONS)!r}, got {resolution!r}",
+        )
+    return None
+
+
 def _resolve_render_view_target(
     region_id: str,
     view_kind: str,
+    resolution: str,
 ) -> tuple[RegionId, SpecId, Path] | dict[str, object]:
     """Validate ``render_view`` arguments and return the resolved target.
 
     Returns either ``(region_id, spec_id, heightmap_npy_path)`` on success
     or a ready-to-return error envelope.
     """
-    if view_kind not in _RESOLUTIONS:
-        return fail(
-            "invalid_view_kind",
-            f"view_kind must be one of {sorted(_RESOLUTIONS)!r}, got {view_kind!r}",
-        )
+    err = _validate_render_view_args(view_kind, resolution)
+    if err is not None:
+        return err
     rid, lookup = _resolve_region(region_id)
     if isinstance(lookup, dict):
         return lookup
@@ -377,36 +440,43 @@ def _resolve_render_view_target(
     return rid, lookup.spec_id, npy_path
 
 
-def render_view(region_id: str, view_kind: str = VIEW_KIND_DEFAULT) -> dict[str, object]:
-    """Re-render a previously-generated region at the requested resolution.
+def render_view(
+    region_id: str,
+    view_kind: str = DEFAULT_VIEW_KIND,
+    resolution: str = DEFAULT_RESOLUTION,
+) -> dict[str, object]:
+    """Re-render a previously-generated region for one ``(view_kind, resolution)``.
 
-    ``view_kind`` is one of ``"preview"`` (512x384), ``"default"``
-    (1024x768) or ``"full"`` (2048x1536). The realizer rebuilds the
-    scene from the persisted heightmap (and optional stream geometry)
-    each call - this keeps the on-disk ``.blend`` honest about what the
-    most recent render actually drew.
+    ``view_kind`` is one of ``"ortho_top"`` / ``"perspective_se"``;
+    ``resolution`` is one of ``"preview"`` (512x384) / ``"default"``
+    (1024x768) / ``"full"`` (2048x1536). The realizer rebuilds the
+    scene from the persisted heightmap each call so the on-disk
+    ``.blend`` stays honest about what the most recent render drew.
     """
-    target = _resolve_render_view_target(region_id, view_kind)
+    target = _resolve_render_view_target(region_id, view_kind, resolution)
     if isinstance(target, dict):
         return target
     rid, spec_id, npy_path = target
     service = get_service()
     heightmap = load_npy(npy_path)
     try:
-        artifacts = _run_realizer(service, rid, spec_id, heightmap, view_kind)
+        artifacts = _run_realizer(
+            service,
+            rid,
+            spec_id,
+            heightmap,
+            ((view_kind, resolution),),
+        )
     except RealizerError as exc:
         return fail("realizer_failed", str(exc))
     assert artifacts is not None  # noqa: S101 - factory guarded above
+    view = artifacts.views[0]
     return ok(
         {
             "region_id": region_id,
-            "view_kind": view_kind,
             "blend_path": str(artifacts.blend_path),
-            "preview_path": str(artifacts.preview_path),
-            "realization_trace_path": str(artifacts.trace_path),
             "render_engine": _RENDER_ENGINE,
-            "render_resolution": list(_RESOLUTIONS[view_kind]),
-            "render_file_size_bytes": _render_size(artifacts.render_result),
+            **_view_summary(view),
         },
     )
 

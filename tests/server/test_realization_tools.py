@@ -173,8 +173,7 @@ def test_generate_region_skips_realizer_when_no_factory(tmp_path: Path) -> None:
     rid = _bootstrap(tmp_path)
     result = _ok(generate_region(rid))
     assert result["blend_path"] is None
-    assert result["preview_path"] is None
-    assert result["realization_trace_path"] is None
+    assert result["previews"] is None
     assert result["realization"] is None
 
 
@@ -187,27 +186,42 @@ def test_generate_region_runs_realizer_when_factory_installed(
 
     result = _ok(generate_region(rid))
 
-    assert fake.macros_called == ["realize_region", "render_preview"]
+    # One realize_region call, then one render per view (ortho_top + perspective_se).
+    assert fake.macros_called == [
+        "realize_region",
+        "render_preview",
+        "render_preview",
+    ]
     blend = result["blend_path"]
-    preview = result["preview_path"]
-    trace = result["realization_trace_path"]
+    previews = result["previews"]
     assert isinstance(blend, str)
-    assert isinstance(preview, str)
-    assert isinstance(trace, str)
+    assert isinstance(previews, dict)
+    assert set(previews) == {"ortho_top", "perspective_se"}
     assert tmp_path.joinpath("realizations", "blender", f"{rid}.blend").is_file()
-    assert tmp_path.joinpath("realizations", "blender", f"{rid}.preview.png").is_file()
+    for view_kind in ("ortho_top", "perspective_se"):
+        assert tmp_path.joinpath(
+            "realizations",
+            "blender",
+            f"{rid}.{view_kind}.default.png",
+        ).is_file()
+        view = previews[view_kind]
+        assert isinstance(view, dict)
+        assert view["resolution"] == "default"
+        assert view["render_resolution"] == [1024, 768]
+        assert view["render_file_size_bytes"] == len(b"PNG-TMP")
+
+        # Trace sidecar persisted as canonical JSON.
+        trace_path = tmp_path / cast("str", view["realization_trace_path"])
+        payload = json.loads(trace_path.read_text(encoding="utf-8"))
+        assert payload["region_id"] == rid
+        assert payload["view_kind"] == view_kind
+        assert payload["macro"] == "render_preview"
+
     summary = result["realization"]
     assert isinstance(summary, dict)
     assert summary["macro"] == "realize_region"
-    assert summary["view_kind"] == "preview"
-    assert summary["render_resolution"] == [512, 384]
-    assert summary["render_file_size_bytes"] == len(b"PNG-TMP")
-
-    # Trace sidecar persisted as canonical JSON.
-    payload = json.loads(tmp_path.joinpath(trace).read_text(encoding="utf-8"))
-    assert payload["region_id"] == rid
-    assert payload["view_kind"] == "preview"
-    assert payload["macro"] == "realize_region"
+    assert summary["default_view_kind"] == "ortho_top"
+    assert summary["default_resolution"] == [1024, 768]
 
 
 def test_generate_region_realizer_failure_returns_error(
@@ -242,15 +256,21 @@ def test_render_view_rejects_unknown_view_kind(tmp_path: Path) -> None:
     assert error["code"] == "invalid_view_kind"
 
 
+def test_render_view_rejects_unknown_resolution(tmp_path: Path) -> None:
+    rid = _bootstrap(tmp_path)
+    error = _err(render_view(rid, view_kind="ortho_top", resolution="huge"))
+    assert error["code"] == "invalid_resolution"
+
+
 def test_render_view_requires_existing_region(tmp_path: Path) -> None:
     _bootstrap(tmp_path)
-    error = _err(render_view("r-missing", view_kind="default"))
+    error = _err(render_view("r-missing", view_kind="ortho_top"))
     assert error["code"] == "unknown_region"
 
 
 def test_render_view_requires_prior_generation(tmp_path: Path) -> None:
     rid = _bootstrap(tmp_path)
-    error = _err(render_view(rid, view_kind="default"))
+    error = _err(render_view(rid, view_kind="ortho_top"))
     assert error["code"] == "not_generated"
 
 
@@ -260,7 +280,7 @@ def test_render_view_requires_realizer_factory(
 ) -> None:
     rid = _bootstrap(tmp_path)
     _ok(generate_region(rid))
-    error = _err(render_view(rid, view_kind="default"))
+    error = _err(render_view(rid, view_kind="ortho_top"))
     assert error["code"] == "realizer_not_configured"
 
 
@@ -272,17 +292,26 @@ def test_render_view_writes_blend_preview_and_trace_atomically(
     _install_fake_factory(monkeypatch)
     _ok(generate_region(rid))  # establishes heightmap + initial realization
 
-    result = _ok(render_view(rid, view_kind="full"))
-    assert result["view_kind"] == "full"
+    result = _ok(render_view(rid, view_kind="perspective_se", resolution="full"))
+    assert result["view_kind"] == "perspective_se"
+    assert result["resolution"] == "full"
     assert result["render_resolution"] == [2048, 1536]
     blend = tmp_path.joinpath("realizations", "blender", f"{rid}.blend")
-    preview = tmp_path.joinpath("realizations", "blender", f"{rid}.preview.png")
-    trace = tmp_path.joinpath("realizations", "blender", f"{rid}.trace.json")
+    preview = tmp_path.joinpath(
+        "realizations",
+        "blender",
+        f"{rid}.perspective_se.full.png",
+    )
+    trace = tmp_path.joinpath(
+        "realizations",
+        "blender",
+        f"{rid}.perspective_se.full.trace.json",
+    )
     assert blend.is_file()
     assert preview.is_file()
     assert trace.is_file()
     payload = json.loads(trace.read_text(encoding="utf-8"))
-    assert payload["view_kind"] == "full"
+    assert payload["view_kind"] == "perspective_se"
     # No leftover .tmp files.
     assert not list(blend.parent.glob("*.tmp"))
 
@@ -309,5 +338,5 @@ def test_render_view_with_no_render_size_field(
 
     _install_fake_factory(monkeypatch, on_render=render_no_size)
     _ok(generate_region(rid))
-    result = _ok(render_view(rid, view_kind="preview"))
+    result = _ok(render_view(rid, view_kind="ortho_top", resolution="preview"))
     assert result["render_file_size_bytes"] is None

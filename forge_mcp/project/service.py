@@ -232,13 +232,22 @@ class ProjectPaths:
         """Path of the persisted ``.blend`` for ``region_id``."""
         return self.blender_dir / f"{region_id}.blend"
 
-    def preview_path(self, region_id: RegionId) -> Path:
-        """Path of the persisted preview PNG for ``region_id``."""
-        return self.blender_dir / f"{region_id}.preview.png"
+    def preview_path(self, region_id: RegionId, view_kind: str, resolution: str) -> Path:
+        """Path of the persisted preview PNG for one ``(view_kind, resolution)``.
 
-    def realization_trace_path(self, region_id: RegionId) -> Path:
-        """Path of the persisted realization-trace sidecar JSON for ``region_id``."""
-        return self.blender_dir / f"{region_id}.trace.json"
+        ``view_kind`` is one of ``"ortho_top"`` / ``"perspective_se"``;
+        ``resolution`` is one of ``"preview"`` / ``"default"`` / ``"full"``.
+        """
+        return self.blender_dir / f"{region_id}.{view_kind}.{resolution}.png"
+
+    def realization_trace_path(
+        self,
+        region_id: RegionId,
+        view_kind: str,
+        resolution: str,
+    ) -> Path:
+        """Path of the realization-trace sidecar JSON for one ``(view_kind, resolution)``."""
+        return self.blender_dir / f"{region_id}.{view_kind}.{resolution}.trace.json"
 
     def all_directories(self) -> tuple[Path, ...]:
         """Every directory that must exist for the project to be valid."""
