@@ -868,7 +868,9 @@ These invariants are what makes v2 work cheap. Violating them in v1 to save days
   both succeed.
 - **`forge.render_view`** preset resolutions: `preview` 512x384,
   `default` 1024x768, `full` 2048x1536. Default render engine string
-  is `BLENDER_EEVEE_NEXT`. The NF-1.5 200 KB ceiling on the preview
+  is `BLENDER_EEVEE` (Blender 5.0 collapsed the previous
+  `BLENDER_EEVEE_NEXT` identifier back to plain `BLENDER_EEVEE`). The
+  NF-1.5 200 KB ceiling on the preview
   PNG is enforced by the engine via the macro's
   `expects.png_max_bytes` postcondition.
 - **Realization trace sidecar** (`forge_mcp/realize/realization.py`):

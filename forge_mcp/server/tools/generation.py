@@ -78,7 +78,7 @@ _DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
     {"position": 1.0, "color": [0.95, 0.95, 0.95, 1.0]},
 )
 _DEFAULT_SLOPE_THRESHOLD: Final[float] = 0.35
-_RENDER_ENGINE: Final[str] = "BLENDER_EEVEE_NEXT"
+_RENDER_ENGINE: Final[str] = "BLENDER_EEVEE"  # Blender 5.0 enum identifier
 
 
 @dataclass(frozen=True, slots=True)
