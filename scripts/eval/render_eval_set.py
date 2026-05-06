@@ -30,6 +30,7 @@ from forge_mcp.eval import (
     EVAL_BPY_HYPERGRAPH_VERSION,
     EVAL_DESCRIPTORS,
     EVAL_NOW,
+    EVAL_REGION_EXTENT,
     EVAL_SEED,
     EVAL_SHAPE,
 )
@@ -69,6 +70,7 @@ def render(out_dir: Path) -> Path:
         spec = map_to_spec(
             descriptor,
             seed=EVAL_SEED,
+            region_extent=EVAL_REGION_EXTENT,
             blender_version=EVAL_BLENDER_VERSION,
             bpy_hypergraph_version=EVAL_BPY_HYPERGRAPH_VERSION,
             now=EVAL_NOW,

@@ -28,7 +28,11 @@ from typing import TYPE_CHECKING, Final
 from pydantic import ValidationError
 
 from forge_mcp.analyze.terrain_analysis import TerrainAnalysis, analyze
-from forge_mcp.descriptor.map_to_spec import map_to_spec
+from forge_mcp.descriptor.map_to_spec import (
+    ElevationBandImplausibleError,
+    map_to_spec,
+)
+from forge_mcp.descriptor.region_extent import RegionExtent
 from forge_mcp.generate import terrain as terrain_generator
 from forge_mcp.generate.heightmap import Heightmap, load_npy, save_npy, save_png16
 from forge_mcp.generate.stream import StreamGeometry
@@ -359,13 +363,27 @@ def generate_region(region_id: str) -> dict[str, object]:
 
     service = get_service()
     metadata = service.state.metadata
-    spec = map_to_spec(
-        region.structured_descriptor,
-        region.seed,
-        blender_version=metadata.blender_version,
-        bpy_hypergraph_version=metadata.bpy_hypergraph_version,
-        now=_now(),
-    )
+    region_extent = RegionExtent.from_polygon_coords(region.spatial_bounds.coords.coords)
+    try:
+        spec = map_to_spec(
+            region.structured_descriptor,
+            region.seed,
+            region_extent=region_extent,
+            blender_version=metadata.blender_version,
+            bpy_hypergraph_version=metadata.bpy_hypergraph_version,
+            now=_now(),
+        )
+    except ElevationBandImplausibleError as exc:
+        return fail(
+            "elevation_band_implausible",
+            str(exc),
+            details={
+                "field": exc.field,
+                "region_extent_m": exc.region_extent_m,
+                "max_band_m": exc.max_band_m,
+                "supplied_band": list(exc.supplied_band),
+            },
+        )
 
     try:
         result = terrain_generator.run(spec, seed=region.seed)

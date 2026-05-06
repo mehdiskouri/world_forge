@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Final
 
+from forge_mcp.descriptor.region_extent import RegionExtent
 from forge_mcp.descriptor.schema import (
     Hydrology,
     StreamCharacter,
@@ -30,6 +31,17 @@ world per region — wide enough that the 80-220 m noise scales in
 instead of one or two blobs. The realizer mesh stays capped at
 ``MAX_RESOLUTION = 256`` verts/axis (see :mod:`heightmap_mesh`), so
 this only costs heightmap-generation time, not Blender time.
+"""
+EVAL_REGION_EXTENT: Final[RegionExtent] = RegionExtent(
+    width_m=1024.0,
+    height_m=1024.0,
+    area_m2=1024.0 * 1024.0,
+)
+"""Bounding-box footprint matching :data:`EVAL_SHAPE` at
+``resolution_meters_per_pixel = 2``. Threaded into
+:func:`forge_mcp.descriptor.map_to_spec.map_to_spec` so the Phase 6
+slope-plausibility clamp sees a km-scale region (no clamp needed for
+the eval archetypes at this extent).
 """
 EVAL_SEED: Final[int] = 17
 EVAL_NOW: Final[datetime] = datetime(2026, 4, 30, tzinfo=UTC)
@@ -86,6 +98,7 @@ __all__ = [
     "EVAL_BPY_HYPERGRAPH_VERSION",
     "EVAL_DESCRIPTORS",
     "EVAL_NOW",
+    "EVAL_REGION_EXTENT",
     "EVAL_SEED",
     "EVAL_SHAPE",
 ]
