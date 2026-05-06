@@ -23,6 +23,7 @@ from forge_mcp.realize import (
     blender_binary,
 )
 from forge_mcp.server.tools import audit as audit_tools
+from forge_mcp.server.tools import canvas as canvas_tools
 from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
@@ -273,6 +274,25 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "`forge.record_audit`."
         ),
     )(audit_tools.get_audit_schema)
+
+    # --- Canvas (Phase 6 Stage D) -----------------------------------------
+    server.tool(
+        name="forge.canvas_url",
+        title="Get the popup-canvas URL",
+        description=(
+            "Lazily start the embedded canvas HTTP/WebSocket server on "
+            "127.0.0.1 and return its URL. Subsequent calls reuse the "
+            "same server. Requires an open project."
+        ),
+    )(canvas_tools.canvas_url)
+    server.tool(
+        name="forge.canvas_status",
+        title="Get the popup-canvas status",
+        description=(
+            "Return whether the canvas server is running, its URL, and "
+            "the count of connected WebSocket clients."
+        ),
+    )(canvas_tools.canvas_status)
 
     return server
 

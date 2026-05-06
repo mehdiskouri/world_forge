@@ -71,6 +71,9 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         "forge.list_audits",
         "forge.get_audit",
         "forge.get_audit_schema",
+        # Canvas surface (Phase 6 Stage D)
+        "forge.canvas_url",
+        "forge.canvas_status",
     },
 )
 

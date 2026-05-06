@@ -27,12 +27,15 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+    "fastapi>=0.118.0",
     "mcp>=1.27.0",
     "numpy>=2.0",
     "pillow>=10.4",
     "pydantic>=2.13.0",
     "scipy>=1.13",
     "shapely>=2.0",
+    "uvicorn[standard]>=0.36.0",
+    "websockets>=15.0",
 ]
 
 [project.urls]
@@ -70,6 +73,8 @@ dev = [
     "mypy==1.20.2",
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
+    "pytest-asyncio>=1.0.0",
+    "httpx>=0.28.0",
     "pre-commit>=4.6.0",
     # bpy type stubs for Blender-internal scripts. Not used at runtime
     # (real bpy is supplied by Blender 5.0.0); see scripts/blender/README.md
@@ -156,6 +161,7 @@ disallow_any_explicit = false
 addopts = "-ra --strict-markers --strict-config"
 xfail_strict = true
 testpaths = ["tests"]
+asyncio_mode = "auto"
 markers = [
     "blender_integration: tests that spawn a real Blender 5.0 process; gated on $FORGE_BLENDER_BIN",
     "slow: tests that take more than a couple of seconds; filtered out by the default integration runner",

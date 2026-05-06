@@ -23,6 +23,7 @@ and Phase 7 (undo). Stage C is just the persistence skeleton.
 from __future__ import annotations
 
 import re
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -60,7 +61,7 @@ from forge_mcp.project.schemas import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
     from pathlib import Path
 
 
@@ -351,6 +352,37 @@ class ProjectService:
     def __init__(self) -> None:
         """Construct an empty service with no project loaded."""
         self._state: ProjectState | None = None
+        self._subscribers: list[Callable[[str], None]] = []
+
+    # ------------------------------------------------------------------
+    # Mutation broadcast (Phase 6 Stage D)
+    # ------------------------------------------------------------------
+    def subscribe(self, callback: Callable[[str], None]) -> Callable[[], None]:
+        """Register ``callback`` to be invoked after every state mutation.
+
+        The callback receives the event kind tag (e.g.
+        ``"create_region"``); the canvas server uses it to broadcast a
+        fresh JSON-Patch snapshot to every connected WebSocket client.
+        Returns an unsubscribe callable.
+
+        Subscribers must be cheap and synchronous. The canvas server
+        wraps its async broadcast in :func:`asyncio.run_coroutine_threadsafe`
+        so the callback returns immediately; mutators are not blocked
+        on socket I/O.
+        """
+        self._subscribers.append(callback)
+
+        def _unsubscribe() -> None:
+            with suppress(ValueError):
+                self._subscribers.remove(callback)
+
+        return _unsubscribe
+
+    def _notify(self, event: str) -> None:
+        """Fan ``event`` out to every registered subscriber."""
+        for callback in list(self._subscribers):
+            with suppress(Exception):
+                callback(event)
 
     # ------------------------------------------------------------------
     # Accessors
@@ -513,6 +545,7 @@ class ProjectService:
             write_json(state.paths.boundary_path(boundary.boundary_id), boundary)
         write_json(state.paths.locks_path, LockStoreFile(locks=state.lock_store.records))
         self._append_history(HistoryEventKind.SAVE_PROJECT, now=now)
+        self._notify("save_project")
 
     def close_project(self) -> None:
         """Flush any pending writes and drop the in-memory state."""
@@ -668,6 +701,7 @@ class ProjectService:
             },
             now=now,
         )
+        self._notify("create_region")
         return region
 
     def update_region(
@@ -719,6 +753,7 @@ class ProjectService:
             },
             now=now,
         )
+        self._notify("update_region")
         return new_region
 
     def _validate_replacement_polygon(
@@ -810,6 +845,7 @@ class ProjectService:
             HistoryEventKind.DELETE_REGION,
             payload={"region_id": str(region_id), "boundary_count": len(stale)},
         )
+        self._notify("delete_region")
 
     # ------------------------------------------------------------------
     # Spec + region-spec linkage (Phase 3)
