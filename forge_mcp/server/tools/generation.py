@@ -28,6 +28,14 @@ from typing import TYPE_CHECKING, Final
 from pydantic import ValidationError
 
 from forge_mcp.analyze.terrain_analysis import TerrainAnalysis, analyze
+from forge_mcp.boundary.apply import (
+    build_boundary_conditions,
+    participating_boundaries,
+)
+from forge_mcp.boundary.contract import (
+    BoundaryContractInfeasibleError,
+    refresh_contract_for,
+)
 from forge_mcp.descriptor.map_to_spec import (
     ElevationBandImplausibleError,
     map_to_spec,
@@ -190,6 +198,72 @@ def _persist_realization(
     return str(npy_path), str(png_path), stream_path
 
 
+def _collect_boundary_conditions(
+    service: ProjectService,
+    region: object,
+    region_id: RegionId,
+) -> terrain_generator.BoundaryConditions:
+    """Build :class:`BoundaryConditions` from already-persisted neighbour contracts.
+
+    Phase 6 Stage C. Walks every boundary the region participates in;
+    contract-bearing boundaries become :class:`EdgeContract` entries
+    via :func:`build_boundary_conditions`. The first generation of a
+    region with no contracted neighbours returns the empty bag.
+    """
+    from forge_mcp.project.schemas import RegionNode  # noqa: PLC0415 - local narrow
+
+    assert isinstance(region, RegionNode)  # noqa: S101 - narrow for mypy strict
+    boundaries = participating_boundaries(region_id, service.state.boundaries.values())
+    return build_boundary_conditions(region, boundaries)
+
+
+def _refresh_participating_contracts(
+    service: ProjectService,
+    region_id: RegionId,
+    spec: SpecRecord,
+) -> dict[str, object] | None:
+    """Renegotiate contracts on every boundary touching ``region_id``.
+
+    Returns ``None`` on success, or an MCP error envelope when
+    :func:`refresh_contract_for` raises
+    :class:`BoundaryContractInfeasibleError`. Boundaries whose other
+    side has no persisted spec yet are skipped silently — their
+    contracts will be negotiated when the neighbour generates.
+    """
+    boundaries = participating_boundaries(region_id, service.state.boundaries.values())
+    for boundary in boundaries:
+        other_id = boundary.region_b if boundary.region_a == region_id else boundary.region_a
+        other_region = service.state.regions.get(other_id)
+        if other_region is None or other_region.spec_id is None:
+            continue
+        try:
+            other_spec = service.load_spec(other_region.spec_id)
+        except UnknownSpecError:  # pragma: no cover - already-stale link
+            continue
+        try:
+            updated = refresh_contract_for(
+                boundary,
+                spec.body,
+                other_spec.body,
+                now=_now(),
+            )
+        except BoundaryContractInfeasibleError as exc:
+            return fail(
+                "boundary_contract_infeasible",
+                str(exc),
+                details={
+                    "reason": exc.reason,
+                    "boundary_id": str(exc.boundary_id),
+                    "region_a": str(exc.region_a),
+                    "region_b": str(exc.region_b),
+                    "stage": "boundary_negotiation",
+                    **exc.details,
+                },
+            )
+        service.persist_boundary(updated)
+    return None
+
+
 def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     region_id: RegionId,
     spec_id: SpecId,
@@ -345,7 +419,7 @@ def _view_summary(view: _ViewArtifacts) -> dict[str, object]:
     }
 
 
-def generate_region(region_id: str) -> dict[str, object]:
+def generate_region(region_id: str) -> dict[str, object]:  # noqa: PLR0911 - one return per failure surface
     """Compile + generate + analyze a region. Persists spec, heightmap, analysis."""
     rid, lookup = _resolve_region(region_id)
     if isinstance(lookup, dict):
@@ -386,7 +460,11 @@ def generate_region(region_id: str) -> dict[str, object]:
         )
 
     try:
-        result = terrain_generator.run(spec, seed=region.seed)
+        result = terrain_generator.run(
+            spec,
+            seed=region.seed,
+            boundary_conditions=_collect_boundary_conditions(service, region, rid),
+        )
     except (ValueError, RuntimeError) as exc:  # pragma: no cover - generator preconditions
         return fail("generation_failed", str(exc))
 
@@ -396,6 +474,16 @@ def generate_region(region_id: str) -> dict[str, object]:
     spec_with_summary: SpecRecord = spec.model_copy(update={"body": new_body})
     service.persist_spec(spec_with_summary)
     service.link_region_to_spec(rid, spec_with_summary.spec_id)
+
+    # Phase 6 Stage C: refresh contracts for every boundary this region
+    # participates in where the OTHER region already has a persisted
+    # spec, then build the BoundaryConditions to feed back into
+    # terrain.run on subsequent generations of this region. The first
+    # generation runs with empty conditions; the second (after the
+    # neighbour generates) picks up the contracts.
+    contract_error = _refresh_participating_contracts(service, rid, spec_with_summary)
+    if contract_error is not None:
+        return contract_error
 
     npy_path, png_path, stream_path = _persist_realization(service, rid, result)
     service.record_generation(

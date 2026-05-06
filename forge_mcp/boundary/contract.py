@@ -45,6 +45,8 @@ from forge_mcp.project.schemas import (
 )
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from forge_mcp.project.schemas import (
         AnchorPoint,
         BoundaryContract,
@@ -453,4 +455,30 @@ __all__ = [
     "BoundaryContractConflictError",
     "BoundaryContractInfeasibleError",
     "negotiate_boundary_contract",
+    "refresh_contract_for",
 ]
+
+
+def refresh_contract_for(
+    boundary: BoundaryRecord,
+    spec_a: SpecBody,
+    spec_b: SpecBody,
+    *,
+    now: datetime,
+    sample_spacing_m: float = DEFAULT_SAMPLE_SPACING_M,
+) -> BoundaryRecord:
+    """Return ``boundary`` with freshly-negotiated contracts and ``modified_at=now``.
+
+    Thin convenience wrapper around
+    :func:`negotiate_boundary_contract` that produces an updated
+    :class:`BoundaryRecord` ready to be persisted by
+    :class:`forge_mcp.project.service.ProjectService`. Raises the
+    same :class:`BoundaryContractInfeasibleError` the negotiator
+    raises.
+    """
+    contracts = negotiate_boundary_contract(
+        boundary, spec_a, spec_b, sample_spacing_m=sample_spacing_m
+    )
+    return boundary.model_copy(
+        update={"contracts": contracts, "modified_at": now},
+    )

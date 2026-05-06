@@ -818,6 +818,17 @@ class ProjectService:
         """Atomically persist ``spec`` to ``specs/<spec_id>.json``."""
         write_json(self.state.paths.spec_path(spec.spec_id), spec)
 
+    def persist_boundary(self, boundary: BoundaryRecord) -> None:
+        """Atomically persist ``boundary`` to ``boundaries/<boundary_id>.json``.
+
+        Used by the Phase-6 contract-refresh path in
+        :func:`forge_mcp.server.tools.generation.generate_region` after
+        :func:`forge_mcp.boundary.refresh_contract_for` produces a
+        contract-bearing :class:`BoundaryRecord`.
+        """
+        self.state.boundaries[boundary.boundary_id] = boundary
+        write_json(self.state.paths.boundary_path(boundary.boundary_id), boundary)
+
     def load_spec(self, spec_id: SpecId) -> SpecRecord:
         """Load and return a previously-persisted spec."""
         path = self.state.paths.spec_path(spec_id)
