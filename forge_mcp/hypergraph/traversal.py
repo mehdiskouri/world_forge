@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from forge_mcp.hypergraph.core import Hypergraph
-    from forge_mcp.project.schemas import BoundaryId, BoundaryStub, NodeId
+    from forge_mcp.project.schemas import BoundaryId, BoundaryRecord, NodeId
 
 
 class NodePredicate(Protocol):
@@ -83,15 +83,15 @@ def query_layer(
     return tuple(n for n in ordered if predicate(n))
 
 
-def list_boundaries(boundaries: Mapping[BoundaryId, BoundaryStub]) -> tuple[BoundaryId, ...]:
+def list_boundaries(boundaries: Mapping[BoundaryId, BoundaryRecord]) -> tuple[BoundaryId, ...]:
     """Return every boundary id, lex-sorted for diff stability."""
     return tuple(sorted(boundaries.keys()))
 
 
 def inspect_boundary(
-    boundaries: Mapping[BoundaryId, BoundaryStub],
+    boundaries: Mapping[BoundaryId, BoundaryRecord],
     boundary_id: BoundaryId,
-) -> BoundaryStub:
+) -> BoundaryRecord:
     """Return the boundary stub for ``boundary_id`` or raise ``KeyError``."""
     return boundaries[boundary_id]
 

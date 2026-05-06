@@ -15,7 +15,7 @@ from forge_mcp._io.atomic import write_json
 from forge_mcp.descriptor.schema import SCHEMA_VERSION as DESCRIPTOR_SCHEMA_VERSION
 from forge_mcp.project.schemas import (
     BoundaryId,
-    BoundaryStub,
+    BoundaryRecord,
     Edge,
     EdgeId,
     LockId,
@@ -236,7 +236,7 @@ def test_state_raises_when_no_project_open() -> None:
 SQUARE = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
 
 
-def _seed_state(svc: ProjectService) -> tuple[RegionNode, BoundaryStub, LockRecord, Edge]:
+def _seed_state(svc: ProjectService) -> tuple[RegionNode, BoundaryRecord, LockRecord, Edge]:
     state = svc.state
     now = state.metadata.created_at
     region = RegionNode(
@@ -248,7 +248,7 @@ def _seed_state(svc: ProjectService) -> tuple[RegionNode, BoundaryStub, LockReco
         created_at=now,
         modified_at=now,
     )
-    boundary = BoundaryStub(
+    boundary = BoundaryRecord(
         boundary_id=BoundaryId("boundary_a__b"),
         region_a=RegionId("region_alpha"),
         region_b=RegionId("region_beta"),

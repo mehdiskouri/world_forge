@@ -492,12 +492,99 @@ class SpecRecord(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs lea
     created_at: datetime
 
 
-class BoundaryStub(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
-    """An adjacency boundary record without its Phase-6 contract.
+class ElevationContinuityContract(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Per-boundary elevation-continuity contract (Phase 6 Stage B).
 
-    Stage E (Phase 2) emits these on region create/update; Stage E in
-    Phase 6 fills the ``contract`` field. ``contract`` is currently
-    typed as ``None`` to make the gap loud at the schema layer.
+    Both adjacent regions' generators must produce edge profiles that
+    match ``samples`` within ``tolerance_m`` (per-sample, not RMS). The
+    sampled height profile is parameterized along the shared edge from
+    ``region_a`` to ``region_b`` (the canonical lex-sorted ordering on
+    :class:`BoundaryRecord`), uniformly spaced at ``sample_spacing_m``.
+
+    The contract is computed symmetrically by
+    :func:`forge_mcp.boundary.contract.negotiate_boundary_contract`
+    from both regions' :class:`SpecBody.axes['terrain'].elevation_band`.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["elevation_continuity"] = "elevation_continuity"
+    low_m: float
+    """Lower bound of the overlap interval used to seed sampling, in meters."""
+    high_m: float
+    """Upper bound of the overlap interval used to seed sampling, in meters."""
+    samples: tuple[float, ...]
+    """Target heights along the shared edge, ``low_m <= s <= high_m``."""
+    sample_spacing_m: float = Field(gt=0.0)
+    """Distance between adjacent samples in meters."""
+    tolerance_m: float = Field(gt=0.0)
+    """Per-sample max permitted deviation between contract and realized profile."""
+
+    @model_validator(mode="after")
+    def _check_band(self) -> ElevationContinuityContract:
+        if not self.low_m < self.high_m:
+            msg = f"contract band low must be < high, got [{self.low_m}, {self.high_m}]"
+            raise ValueError(msg)
+        if not self.samples:
+            msg = "elevation contract must contain at least one sample"
+            raise ValueError(msg)
+        for index, value in enumerate(self.samples):
+            if not self.low_m - self.tolerance_m <= value <= self.high_m + self.tolerance_m:
+                msg = (
+                    f"sample[{index}]={value} out of contract band "
+                    f"[{self.low_m}, {self.high_m}] (tolerance {self.tolerance_m})"
+                )
+                raise ValueError(msg)
+        return self
+
+
+class StreamCrossingContract(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Per-boundary stream-crossing contract (Phase 6 Stage B).
+
+    Present only when both adjacent regions have a stream injector
+    whose planned path crosses the shared edge within
+    ``stream.width_meters`` of the same point. The contract pins the
+    crossing point, the average channel width and depth, and the flow
+    direction (a unit vector pointing from ``region_a`` into
+    ``region_b``).
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["stream_crossing"] = "stream_crossing"
+    crossing_point: tuple[float, float]
+    """``(x, y)`` world-frame coordinates of the channel midpoint."""
+    width_m: float = Field(gt=0.0)
+    """Channel width at the crossing, in meters."""
+    depth_m: float = Field(gt=0.0)
+    """Carving depth below the contracted edge profile, in meters."""
+    flow_direction: tuple[float, float]
+    """Unit vector from ``region_a`` into ``region_b`` (validated)."""
+
+    @field_validator("flow_direction")
+    @classmethod
+    def _check_unit(cls, value: tuple[float, float]) -> tuple[float, float]:
+        magnitude = math.hypot(value[0], value[1])
+        if not math.isclose(magnitude, 1.0, abs_tol=1e-6):
+            msg = f"flow_direction must be a unit vector, got magnitude {magnitude}"
+            raise ValueError(msg)
+        return value
+
+
+BoundaryContract = ElevationContinuityContract | StreamCrossingContract
+"""Discriminated union over Phase-6 boundary-contract kinds, keyed on ``kind``."""
+
+
+class BoundaryRecord(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """An adjacency boundary record between two regions.
+
+    Phase 2 emits these on region create/update with ``contracts=()``;
+    Phase 6 fills ``contracts`` via
+    :func:`forge_mcp.boundary.contract.negotiate_boundary_contract`.
+    A boundary may carry zero, one, or two contracts (one elevation,
+    optionally one stream crossing). ``contracts`` is empty during the
+    negotiation window between adjacency detection and first
+    generation.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
@@ -508,12 +595,12 @@ class BoundaryStub(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs l
     region_b: RegionId
     shared_edge: tuple[tuple[float, float], tuple[float, float]]
     length_meters: float
-    contract: None = None
+    contracts: tuple[BoundaryContract, ...] = ()
     created_at: datetime
     modified_at: datetime
 
     @model_validator(mode="after")
-    def _check_pair(self) -> BoundaryStub:
+    def _check_pair(self) -> BoundaryRecord:
         if self.region_a == self.region_b:
             msg = "boundary endpoints must differ"
             raise ValueError(msg)
@@ -669,13 +756,15 @@ class ProjectMetadata(BaseModel):  # type: ignore[explicit-any]  # pydantic stub
 __all__ = [
     "AnchorPoint",
     "AuditRecord",
+    "BoundaryContract",
     "BoundaryId",
+    "BoundaryRecord",
     "BoundaryRequirement",
-    "BoundaryStub",
     "Bounds2D",
     "Edge",
     "EdgeId",
     "EdgeLayerFile",
+    "ElevationContinuityContract",
     "FeatureInjector",
     "GenerationMetadata",
     "HistoryActor",
@@ -700,6 +789,7 @@ __all__ = [
     "SpecId",
     "SpecRecord",
     "SpecSummary",
+    "StreamCrossingContract",
     "StreamFeatureInjector",
     "TerrainAxisSpec",
     "TerrainGeneratorParams",

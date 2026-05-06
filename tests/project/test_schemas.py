@@ -14,7 +14,7 @@ import pytest
 from forge_mcp.descriptor.schema import StructuredDescriptor, Terrain, TerrainPrimary
 from forge_mcp.project.schemas import (
     AuditRecord,
-    BoundaryStub,
+    BoundaryRecord,
     Bounds2D,
     Edge,
     EdgeLayerFile,
@@ -305,7 +305,7 @@ def test_terrain_axis_rejects_inverted_elevation_band() -> None:
         )
 
 
-def _boundary(**overrides: object) -> BoundaryStub:
+def _boundary(**overrides: object) -> BoundaryRecord:
     base: dict[str, object] = {
         "boundary_id": "boundary_a__b",
         "region_a": RegionId("region_a"),
@@ -316,12 +316,12 @@ def _boundary(**overrides: object) -> BoundaryStub:
         "modified_at": NOW,
     }
     base.update(overrides)
-    return BoundaryStub(**base)  # type: ignore[arg-type]  # test factory
+    return BoundaryRecord(**base)  # type: ignore[arg-type]  # test factory
 
 
 def test_boundary_round_trip() -> None:
     b = _boundary()
-    assert BoundaryStub.model_validate(b.model_dump(mode="json")) == b
+    assert BoundaryRecord.model_validate(b.model_dump(mode="json")) == b
 
 
 def test_boundary_rejects_self_loop() -> None:

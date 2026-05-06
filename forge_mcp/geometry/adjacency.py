@@ -2,9 +2,9 @@
 
 Stage E (Phase 2). The :class:`forge_mcp.project.service.ProjectService`
 calls :func:`detect_adjacencies` on every region create / update; the
-returned :class:`BoundaryStub` records are persisted under
-``boundaries/`` and (Phase 6) eventually fitted with contracts. Phase 2
-only emits stubs.
+returned :class:`BoundaryRecord` records are persisted under
+``boundaries/``. Phase 2 emits records with ``contracts=()``; Phase 6
+fills the contracts via :mod:`forge_mcp.boundary.contract`.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from forge_mcp.geometry.polygon import segment_length, shared_edge
-from forge_mcp.project.schemas import BoundaryId, BoundaryStub
+from forge_mcp.project.schemas import BoundaryId, BoundaryRecord
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -31,7 +31,7 @@ def detect_adjacencies(
     other_regions: Iterable[RegionNode],
     *,
     now: datetime,
-) -> list[BoundaryStub]:
+) -> list[BoundaryRecord]:
     """Return one boundary stub per region in ``other_regions`` that touches.
 
     Adjacency = positive-length shared boundary (single edge or longer
@@ -47,16 +47,16 @@ def detect_adjacencies(
     event that emitted them.
     """
     new_coords = new_region.spatial_bounds.coords.coords
-    stubs: list[BoundaryStub] = []
+    stubs: list[BoundaryRecord] = []
     for other in other_regions:
         if other.node_id == new_region.node_id:
             continue
         edge = shared_edge(new_coords, other.spatial_bounds.coords.coords)
         if edge is None:
             continue
-        # Sort the endpoints so BoundaryStub's own validator is happy.
+        # Sort the endpoints so BoundaryRecord's own validator is happy.
         a, b = sorted((str(new_region.node_id), str(other.node_id)))
-        stub = BoundaryStub(
+        stub = BoundaryRecord(
             boundary_id=_boundary_id(a, b),
             region_a=type(new_region.node_id)(a),
             region_b=type(new_region.node_id)(b),

@@ -1,15 +1,131 @@
 {
+  "$defs": {
+    "ElevationContinuityContract": {
+      "additionalProperties": false,
+      "description": "Per-boundary elevation-continuity contract (Phase 6 Stage B).\n\nBoth adjacent regions' generators must produce edge profiles that\nmatch ``samples`` within ``tolerance_m`` (per-sample, not RMS). The\nsampled height profile is parameterized along the shared edge from\n``region_a`` to ``region_b`` (the canonical lex-sorted ordering on\n:class:`BoundaryRecord`), uniformly spaced at ``sample_spacing_m``.\n\nThe contract is computed symmetrically by\n:func:`forge_mcp.boundary.contract.negotiate_boundary_contract`\nfrom both regions' :class:`SpecBody.axes['terrain'].elevation_band`.",
+      "properties": {
+        "high_m": {
+          "title": "High M",
+          "type": "number"
+        },
+        "kind": {
+          "const": "elevation_continuity",
+          "default": "elevation_continuity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "low_m": {
+          "title": "Low M",
+          "type": "number"
+        },
+        "sample_spacing_m": {
+          "exclusiveMinimum": 0.0,
+          "title": "Sample Spacing M",
+          "type": "number"
+        },
+        "samples": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Samples",
+          "type": "array"
+        },
+        "tolerance_m": {
+          "exclusiveMinimum": 0.0,
+          "title": "Tolerance M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low_m",
+        "high_m",
+        "samples",
+        "sample_spacing_m",
+        "tolerance_m"
+      ],
+      "title": "ElevationContinuityContract",
+      "type": "object"
+    },
+    "StreamCrossingContract": {
+      "additionalProperties": false,
+      "description": "Per-boundary stream-crossing contract (Phase 6 Stage B).\n\nPresent only when both adjacent regions have a stream injector\nwhose planned path crosses the shared edge within\n``stream.width_meters`` of the same point. The contract pins the\ncrossing point, the average channel width and depth, and the flow\ndirection (a unit vector pointing from ``region_a`` into\n``region_b``).",
+      "properties": {
+        "crossing_point": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Crossing Point",
+          "type": "array"
+        },
+        "depth_m": {
+          "exclusiveMinimum": 0.0,
+          "title": "Depth M",
+          "type": "number"
+        },
+        "flow_direction": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Flow Direction",
+          "type": "array"
+        },
+        "kind": {
+          "const": "stream_crossing",
+          "default": "stream_crossing",
+          "title": "Kind",
+          "type": "string"
+        },
+        "width_m": {
+          "exclusiveMinimum": 0.0,
+          "title": "Width M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "crossing_point",
+        "width_m",
+        "depth_m",
+        "flow_direction"
+      ],
+      "title": "StreamCrossingContract",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
-  "description": "An adjacency boundary record without its Phase-6 contract.\n\nStage E (Phase 2) emits these on region create/update; Stage E in\nPhase 6 fills the ``contract`` field. ``contract`` is currently\ntyped as ``None`` to make the gap loud at the schema layer.",
+  "description": "An adjacency boundary record between two regions.\n\nPhase 2 emits these on region create/update with ``contracts=()``;\nPhase 6 fills ``contracts`` via\n:func:`forge_mcp.boundary.contract.negotiate_boundary_contract`.\nA boundary may carry zero, one, or two contracts (one elevation,\noptionally one stream crossing). ``contracts`` is empty during the\nnegotiation window between adjacency detection and first\ngeneration.",
   "properties": {
     "boundary_id": {
       "title": "Boundary Id",
       "type": "string"
     },
-    "contract": {
-      "default": null,
-      "title": "Contract",
-      "type": "null"
+    "contracts": {
+      "default": [],
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ElevationContinuityContract"
+          },
+          {
+            "$ref": "#/$defs/StreamCrossingContract"
+          }
+        ]
+      },
+      "title": "Contracts",
+      "type": "array"
     },
     "created_at": {
       "format": "date-time",
