@@ -30,6 +30,7 @@ from forge_mcp.server.tools import projects as project_tools
 from forge_mcp.server.tools import regions as region_tools
 from forge_mcp.server.tools import schema as schema_tools
 from forge_mcp.server.tools import set_realizer_factory
+from forge_mcp.server.tools import skills as skills_tools
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -225,6 +226,22 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "`realizations/blender/`."
         ),
     )(generation_tools.render_view)
+
+    # --- Skills surface (Phase 5 Stage A) ---------------------------------
+    server.tool(
+        name="forge.list_skills",
+        title="List shipped Forge skills",
+        description=(
+            "Return a summary of every SKILL.md shipped under "
+            "forge_mcp/skills/. Used by clients that don't scan a local "
+            "skill directory (Cursor, Copilot)."
+        ),
+    )(skills_tools.list_skills)
+    server.tool(
+        name="forge.get_skill",
+        title="Get one shipped Forge skill",
+        description="Return the parsed frontmatter and raw body markdown for one skill.",
+    )(skills_tools.get_skill)
 
     return server
 

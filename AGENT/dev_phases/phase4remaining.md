@@ -1,4 +1,4 @@
-## gaps
+## gaps (implemented and addressed)
  Concrete gaps:
 
 Integration tests (Stage G item 2) — completely missing. There is no tests/integration/ directory, no test_realize_region.py, test_render_view.py, or test_perf.py. None of the IDProperty round-trip / NF-1.5 / NF-1.3 assertions against a real Blender exist.
