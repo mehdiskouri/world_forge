@@ -166,6 +166,79 @@ def test_generate_region_summary_is_recorded_in_persisted_spec(tmp_path: Path) -
 
 
 # ---------------------------------------------------------------------------
+# Phase 6 Stage C: boundary contract refresh + edge-conform plumbing
+# ---------------------------------------------------------------------------
+
+
+_SQUARE_NEIGHBOR = [[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0]]
+
+
+def test_generate_region_refreshes_contracts_after_neighbour_generates(
+    tmp_path: Path,
+) -> None:
+    """Second region's generation populates the shared boundary's contracts."""
+    from forge_mcp.server.tools import get_service  # noqa: PLC0415 - local import
+    from forge_mcp.server.tools.hypergraph import (  # noqa: PLC0415 - local import
+        inspect_boundary,
+        list_boundaries,
+    )
+
+    _bootstrap(tmp_path)
+    rid_a = _make_region("Alpha")
+    descriptor_b = StructuredDescriptor(terrain=Terrain(primary=TerrainPrimary.ROLLING_HILLS))
+    region_b = _ok(
+        create_region(
+            "Beta",
+            _SQUARE_NEIGHBOR,
+            structured_descriptor=descriptor_b.model_dump(mode="json"),
+            seed=11,
+        ),
+    )
+    rid_b = cast("str", region_b["node_id"])
+
+    # No contracts before either region generates.
+    state = get_service().state
+    assert len(state.boundaries) == 1
+    only_boundary = next(iter(state.boundaries.values()))
+    assert only_boundary.contracts == ()
+
+    # First region's generation has no contractable neighbour yet.
+    _ok(generate_region(rid_a))
+    only_boundary = next(iter(get_service().state.boundaries.values()))
+    assert only_boundary.contracts == ()
+
+    # Second region's generation triggers contract negotiation.
+    _ok(generate_region(rid_b))
+    refreshed = next(iter(get_service().state.boundaries.values()))
+    assert len(refreshed.contracts) >= 1
+    assert refreshed.contracts[0].kind == "elevation_continuity"
+
+    boundaries = _list(list_boundaries(), "boundaries")
+    first = cast("dict[str, object]", boundaries[0])
+    metrics = cast("dict[str, object]", first["metrics"])
+    contract_count = metrics["contract_count"]
+    samples_count = metrics["samples_count"]
+    assert isinstance(contract_count, int)
+    assert isinstance(samples_count, int)
+    assert contract_count >= 1
+    assert samples_count > 0
+    assert metrics["elevation_overlap_m"] is not None
+
+    boundary_record = cast("dict[str, object]", first["boundary"])
+    inspected = _ok(inspect_boundary(str(boundary_record["boundary_id"])))
+    inspected_metrics = cast("dict[str, object]", inspected["metrics"])
+    assert inspected_metrics["contract_count"] == contract_count
+
+
+def _list(envelope: dict[str, object], key: str) -> list[object]:
+    """Local list-extractor for envelopes (mirrors the test_tools helper)."""
+    result = _ok(envelope)
+    items = result[key]
+    assert isinstance(items, list)
+    return items
+
+
+# ---------------------------------------------------------------------------
 # reroll_seed
 # ---------------------------------------------------------------------------
 

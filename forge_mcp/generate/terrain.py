@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
-from forge_mcp.generate import erosion, macro_shape, noise, stream
+from forge_mcp.generate import boundary_conform, erosion, macro_shape, noise, stream
 from forge_mcp.generate.deterministic import make_rng
 from forge_mcp.generate.heightmap import Heightmap
 from forge_mcp.project.schemas import (
@@ -22,6 +22,7 @@ from forge_mcp.project.schemas import (
 )
 
 if TYPE_CHECKING:
+    from forge_mcp.generate.boundary_conform import EdgeSide
     from forge_mcp.generate.stream import StreamGeometry
     from forge_mcp.project.schemas import (
         FeatureInjector,
@@ -29,6 +30,45 @@ if TYPE_CHECKING:
         SpecRecord,
         TerrainAxisSpec,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class EdgeContract:
+    """Per-side edge-conform input bag.
+
+    The terrain orchestrator accepts one :class:`EdgeContract` per
+    heightmap side; the edge-conform pass blends the heightmap toward
+    ``samples`` within ``inland_falloff_m`` of the side using a
+    smoothstep falloff. ``contract_id`` is plumbed through to
+    ``generators_used`` so realization traces record which boundary
+    each pass came from.
+    """
+
+    side: EdgeSide
+    samples: tuple[float, ...]
+    inland_falloff_m: float
+    contract_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class BoundaryConditions:
+    """Optional boundary-driven inputs for :func:`run`.
+
+    Phase 6 Stage C. ``edge_contracts`` is the only field today; Stage H
+    integration tests will exercise the stream-anchor override path
+    once Phase 3's stream injector grows the explicit-anchor entry
+    point. ``conflicts_resolved`` carries any conflict tags the
+    boundary-application step recorded so the spec metadata picks
+    them up.
+    """
+
+    edge_contracts: tuple[EdgeContract, ...] = ()
+    conflicts_resolved: tuple[str, ...] = ()
+
+    @classmethod
+    def empty(cls) -> BoundaryConditions:
+        """Return the no-op :class:`BoundaryConditions` instance."""
+        return cls()
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +178,7 @@ def run(
     *,
     seed: int,
     shape: tuple[int, int] | None = None,
+    boundary_conditions: BoundaryConditions | None = None,
 ) -> TerrainGenerationResult:
     """Materialise ``spec`` into a heightmap and optional stream geometry.
 
@@ -146,6 +187,12 @@ def run(
     RNG inside the pipeline derives from that single integer via
     :func:`make_rng` and a unique purpose tag, so identical (spec,
     seed) pairs produce byte-identical heightmaps.
+
+    When ``boundary_conditions`` is supplied (Phase 6 Stage C), the
+    edge-conform pass blends the heightmap toward each contract's
+    samples after the elevation-band remap and before erosion, so the
+    erosion passes reshape blended terrain rather than overwriting the
+    contract.
     """
     axis = spec.body.axes["terrain"]
     grid_shape = shape if shape is not None else _shape_from_spec(axis)
@@ -177,6 +224,16 @@ def run(
         elevation_band=(0.0, 1.0),
     )
     heightmap = _apply_elevation_band(heightmap, axis.elevation_band)
+
+    if boundary_conditions is not None:
+        for contract in boundary_conditions.edge_contracts:
+            heightmap = boundary_conform.apply_edge_contract(
+                heightmap,
+                side=contract.side,
+                samples=contract.samples,
+                inland_falloff_m=contract.inland_falloff_m,
+            )
+            generators_used.append(f"boundary.edge_conform.{contract.side}")
 
     for pass_spec in axis.post_passes:
         heightmap, generator_name = _apply_post_pass(heightmap, pass_spec, seed=seed)

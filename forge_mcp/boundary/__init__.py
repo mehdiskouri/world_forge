@@ -22,6 +22,7 @@ from forge_mcp.boundary.contract import (
     BoundaryContractConflictError,
     BoundaryContractInfeasibleError,
     negotiate_boundary_contract,
+    refresh_contract_for,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "BoundaryContractConflictError",
     "BoundaryContractInfeasibleError",
     "negotiate_boundary_contract",
+    "refresh_contract_for",
 ]

@@ -370,8 +370,16 @@ def test_inspect_boundary_returns_record(tmp_path: Path) -> None:
     _ok(create_region("Beta", _SQUARE_B))
     boundaries = _list(list_boundaries(), "boundaries")
     first = cast("dict[str, object]", boundaries[0])
-    boundary = _ok(inspect_boundary(str(first["boundary_id"])))
-    assert boundary["boundary_id"] == first["boundary_id"]
+    first_record = cast("dict[str, object]", first["boundary"])
+    inspected = _ok(inspect_boundary(str(first_record["boundary_id"])))
+    boundary = cast("dict[str, object]", inspected["boundary"])
+    metrics = cast("dict[str, object]", inspected["metrics"])
+    assert boundary["boundary_id"] == first_record["boundary_id"]
+    # No contracts negotiated yet (no specs persisted).
+    assert metrics["contract_count"] == 0
+    assert metrics["elevation_overlap_m"] is None
+    assert metrics["samples_count"] == 0
+    assert metrics["has_stream_crossing"] is False
 
 
 def test_history_with_limit_caps_results(tmp_path: Path) -> None:
