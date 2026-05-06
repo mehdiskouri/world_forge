@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from forge_mcp.audit.verdict import audit_verdict_json_schema
 from forge_mcp.descriptor.schema import descriptor_json_schema
 from forge_mcp.project.schemas import (
     AuditRecord,
@@ -78,6 +79,7 @@ def iter_published_schemas() -> Iterator[tuple[str, dict[str, object]]]:
     yield _pydantic_schema(HistoryEvent, "history_event", "ForgeHistoryEvent")
     yield _pydantic_schema(SpecRecord, "spec", "ForgeSpec")
     yield _pydantic_schema(AuditRecord, "audit", "ForgeAudit")
+    yield "audit_verdict", audit_verdict_json_schema()
 
 
 def dump_schema_json(schema: dict[str, object]) -> str:

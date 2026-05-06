@@ -22,6 +22,7 @@ from forge_mcp.realize import (
     BlenderProcess,
     blender_binary,
 )
+from forge_mcp.server.tools import audit as audit_tools
 from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
@@ -242,6 +243,36 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
         title="Get one shipped Forge skill",
         description="Return the parsed frontmatter and raw body markdown for one skill.",
     )(skills_tools.get_skill)
+
+    # --- Audit surface (Phase 5 Stage D) ----------------------------------
+    server.tool(
+        name="forge.record_audit",
+        title="Record an audit verdict",
+        description=(
+            "Validate, persist, and history-log one AuditVerdict produced "
+            "by the audit subagent. Verdict body must match the schema "
+            "returned by `forge.get_audit_schema`."
+        ),
+    )(audit_tools.record_audit)
+    server.tool(
+        name="forge.list_audits",
+        title="List recorded audits",
+        description="Return audit summaries, optionally filtered by `region_id`.",
+    )(audit_tools.list_audits)
+    server.tool(
+        name="forge.get_audit",
+        title="Get one audit verdict",
+        description="Return the full AuditVerdict body for `audit_id`.",
+    )(audit_tools.get_audit)
+    server.tool(
+        name="forge.get_audit_schema",
+        title="Get the AuditVerdict JSON Schema",
+        description=(
+            "Return the JSON Schema for AuditVerdict. The audit subagent "
+            "uses it to construct a valid verdict before calling "
+            "`forge.record_audit`."
+        ),
+    )(audit_tools.get_audit_schema)
 
     return server
 
