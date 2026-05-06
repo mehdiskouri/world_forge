@@ -893,3 +893,82 @@ These invariants are what makes v2 work cheap. Violating them in v1 to save days
   imports `bpy`; `scripts/blender/adapter.py` runs inside Blender's
   embedded Python and is type-checked separately against
   `fake-bpy-module-5.0` (the `mypy-blender-scripts` CI step).
+
+---
+
+## Phase 5 measurements
+
+- **Five shipped skills** under `forge_mcp/skills/forge.<name>/SKILL.md`,
+  packaged into the wheel via `tool.hatch.build.targets.wheel.packages
+  = ["forge_mcp"]` (no force-include block; `SKILL.md` and
+  `eval_set.json` ship by virtue of being inside the package tree):
+  - `forge.plan` v1.0.0 — load-bearing, embeds the descriptor JSON
+    Schema verbatim and ships the canonical 12-row
+    `eval_set.json` fixture.
+  - `forge.visualize` v0.2.0 — `render_view` parameter selection.
+  - `forge.audit` v0.2.0 — sole `requires_subagent: true` skill;
+    embeds the `AuditVerdict` JSON Schema verbatim.
+  - `forge.cleanup` v0.2.0 — reroll / delete / prune flows.
+  - `forge.connect` v0.2.0 — adjacency + lock inspection.
+- **Frontmatter contract** (`forge_mcp/skills/_schema.py`):
+  Pydantic `SkillFrontmatter` (frozen, `extra="forbid"`) with
+  `name`, `version`, `description`, `requires_tools: list[str]`,
+  optional `requires_subagent: bool`. CI cross-checks every
+  `requires_tools` entry against the registered MCP surface in
+  `forge_mcp.server.mcp.build_server()`.
+- **Schema-source-of-truth byte identity**: `forge.plan/SKILL.md` ↔
+  `descriptor_json_schema()` and `forge.audit/SKILL.md` ↔
+  `audit_verdict_json_schema()` are byte-identical, asserted in
+  `tests/skills/test_plan_skill.py` and
+  `tests/skills/test_audit_skill.py`. The first ` ```json ` fenced
+  block of each skill is the schema; later fenced JSON blocks are
+  illustrative examples and are not byte-checked.
+- **`AuditVerdict` v1** (`forge_mcp/audit/verdict.py`): four fixed
+  dimensions (`descriptor_coherence`, `geometric_validity`,
+  `render_quality`, `spec_alignment`), three-valued
+  `pass / warn / fail` per dimension, top-level reduction (`fail`
+  beats `warn` beats `pass`). `audit_id = "audit_" + blake2b(
+  canonical_body, digest_size=6).hex()` with `audit_id` and
+  `created_at` excluded from the canonical body — content-addressed,
+  reproducible across agents. `AUDIT_SCHEMA_VERSION = "1.0"`.
+- **`AuditService`** (`forge_mcp/audit/service.py`):
+  `record / list_audits / get` against the on-disk layout
+  `<project>/audits/_index.json` + `<project>/audits/<region_id>/<audit_id>.json`.
+  `record` is the only mutation; appends a
+  `HistoryEventKind.AUDIT_RECORDED` event via the project history
+  appender. Repeated `record` of the same verdict is a no-op
+  (content-addressed filename collision).
+- **Four MCP audit tools** (`forge_mcp/server/tools/audit.py`):
+  `forge.get_audit_schema`, `forge.record_audit`, `forge.list_audits`,
+  `forge.get_audit`, all wired through the `_build_service()` factory
+  that injects the live history appender. Two MCP skill tools
+  (`forge_mcp/server/tools/skills.py`): `forge.list_skills`,
+  `forge.get_skill`. All six are registered in
+  `forge_mcp.server.mcp.build_server()` and asserted by
+  `tests/server/test_mcp.py::EXPECTED_TOOLS`.
+- **`forge-skills` CLI** (`forge_mcp/skills/cli.py`): `list` /
+  `install [--dest PATH] [--force]`. Default destination
+  `~/.claude/skills/`. Atomic per-skill: each folder is staged as
+  `<name>.tmp` and `os.replace`d into place only after every file
+  inside it is written via `forge_mcp._io.atomic.atomic_write_text`.
+- **Plan-skill eval harness**
+  (`scripts/eval/skill_plan_eval.py`): pure-Python deterministic
+  scorer for pre-recorded `{free_text: descriptor}` extractions
+  against `forge_mcp/skills/forge.plan/eval_set.json`. Pass
+  threshold `exact_match_count >= 8` (`PASS_THRESHOLD`); writes
+  `report.md` + `diffs.json` under
+  `docs/eval/phase5/<UTC-timestamp>/`. The harness never calls an
+  LLM; the operator records extractions from a real Claude Code
+  session and feeds them in. Smoke-tested in CI by
+  `tests/eval/test_skill_plan_eval.py`.
+- **Audit subagent path**: Claude Code's Task subagent is the
+  primary transport (`subagent_context.transport = "task_tool"`);
+  Cursor / Copilot use the inline isolated-context fallback
+  (`"isolated_inline"`). The selection is documented in
+  `forge_mcp/skills/forge.audit/SKILL.md` §3 and is opaque to Forge —
+  the verdict carries the chosen client/transport for provenance only.
+- **No-LLM invariant preserved**: `git grep -nE
+  "openai|anthropic|httpx.*completions" -- forge_mcp/` returns
+  nothing. The audit and skills packages do not import `subprocess`
+  or any HTTP client (the realizer's Blender subprocess remains the
+  only outbound process Forge spawns).
