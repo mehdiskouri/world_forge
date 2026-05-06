@@ -48,6 +48,9 @@ forge-mcp = "forge_mcp.server.mcp:main"
 # under ``schemas/``. CI runs ``forge-schema-export --check`` on every
 # pull request (.github/workflows/ci.yml).
 forge-schema-export = "forge_mcp.project.schema_export:main"
+# Phase 5 Stage A: copy shipped SKILL.md files into the agent client's
+# skills directory (default ~/.claude/skills/). See docs/skills.md.
+forge-skills = "forge_mcp.skills.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -55,6 +58,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["forge_mcp"]
+# Phase 5 Stage A: hatch's ``packages`` glob already includes every
+# file under ``forge_mcp/`` (including SKILL.md and any sibling JSON
+# assets), so importlib.resources resolves them at runtime regardless
+# of install layout. CI test ``tests/skills/test_cli.py`` plus
+# ``tests/skills/test_loader.py`` exercise the load path end-to-end.
 
 [dependency-groups]
 dev = [
