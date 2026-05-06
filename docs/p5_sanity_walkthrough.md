@@ -73,9 +73,15 @@ uv run which forge-mcp
 
 claude mcp add world-forge \
   --transport stdio \
-  --command "$(uv run which forge-mcp)" \
-  --env "FORGE_BLENDER_BIN=$FORGE_BLENDER_BIN"
+  -e "FORGE_BLENDER_BIN=$FORGE_BLENDER_BIN" \
+  -- "$(uv run which forge-mcp)"
 ```
+
+The `claude mcp add` CLI takes the server command as a positional
+argument after `--` (not a `--command` flag), and `-e KEY=value` for
+environment variables. Use `-s user` if you want the registration
+to persist across project directories instead of the default
+project-local scope.
 
 In a Claude Code session:
 
