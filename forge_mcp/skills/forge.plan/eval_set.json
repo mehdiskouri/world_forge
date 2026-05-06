@@ -1,0 +1,158 @@
+{
+  "schema_version": "1.0",
+  "examples": [
+    {
+      "id": "alpine_valley_with_creek",
+      "free_text": "A rugged alpine valley with a small mountain creek running through it.",
+      "descriptor": {
+        "terrain": {
+          "primary": "alpine_valley",
+          "ruggedness": 0.75
+        },
+        "hydrology": {
+          "has_stream": true,
+          "stream_character": "alpine_creek"
+        }
+      },
+      "rationale": "alpine_valley + stream descriptors imply alpine_creek; ruggedness inferred from 'rugged'."
+    },
+    {
+      "id": "alpine_peaks_jagged",
+      "free_text": "Jagged snow-capped peaks rising sharply, no rivers, just rock and ice.",
+      "descriptor": {
+        "terrain": {
+          "primary": "alpine_peaks",
+          "ruggedness": 0.95
+        }
+      },
+      "rationale": "'no rivers' -> omit hydrology entirely; 'jagged' implies high ruggedness."
+    },
+    {
+      "id": "rolling_hills_pastoral",
+      "free_text": "Gentle rolling hills, pastoral and green, the kind you'd graze sheep on.",
+      "descriptor": {
+        "terrain": {
+          "primary": "rolling_hills",
+          "ruggedness": 0.2
+        }
+      },
+      "rationale": "'gentle' + 'pastoral' -> low ruggedness; no water mention -> hydrology omitted."
+    },
+    {
+      "id": "plains_flat",
+      "free_text": "Wide open plains, flat as a tabletop, golden grass to the horizon.",
+      "descriptor": {
+        "terrain": {
+          "primary": "plains",
+          "ruggedness": 0.05
+        }
+      },
+      "rationale": "'flat as a tabletop' -> ruggedness near zero; no hydrology cues."
+    },
+    {
+      "id": "desert_mesa_with_dry_wash",
+      "free_text": "A high desert mesa with steep sides and a dry wash at the base.",
+      "descriptor": {
+        "terrain": {
+          "primary": "desert_mesa",
+          "ruggedness": 0.6
+        },
+        "hydrology": {
+          "has_stream": true,
+          "stream_character": "dry_wash"
+        }
+      },
+      "rationale": "Mesa not canyon (positive landform). 'dry wash' is an explicit stream_character value."
+    },
+    {
+      "id": "desert_dunes_sweeping",
+      "free_text": "Sweeping sand dunes, no vegetation, no water, just wind-shaped ridges.",
+      "descriptor": {
+        "terrain": {
+          "primary": "desert_dunes",
+          "ruggedness": 0.35
+        }
+      },
+      "rationale": "Dunes have moderate apparent relief; explicit 'no water' -> omit hydrology."
+    },
+    {
+      "id": "boreal_lowland_taiga",
+      "free_text": "Flat boreal lowland, taiga forest, mossy ground, occasional bog.",
+      "descriptor": {
+        "terrain": {
+          "primary": "boreal_lowland",
+          "ruggedness": 0.15
+        }
+      },
+      "rationale": "'occasional bog' alone doesn't imply a stream; treat as terrain colour, not hydrology."
+    },
+    {
+      "id": "marsh_reedy",
+      "free_text": "A reedy marsh just above sea level, slow water everywhere, no clear channel.",
+      "descriptor": {
+        "terrain": {
+          "primary": "marsh",
+          "elevation_band": [0.0, 5.0],
+          "ruggedness": 0.05
+        },
+        "hydrology": {
+          "has_stream": false,
+          "stream_character": "none"
+        }
+      },
+      "rationale": "'no clear channel' -> has_stream=false; 'just above sea level' -> low elevation_band."
+    },
+    {
+      "id": "volcanic_cone_steep",
+      "free_text": "A steep symmetrical volcanic cone, cinder slopes, summit crater, no water.",
+      "descriptor": {
+        "terrain": {
+          "primary": "volcanic_cone",
+          "ruggedness": 0.7
+        }
+      },
+      "rationale": "Volcanic cones are inherently rugged; explicit 'no water' -> omit hydrology."
+    },
+    {
+      "id": "coastal_cliffs_facing_sea",
+      "free_text": "Sheer coastal cliffs facing the open ocean, sea spray, no inland streams.",
+      "descriptor": {
+        "terrain": {
+          "primary": "coastal_cliffs",
+          "ruggedness": 0.8
+        }
+      },
+      "rationale": "Ocean is not a stream; 'no inland streams' -> omit hydrology."
+    },
+    {
+      "id": "river_valley_meandering",
+      "free_text": "A wide river valley with a meandering river, fertile floodplain on either side.",
+      "descriptor": {
+        "terrain": {
+          "primary": "river_valley",
+          "ruggedness": 0.25
+        },
+        "hydrology": {
+          "has_stream": true,
+          "stream_character": "meandering_river"
+        }
+      },
+      "rationale": "'meandering river' is the canonical stream_character for river_valley."
+    },
+    {
+      "id": "canyon_deep",
+      "free_text": "A deep narrow canyon cut by a seasonal river, walls of red sandstone.",
+      "descriptor": {
+        "terrain": {
+          "primary": "canyon",
+          "ruggedness": 0.85
+        },
+        "hydrology": {
+          "has_stream": true,
+          "stream_character": "dry_wash"
+        }
+      },
+      "rationale": "'seasonal' + canyon context -> dry_wash, not meandering_river."
+    }
+  ]
+}
