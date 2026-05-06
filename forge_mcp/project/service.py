@@ -38,7 +38,7 @@ from forge_mcp.project.history import HistoryLog
 from forge_mcp.project.locks import LockStore, LockStoreError
 from forge_mcp.project.schemas import (
     BoundaryId,
-    BoundaryStub,
+    BoundaryRecord,
     Edge,
     EdgeLayerFile,
     HistoryActor,
@@ -284,7 +284,7 @@ class ProjectState:
     paths: ProjectPaths
     metadata: ProjectMetadata
     regions: dict[RegionId, RegionNode] = field(default_factory=dict)
-    boundaries: dict[BoundaryId, BoundaryStub] = field(default_factory=dict)
+    boundaries: dict[BoundaryId, BoundaryRecord] = field(default_factory=dict)
     edges: dict[str, list[Edge]] = field(default_factory=dict)
     history: HistoryLog = field(init=False)
     lock_store: LockStore = field(init=False)
@@ -581,13 +581,13 @@ class ProjectService:
         return edges
 
     @staticmethod
-    def _load_boundaries(paths: ProjectPaths) -> dict[BoundaryId, BoundaryStub]:
-        boundaries: dict[BoundaryId, BoundaryStub] = {}
+    def _load_boundaries(paths: ProjectPaths) -> dict[BoundaryId, BoundaryRecord]:
+        boundaries: dict[BoundaryId, BoundaryRecord] = {}
         if not paths.boundaries_dir.is_dir():
             return boundaries
         for path in sorted(paths.boundaries_dir.glob("*.json")):
             try:
-                boundary = BoundaryStub.model_validate_json(path.read_text(encoding="utf-8"))
+                boundary = BoundaryRecord.model_validate_json(path.read_text(encoding="utf-8"))
             except (OSError, ValidationError) as exc:
                 msg = f"failed to load boundary {path.name}: {exc}"
                 raise ProjectFormatError(msg) from exc

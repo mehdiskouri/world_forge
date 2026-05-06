@@ -13,7 +13,7 @@ from forge_mcp.hypergraph.traversal import (
 )
 from forge_mcp.project.schemas import (
     BoundaryId,
-    BoundaryStub,
+    BoundaryRecord,
     Edge,
     EdgeId,
     NodeId,
@@ -97,8 +97,8 @@ def test_query_layer_unknown_layer_raises() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _boundary(boundary_id: str, a: str, b: str) -> BoundaryStub:
-    return BoundaryStub(
+def _boundary(boundary_id: str, a: str, b: str) -> BoundaryRecord:
+    return BoundaryRecord(
         boundary_id=BoundaryId(boundary_id),
         region_a=RegionId(a),
         region_b=RegionId(b),

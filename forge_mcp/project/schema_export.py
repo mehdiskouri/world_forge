@@ -23,7 +23,7 @@ from forge_mcp.audit.verdict import audit_verdict_json_schema
 from forge_mcp.descriptor.schema import descriptor_json_schema
 from forge_mcp.project.schemas import (
     AuditRecord,
-    BoundaryStub,
+    BoundaryRecord,
     Edge,
     EdgeLayerFile,
     HistoryEvent,
@@ -73,7 +73,7 @@ def iter_published_schemas() -> Iterator[tuple[str, dict[str, object]]]:
     yield _pydantic_schema(RegionNode, "region", "ForgeRegion")
     yield _pydantic_schema(Edge, "edge", "ForgeEdge")
     yield _pydantic_schema(EdgeLayerFile, "edge_layer", "ForgeEdgeLayerFile")
-    yield _pydantic_schema(BoundaryStub, "boundary", "ForgeBoundary")
+    yield _pydantic_schema(BoundaryRecord, "boundary", "ForgeBoundary")
     yield _pydantic_schema(LockRecord, "lock", "ForgeLock")
     yield _pydantic_schema(LockStoreFile, "lock_store", "ForgeLockStore")
     yield _pydantic_schema(HistoryEvent, "history_event", "ForgeHistoryEvent")
