@@ -10,6 +10,7 @@ spike 4 (:doc:`docs/spikes/04-descriptor-schema.md`) for the eval set.
 
 from __future__ import annotations
 
+from forge_mcp.descriptor.region_extent import RegionExtent
 from forge_mcp.descriptor.schema import (
     SCHEMA_VERSION,
     Hydrology,
@@ -28,6 +29,7 @@ from forge_mcp.descriptor.validate import (
 __all__ = [
     "SCHEMA_VERSION",
     "Hydrology",
+    "RegionExtent",
     "StreamCharacter",
     "StructuredDescriptor",
     "Terrain",

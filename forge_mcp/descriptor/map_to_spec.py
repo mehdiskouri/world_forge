@@ -14,6 +14,7 @@ intentional dedup property documented in
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from hashlib import blake2b
 from typing import TYPE_CHECKING, Final
@@ -43,18 +44,23 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from datetime import datetime
 
+    from forge_mcp.descriptor.region_extent import RegionExtent
+
 __all__ = [
     "COMPILER_VERSION",
+    "ELEVATION_BAND_CLAMPED_FLAG",
     "GENERATOR_NAME",
+    "MAX_MEAN_SLOPE_DEG_BY_ARCHETYPE",
     "STREAM_PROFILES",
     "TERRAIN_PROFILES",
+    "ElevationBandImplausibleError",
     "StreamProfile",
     "TerrainProfile",
     "map_to_spec",
 ]
 
 
-COMPILER_VERSION: Final[str] = "0.2.0"
+COMPILER_VERSION: Final[str] = "0.3.0"
 """Bumped whenever the descriptor->spec mapping changes shape or behavior.
 
 Recorded on :class:`GenerationMetadata.compiler_version`. Bumping
@@ -73,6 +79,15 @@ History:
   per-vertex spikes. Erosion thresholds now interpret talus and slope
   in metres-per-metre rather than per-grid-cell, so the spec's
   ``resolution_meters_per_pixel`` finally affects the post-passes.
+* ``0.3.0`` — Phase-6 Stage A region-extent-aware elevation-band
+  scaling. ``map_to_spec`` now requires a ``region_extent`` keyword
+  argument; the default-band path silently clamps the archetype's
+  ``default_elevation_band`` to the per-archetype mean-slope ceiling
+  (recorded in ``GenerationMetadata.conflicts_resolved``); explicit
+  descriptor overrides that violate the ceiling raise
+  :class:`ElevationBandImplausibleError`. Affects spec hashes for
+  every archetype whose default band exceeds the ceiling at the
+  region's bounding-box footprint.
 """
 
 GENERATOR_NAME: Final[str] = "ridged_multifractal_v1"
@@ -357,6 +372,91 @@ STREAM_PROFILES: Final[Mapping[StreamCharacter, StreamProfile]] = {
 
 
 # ---------------------------------------------------------------------------
+# Slope-plausibility ceilings — Phase 6 Stage A
+# ---------------------------------------------------------------------------
+
+
+MAX_MEAN_SLOPE_DEG_BY_ARCHETYPE: Final[Mapping[TerrainPrimary, float]] = {
+    # Cliff-tolerant archetypes: dramatic talus is on-spec; allow up to ~55 degrees.
+    TerrainPrimary.ALPINE_PEAKS: 55.0,
+    TerrainPrimary.CANYON: 55.0,
+    TerrainPrimary.COASTAL_CLIFFS: 55.0,
+    TerrainPrimary.VOLCANIC_CONE: 55.0,
+    # Standard archetypes: dramatic but still walkable; ~30 degrees mean.
+    TerrainPrimary.ALPINE_VALLEY: 30.0,
+    TerrainPrimary.DESERT_MESA: 30.0,
+    TerrainPrimary.BOREAL_LOWLAND: 30.0,
+    TerrainPrimary.MARSH: 30.0,
+    TerrainPrimary.RIVER_VALLEY: 30.0,
+    # Gentle archetypes: anything steeper would contradict the descriptor outright.
+    TerrainPrimary.ROLLING_HILLS: 25.0,
+    TerrainPrimary.PLAINS: 25.0,
+    TerrainPrimary.DESERT_DUNES: 25.0,
+}
+"""Per-archetype mean-slope ceiling in degrees, used by
+:func:`_resolve_elevation_band` to clamp the elevation band to a
+slope-plausible relief for the region's horizontal footprint.
+
+The ceiling is *aggressive*: it bounds the mean slope the resulting
+heightmap is allowed to imply across the polygon's bounding box, not
+the peak slope. Cliff-tolerant archetypes still have plenty of room
+to grow near-vertical talus through the macro-shape pre-pass and
+ridged noise; gentle archetypes are kept gentle so a small descriptor
+override does not turn rolling hills into a wall.
+
+Tested for exhaustiveness in
+``tests/descriptor/test_map_to_spec.py::test_slope_ceiling_table_is_exhaustive``.
+"""
+
+
+ELEVATION_BAND_CLAMPED_FLAG: Final[str] = "elevation_band_clamped_to_extent"
+"""Token recorded in :attr:`GenerationMetadata.conflicts_resolved` when
+the default-band path silently shrunk the archetype's default
+elevation band to fit the region extent. Explicit overrides do *not*
+clamp silently — they raise :class:`ElevationBandImplausibleError`.
+"""
+
+
+class ElevationBandImplausibleError(ValueError):
+    """Raised when ``descriptor.terrain.elevation_band`` is too tall for the region.
+
+    The error carries the offending field path, the supplied band,
+    the region extent, and the maximum band height permitted by the
+    archetype's slope ceiling so callers can surface it as a
+    structured validation envelope.
+
+    Attributes:
+        field: JSON pointer-ish path to the offending descriptor field.
+        region_extent_m: Shorter polygon-bounding-box axis in metres.
+        max_band_m: Maximum band height in metres permitted at this
+            extent for the descriptor's archetype.
+        supplied_band: The descriptor-supplied ``(low, high)`` band.
+    """
+
+    def __init__(
+        self,
+        *,
+        field: str,
+        region_extent_m: float,
+        max_band_m: float,
+        supplied_band: tuple[float, float],
+    ) -> None:
+        """Initialise the error with the offending field + clamp metadata."""
+        self.field = field
+        self.region_extent_m = region_extent_m
+        self.max_band_m = max_band_m
+        self.supplied_band = supplied_band
+        height = supplied_band[1] - supplied_band[0]
+        msg = (
+            f"{field} = {supplied_band!r} implies {height:.1f} m of relief over a "
+            f"{region_extent_m:.1f} m extent, exceeding the per-archetype mean-slope "
+            f"ceiling (max permitted band height {max_band_m:.1f} m). Either widen "
+            f"the region polygon or reduce the elevation band."
+        )
+        super().__init__(msg)
+
+
+# ---------------------------------------------------------------------------
 # Modulators
 # ---------------------------------------------------------------------------
 
@@ -441,6 +541,79 @@ def _post_passes(
     )
 
 
+def _max_band_meters(
+    primary: TerrainPrimary,
+    region_extent: RegionExtent,
+) -> float:
+    """Return the maximum band height plausible for ``primary`` at this extent.
+
+    Computed as ``min_extent_m * tan(max_mean_slope_deg)``; a band
+    taller than this implies a mean slope exceeding the per-archetype
+    ceiling along the polygon's shortest axis.
+    """
+    ceiling_deg = MAX_MEAN_SLOPE_DEG_BY_ARCHETYPE[primary]
+    return region_extent.min_extent_m * math.tan(math.radians(ceiling_deg))
+
+
+def _clamp_band_to_extent(
+    band: tuple[float, float],
+    max_height: float,
+) -> tuple[float, float]:
+    """Symmetrically shrink ``band`` around its midpoint to ``max_height``.
+
+    Bands already shorter than ``max_height`` are returned unchanged.
+    """
+    height = band[1] - band[0]
+    if height <= max_height:
+        return band
+    midpoint = 0.5 * (band[0] + band[1])
+    half = 0.5 * max_height
+    return (midpoint - half, midpoint + half)
+
+
+def _resolve_elevation_band(
+    descriptor: StructuredDescriptor,
+    profile: TerrainProfile,
+    region_extent: RegionExtent,
+) -> tuple[tuple[float, float], tuple[str, ...]]:
+    """Resolve the spec's elevation band, clamped to the region extent.
+
+    Two paths:
+
+    * **Default-band path** (``descriptor.terrain.elevation_band`` is
+      ``None``): start from ``profile.default_elevation_band`` and
+      silently shrink it around its midpoint to fit the per-archetype
+      slope ceiling. The clamp event is recorded in
+      ``conflicts_resolved`` for traceability.
+    * **Explicit-override path** (descriptor supplies a band): if it
+      already fits the ceiling, pass it through unchanged. If it
+      exceeds the ceiling, raise
+      :class:`ElevationBandImplausibleError` so the caller can fail
+      loud at the validation boundary instead of silently producing
+      something the descriptor never asked for.
+
+    Returns:
+        A ``(band, conflicts_resolved)`` pair. The conflicts tuple is
+        empty unless the default-band path triggered a clamp.
+    """
+    primary = descriptor.terrain.primary
+    max_height = _max_band_meters(primary, region_extent)
+    supplied = descriptor.terrain.elevation_band
+    if supplied is not None:
+        if (supplied[1] - supplied[0]) > max_height:
+            raise ElevationBandImplausibleError(
+                field="terrain.elevation_band",
+                region_extent_m=region_extent.min_extent_m,
+                max_band_m=max_height,
+                supplied_band=supplied,
+            )
+        return supplied, ()
+    clamped = _clamp_band_to_extent(profile.default_elevation_band, max_height)
+    if clamped == profile.default_elevation_band:
+        return clamped, ()
+    return clamped, (ELEVATION_BAND_CLAMPED_FLAG,)
+
+
 def _stream_injectors(hydrology: Hydrology | None) -> tuple[StreamFeatureInjector, ...]:
     """Return a single stream injector if the descriptor calls for one."""
     if hydrology is None or not hydrology.has_stream:
@@ -463,10 +636,11 @@ def _content_address(body: SpecBody) -> SpecId:
     return SpecId(f"spec_{digest}")
 
 
-def map_to_spec(
+def map_to_spec(  # noqa: PLR0913 - one assembly site; all params are named keyword-only.
     descriptor: StructuredDescriptor,
     seed: int,  # noqa: ARG001 - reserved for Phase-6 anchor selection; pinned now for stability
     *,
+    region_extent: RegionExtent,
     blender_version: str,
     bpy_hypergraph_version: str,
     now: datetime,
@@ -486,6 +660,9 @@ def map_to_spec(
     Args:
         descriptor: Validated structured descriptor.
         seed: Region seed; persisted for downstream generators.
+        region_extent: Polygon-bounding-box footprint in metres. Used
+            by :func:`_resolve_elevation_band` to clamp the elevation
+            band to a slope-plausible relief.
         blender_version: Pinned Blender patch (e.g. ``"5.0.2"``).
         bpy_hypergraph_version: Pinned bpy hypergraph data version.
         now: Wall-clock for ``SpecRecord.created_at``; chosen by caller.
@@ -493,10 +670,19 @@ def map_to_spec(
     Returns:
         A :class:`SpecRecord` whose ``spec_id`` is the BLAKE2b-6 hex of
         its canonical-JSON body.
+
+    Raises:
+        ElevationBandImplausibleError: When the descriptor supplies an
+            explicit ``elevation_band`` whose height exceeds the
+            archetype's mean-slope ceiling at the given region extent.
     """
     profile = TERRAIN_PROFILES[descriptor.terrain.primary]
     ruggedness = _ruggedness(descriptor)
-    elevation_band = descriptor.terrain.elevation_band or profile.default_elevation_band
+    elevation_band, conflicts_resolved = _resolve_elevation_band(
+        descriptor,
+        profile,
+        region_extent,
+    )
     macro_strength = min(
         1.0,
         profile.macro_strength_base + ruggedness * _MACRO_STRENGTH_BONUS_MAX,
@@ -518,6 +704,7 @@ def map_to_spec(
             generators_used=(GENERATOR_NAME,),
             bpy_hypergraph_version=bpy_hypergraph_version,
             blender_version=blender_version,
+            conflicts_resolved=conflicts_resolved,
         ),
     )
     return SpecRecord(

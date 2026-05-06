@@ -130,18 +130,29 @@ the agent on your behalf) post a region polygon directly:
 
 User → agent:
 
-> Add a 200×200 m square region called "alpine_valley_01" centered at
-> the origin.
+> Add a 4 km × 4 km square region called "alpine_valley_01" centered
+> at the origin.
 
 Expected agent call:
 
 ```text
 forge.create_region(
   region_id="rgn_alpine_valley_01",
-  polygon=[[-100,-100],[100,-100],[100,100],[-100,100]],
+  polygon=[[-2000,-2000],[2000,-2000],[2000,2000],[-2000,2000]],
   ...
 )
 ```
+
+> **Why 4 km × 4 km, not the original 200 m × 200 m?** The Phase 6
+> Stage A region-extent-aware elevation-band clamp resolves the
+> archetype's default 1.6 km of relief against the polygon's
+> bounding-box extent. A 200 m polygon is plausible only for terrain
+> with ≤ ~115 m of relief (mean slope ≤ 30°); the alpine_valley
+> archetype wants room for proper macro relief. The clamp would
+> otherwise shrink the band on your behalf and you'd see the
+> conflict surface in the spec's
+> ``generation_metadata.conflicts_resolved``. See
+> [`AGENT/follow_ups/phase5-elevation-band-scaling.md`](../AGENT/follow_ups/phase5-elevation-band-scaling.md).
 
 ### 3.3. Free text → descriptor → terrain
 

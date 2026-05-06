@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from forge_mcp.descriptor.map_to_spec import map_to_spec
+from forge_mcp.descriptor.region_extent import RegionExtent
 from forge_mcp.descriptor.schema import (
     Hydrology,
     StreamCharacter,
@@ -23,6 +24,7 @@ NOW = datetime(2026, 5, 1, tzinfo=UTC)
 BLENDER = "5.0.2"
 BPY_HG = "blender-5.0.2-v1"
 SHAPE = (32, 32)
+EXTENT = RegionExtent(width_m=4000.0, height_m=4000.0, area_m2=4000.0 * 4000.0)
 
 
 def _spec(
@@ -37,6 +39,7 @@ def _spec(
     return map_to_spec(
         descriptor,
         seed=0,
+        region_extent=EXTENT,
         blender_version=BLENDER,
         bpy_hypergraph_version=BPY_HG,
         now=NOW,

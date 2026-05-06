@@ -36,6 +36,24 @@ reroll. **This is wrong.** Cranking the sigma back up softens
 high-frequency noise on top of the macro shape; it cannot bring an
 83° mean slope down to anything plausible.
 
+The rendered preview shows four further symptoms beyond the slope
+number that the audit reported, all of which are downstream
+consequences of the same upstream bug:
+
+- **Single-axis vertical stretch** — the geometry reads as a
+  displacement spike, not a valley.
+- **"Crystalline shards" / mesh tearing on the silhouette** — the
+  triangulated mesh emits visibly degenerate quads on the steepest
+  faces.
+- **Crushed lighting** — most of the surface renders near-black with
+  only a pale-green sliver picking up the sun.
+- **Apparent loss of shader elevation banding** — the green / brown /
+  white colour ramp the macro feeds to ``apply_terrain_material``
+  does not visibly band the terrain.
+
+Section 2 below walks each one back to the same root cause; section
+3 then describes the single fix that resolves all of them.
+
 ---
 
 ## 2. Actual root cause
@@ -79,6 +97,24 @@ collapses to `arctan(~1600 / 200) ≈ 83°`, matching the audit's
 In one line: the archetype assumes a km-scale region; the demo
 hands it a hectometre-scale polygon; the mapper happily fits 1.6 km
 of relief into 200 m of horizontal extent.
+
+### 2.1 — How the four secondary symptoms cascade from the same bug
+
+All four extra symptoms above resolve to the same upstream cause and
+require **no separate fix**.
+
+| Visible symptom                  | Code site                                                                                                                                                                                                                                       | Causal link                                                                                                                                                                                                                                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vertically-stretched spike       | `_apply_elevation_band` in [`forge_mcp/generate/terrain.py`](../forge_mcp/generate/terrain.py)                                                                                                                                                  | Direct effect: noise is normalised to `[0, 1]` then linearly stretched into the resolved band. There is no XY normalisation, only a Z multiply, so a too-tall band reads as pure vertical stretch.                                                                                                         |
+| "Crystalline shards" / tearing   | `mesh_from_heightmap` in [`forge_mcp/realize/heightmap_mesh.py`](../forge_mcp/realize/heightmap_mesh.py) (256² vertex cap) combined with `displace_strength = 0.0` set in [`forge_mcp/server/tools/generation.py`](../forge_mcp/server/tools/generation.py) so the mesh carries `z = data_meters` directly | With ~16 m horizontal spacing per quad but up to 1600 m of vertical step between adjacent verts, quads degenerate into wedges and Eevee renders the silhouette as faceted shards. Same mesh on a 4 km extent has 16× wider quads with the same Z spread → smooth surface.                                  |
+| Crushed lighting / near-black    | `add_basic_lighting` in [`forge_mcp/realize/macros.py`](../forge_mcp/realize/macros.py) using a single sun lamp at 45° pitch / -45° yaw                                                                                                          | Mean face normal sits ~83° off horizontal, so the overwhelming majority of faces are back-lit. Only the NW-facing slivers catch the sun. There is no lighting bug; the rig is correct for plausible terrain. Bring the slope distribution into a sane band and the same sun renders the same scene cleanly. |
+| Apparent loss of elevation bands | `_DEFAULT_COLOR_RAMP_STOPS` (green → brown → white) keyed by `elevation_min/elevation_max` in [`forge_mcp/server/tools/generation.py`](../forge_mcp/server/tools/generation.py) and consumed by the `apply_terrain_material` macro              | The colour ramp **is** active, but the green band (z ≈ 800–1400 m) covers ~37% of the elevation range and projects almost entirely onto the near-vertical cliff faces, which the sun never lights. There is no shader bug; the geometry is forcing the green stop into shadow.                              |
+
+The single primary culprit is therefore unambiguously
+``_resolve_elevation_band`` ignoring the region's horizontal
+extent. Everything else is a downstream rendering artefact of the
+implausible (relief / extent) ratio. The fix in section 3.1 closes
+all four symptoms with one change.
 
 ---
 
