@@ -21,7 +21,8 @@
         "update_region",
         "delete_region",
         "generate_region",
-        "reroll_seed"
+        "reroll_seed",
+        "audit_recorded"
       ],
       "title": "HistoryEventKind",
       "type": "string"

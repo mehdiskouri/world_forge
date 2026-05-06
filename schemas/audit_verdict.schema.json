@@ -1,0 +1,144 @@
+{
+  "$defs": {
+    "AuditDimension": {
+      "additionalProperties": false,
+      "description": "One scored axis of the verdict.",
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "name": {
+          "enum": [
+            "descriptor_coherence",
+            "geometric_validity",
+            "render_quality",
+            "spec_alignment"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "pass",
+            "fail",
+            "warn"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "verdict",
+        "confidence"
+      ],
+      "title": "AuditDimension",
+      "type": "object"
+    },
+    "SubagentContext": {
+      "additionalProperties": false,
+      "description": "Provenance metadata recorded with every verdict.\n\nForge cannot enforce isolation (the subagent runs in the agent\nclient, not in Forge); ``isolated`` is a best-effort claim\nreported by the client. ``tool_calls_observed`` lists the tool\nnames the subagent actually called so a reviewer can spot-check\nthat no mutation tools (``forge.generate_region``,\n``forge.reroll_seed``, locks, etc.) leaked into the audit context.",
+      "properties": {
+        "client_name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Client Name",
+          "type": "string"
+        },
+        "isolated": {
+          "title": "Isolated",
+          "type": "boolean"
+        },
+        "tool_calls_observed": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tool Calls Observed",
+          "type": "array"
+        }
+      },
+      "required": [
+        "client_name",
+        "isolated"
+      ],
+      "title": "SubagentContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persisted audit-verdict record (frozen, ``extra=\"forbid\"``).",
+  "properties": {
+    "audit_id": {
+      "title": "Audit Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "dimensions": {
+      "items": {
+        "$ref": "#/$defs/AuditDimension"
+      },
+      "title": "Dimensions",
+      "type": "array"
+    },
+    "region_id": {
+      "title": "Region Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "spec_id": {
+      "title": "Spec Id",
+      "type": "string"
+    },
+    "subagent_context": {
+      "$ref": "#/$defs/SubagentContext"
+    },
+    "summary": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail",
+        "warn"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "required": [
+    "audit_id",
+    "region_id",
+    "spec_id",
+    "verdict",
+    "dimensions",
+    "summary",
+    "created_at",
+    "subagent_context"
+  ],
+  "title": "ForgeAuditVerdict",
+  "type": "object"
+}

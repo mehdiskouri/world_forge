@@ -66,6 +66,11 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         # Skills surface (Phase 5)
         "forge.list_skills",
         "forge.get_skill",
+        # Audit surface (Phase 5 Stage D)
+        "forge.record_audit",
+        "forge.list_audits",
+        "forge.get_audit",
+        "forge.get_audit_schema",
     },
 )
 
