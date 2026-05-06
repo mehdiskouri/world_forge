@@ -81,7 +81,7 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 
 ---
 
-## Phase 5 — Skills + audit subagent (PRD week 4)
+## Phase 5 — Skills + audit subagent (PRD week 4) — **complete (pending manual sanity)**
 **Outcome:** Agent drives end-to-end region creation from free-text user prompts, with audit feedback.
 **Steps**
 1. Author `forge.plan/SKILL.md` with full structured descriptor schema embedded inline + 10+ worked examples + workflow + tool call patterns + common pitfalls (Architecture §6.1).
@@ -90,7 +90,9 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 4. Skill tests (Architecture §12.3): plan skill against Claude Code with 10 free-text descriptors; verify extracted descriptors match expected; iterate skill content until extraction is reliable.
 5. Mid-week sanity check (R-9): end-to-end "user free text → terrain in Blender" against Claude Code.
 
-**Verification:** clean session — user types "rugged alpine valley with stream", gets terrain; audit subagent flags one intentional descriptor mismatch; success criterion §8.3 (descriptor coherence) achievable.
+**Verification:** clean session — user types "rugged alpine valley with stream", gets terrain; audit subagent flags one intentional descriptor mismatch; success criterion §8.3 (descriptor coherence) achievable. Wire-level gates run in CI; the manual R-9 sanity walkthrough is documented in [`docs/p5_sanity_walkthrough.md`](../docs/p5_sanity_walkthrough.md) and tracked under [`docs/eval/phase5/sanity/`](../docs/eval/phase5/sanity/README.md) (pending operator run on a Blender 5.0.0 + Claude Code workstation).
+
+**Landed in:** PRs #43 (skills package + loader + CLI + tools shell), #44 (audit verdict schema + service + MCP tools), #45 (load-bearing forge.plan SKILL.md + eval_set + descriptor-schema byte-identity test), #46 (forge.visualize / forge.cleanup / forge.connect SKILL.md content), #47 (forge.audit SKILL.md + embedded AuditVerdict schema byte-identity test), #48 (deterministic plan-skill eval harness + smoke tests), and the docs + sanity walkthrough close-out PR.
 
 ---
 
