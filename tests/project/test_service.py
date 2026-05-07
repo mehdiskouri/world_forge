@@ -87,10 +87,11 @@ def test_create_project_writes_documented_tree(tmp_path: Path) -> None:
     edge_files = sorted(p.name for p in paths.edges_dir.glob("*.json"))
     assert edge_files == [
         "hydrology.json",
+        "material_application.json",
+        "material_composition.json",
         "spatial_adjacency.json",
         "spatial_containment.json",
     ]
-
     # exactly one history event: create_project
     history_files = list(paths.history_dir.glob("*.json"))
     assert len(history_files) == 1

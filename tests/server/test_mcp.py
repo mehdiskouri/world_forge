@@ -74,6 +74,25 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         # Canvas surface (Phase 6 Stage D)
         "forge.canvas_url",
         "forge.canvas_status",
+        # Materials surface (Phase 6-bis Phase C)
+        "forge.create_material_archetype",
+        "forge.update_material_archetype",
+        "forge.delete_material_archetype",
+        "forge.list_material_archetypes",
+        "forge.get_material_archetype",
+        "forge.apply_material",
+        "forge.unapply_material",
+        "forge.list_material_applications",
+        "forge.compose_material",
+        "forge.uncompose_material",
+        "forge.resolve_material",
+        # Sub-regions surface (Phase 6-c Phase E)
+        "forge.create_sub_region",
+        "forge.update_sub_region",
+        "forge.delete_sub_region",
+        "forge.list_sub_regions",
+        "forge.get_sub_region",
+        "forge.preview_sub_region_coverage",
     },
 )
 

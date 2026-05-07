@@ -88,6 +88,63 @@ def list_boundaries(boundaries: Mapping[BoundaryId, BoundaryRecord]) -> tuple[Bo
     return tuple(sorted(boundaries.keys()))
 
 
+def has_directed_cycle(hg: Hypergraph, layer: str) -> tuple[NodeId, ...] | None:
+    """Detect whether ``layer`` (interpreted as a directed graph) contains a cycle.
+
+    Edges in ``layer`` are taken to be directed pairs
+    ``(endpoints[0], endpoints[1])`` (Phase 6-bis only persists binary
+    composition edges; higher-arity directed edges fall outside the
+    composition layer's contract). Returns the offending cycle as a
+    sorted tuple of node ids when one is found, or ``None`` when the
+    layer's directed projection is acyclic.
+
+    The walk is iterative and runs in O(V + E); used by the
+    ``material_composition`` write path to refuse cycle-introducing
+    edges before they reach disk.
+    """
+    view = hg.layer(layer)
+    successors: dict[NodeId, list[NodeId]] = {}
+    for edge in view.edges():
+        if not edge.directed or len(edge.endpoints) != 2:  # noqa: PLR2004 - binary edges only
+            continue
+        src, dst = edge.endpoints[0], edge.endpoints[1]
+        successors.setdefault(src, []).append(dst)
+    # Iterative DFS with three-colour marking.
+    white, grey, black = 0, 1, 2
+    colour: dict[NodeId, int] = {}
+    parent: dict[NodeId, NodeId | None] = {}
+    for root in sorted(successors):
+        if colour.get(root, white) != white:
+            continue
+        stack: list[tuple[NodeId, int]] = [(root, 0)]
+        parent[root] = None
+        colour[root] = grey
+        while stack:
+            node, idx = stack[-1]
+            children = successors.get(node, ())
+            if idx >= len(children):
+                colour[node] = black
+                stack.pop()
+                continue
+            stack[-1] = (node, idx + 1)
+            child = children[idx]
+            state = colour.get(child, white)
+            if state == grey:
+                # Found a back-edge — collect cycle from `child` back to itself.
+                cycle: list[NodeId] = [child]
+                cursor: NodeId | None = node
+                while cursor is not None and cursor != child:
+                    cycle.append(cursor)
+                    cursor = parent.get(cursor)
+                cycle.reverse()
+                return tuple(cycle)
+            if state == white:
+                parent[child] = node
+                colour[child] = grey
+                stack.append((child, 0))
+    return None
+
+
 def inspect_boundary(
     boundaries: Mapping[BoundaryId, BoundaryRecord],
     boundary_id: BoundaryId,
@@ -96,4 +153,10 @@ def inspect_boundary(
     return boundaries[boundary_id]
 
 
-__all__ = ["NodePredicate", "inspect_boundary", "list_boundaries", "query_layer"]
+__all__ = [
+    "NodePredicate",
+    "has_directed_cycle",
+    "inspect_boundary",
+    "list_boundaries",
+    "query_layer",
+]

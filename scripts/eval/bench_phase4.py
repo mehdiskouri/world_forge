@@ -55,6 +55,8 @@ from forge_mcp.realize.macros import (
     realize_region,
     render_preview,
 )
+from forge_mcp.realize.material import default_terrain_archetype
+from forge_mcp.realize.material.plan import ResolvedLayer, make_plan
 from PIL import Image
 
 if TYPE_CHECKING:
@@ -66,12 +68,6 @@ _TILE_H = 192
 _PREVIEW_W = 512
 _PREVIEW_H = 384
 _RENDER_ENGINE = "BLENDER_EEVEE"  # Blender 5.0 enum identifier
-_DEFAULT_COLOR_RAMP_STOPS = (
-    {"position": 0.0, "color": [0.18, 0.34, 0.12, 1.0]},
-    {"position": 0.5, "color": [0.45, 0.36, 0.27, 1.0]},
-    {"position": 1.0, "color": [0.95, 0.95, 0.95, 1.0]},
-)
-_DEFAULT_SLOPE_THRESHOLD = 0.35
 
 
 def _trace_summary(result: RealizationResult) -> list[dict[str, object]]:
@@ -84,6 +80,27 @@ def _trace_summary(result: RealizationResult) -> list[dict[str, object]]:
         }
         for step in result.trace
     ]
+
+
+def _default_plan_payload(label: str, band: tuple[float, float]) -> object:
+    """Build a default-archetype CompositeMaterialPlan payload for the bench.
+
+    The bench doesn't open a real project, so we synthesise a plan from
+    the resolver's default archetype directly. This mirrors the
+    fall-back path that ``forge.generate_region`` uses when no material
+    application is in scope.
+    """
+    arch = default_terrain_archetype(
+        elevation_min=float(band[0]),
+        elevation_max=float(band[1]),
+    )
+    layer = ResolvedLayer(
+        archetype_id=arch.node_id,
+        recipe=arch.recipe,
+        parameters=dict(arch.parameters),
+    )
+    plan = make_plan(label, f"terrain_{label}", (layer,))  # type: ignore[arg-type]
+    return plan.model_dump(mode="json")
 
 
 def _bench_one(
@@ -116,11 +133,7 @@ def _bench_one(
         faces=faces,
         region_id=label,
         spec_id=str(spec.spec_id),
-        material_name=f"mat_{label}",
-        color_ramp_stops=list(_DEFAULT_COLOR_RAMP_STOPS),
-        slope_threshold=_DEFAULT_SLOPE_THRESHOLD,
-        elevation_min=float(gen_result.heightmap.elevation_band[0]),
-        elevation_max=float(gen_result.heightmap.elevation_band[1]),
+        plan=_default_plan_payload(label, gen_result.heightmap.elevation_band),
         curve_name=f"stream_{label}",
         ortho_camera_name=f"cam_ortho_{label}",
         perspective_camera_name=f"cam_persp_{label}",

@@ -29,9 +29,13 @@ from forge_mcp.project.schemas import (
     HistoryEvent,
     LockRecord,
     LockStoreFile,
+    MaterialApplicationAttrs,
+    MaterialArchetypeNode,
+    MaterialCompositionAttrs,
     ProjectMetadata,
     RegionNode,
     SpecRecord,
+    SubRegionNode,
     WorldRootNode,
 )
 
@@ -71,6 +75,22 @@ def iter_published_schemas() -> Iterator[tuple[str, dict[str, object]]]:
     yield _pydantic_schema(ProjectMetadata, "project", "ForgeProject")
     yield _pydantic_schema(WorldRootNode, "world_root", "ForgeWorldRootNode")
     yield _pydantic_schema(RegionNode, "region", "ForgeRegion")
+    yield _pydantic_schema(SubRegionNode, "sub_region", "ForgeSubRegion")
+    yield _pydantic_schema(
+        MaterialArchetypeNode,
+        "material_archetype",
+        "ForgeMaterialArchetype",
+    )
+    yield _pydantic_schema(
+        MaterialApplicationAttrs,
+        "material_application_attrs",
+        "ForgeMaterialApplicationAttrs",
+    )
+    yield _pydantic_schema(
+        MaterialCompositionAttrs,
+        "material_composition_attrs",
+        "ForgeMaterialCompositionAttrs",
+    )
     yield _pydantic_schema(Edge, "edge", "ForgeEdge")
     yield _pydantic_schema(EdgeLayerFile, "edge_layer", "ForgeEdgeLayerFile")
     yield _pydantic_schema(BoundaryRecord, "boundary", "ForgeBoundary")

@@ -56,14 +56,16 @@ class CreateTerrainInputs:
 
 @dataclass(frozen=True, slots=True)
 class ApplyTerrainMaterialInputs:
-    """Inputs for the ``apply_terrain_material`` macro."""
+    """Inputs for the ``apply_terrain_material`` macro.
+
+    Carries the *resolved* :class:`CompositeMaterialPlan` produced by
+    :func:`forge_mcp.realize.material.resolve_plan`. The plan_id is
+    used as the canonical material name so two regions resolving to
+    the same plan share a single Blender ``Material`` data-block.
+    """
 
     object_name: str
-    material_name: str
-    color_ramp_stops: Sequence[JsonValue]
-    slope_threshold: float
-    elevation_min: float
-    elevation_max: float
+    plan: JsonValue
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,11 +140,7 @@ class RealizeRegionInputs:
     faces: Sequence[Sequence[int]]
     region_id: str
     spec_id: str
-    material_name: str
-    color_ramp_stops: Sequence[JsonValue]
-    slope_threshold: float
-    elevation_min: float
-    elevation_max: float
+    plan: JsonValue
     curve_name: str
     ortho_camera_name: str
     perspective_camera_name: str

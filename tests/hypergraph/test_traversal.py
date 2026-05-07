@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from forge_mcp.hypergraph.core import Hypergraph, UnknownLayerError
 from forge_mcp.hypergraph.traversal import (
+    has_directed_cycle,
     inspect_boundary,
     list_boundaries,
     query_layer,
@@ -125,3 +126,58 @@ def test_inspect_boundary_round_trip() -> None:
     assert inspect_boundary(boundaries, BoundaryId("boundary_a")).region_a == "region_a"
     with pytest.raises(KeyError):
         inspect_boundary(boundaries, BoundaryId("nope"))
+
+
+# ---------------------------------------------------------------------------
+# has_directed_cycle
+# ---------------------------------------------------------------------------
+
+
+def _directed_edge(
+    edge_id: str, src: str, dst: str, *, layer: str = "material_composition"
+) -> Edge:
+    return Edge(
+        edge_id=EdgeId(edge_id),
+        layer=layer,
+        endpoints=(NodeId(src), NodeId(dst)),
+        directed=True,
+        created_at=NOW,
+        modified_at=NOW,
+    )
+
+
+def test_has_directed_cycle_detects_back_edge() -> None:
+    hg = Hypergraph(layers=("material_composition",))
+    view = hg.layer("material_composition")
+    view.add_edge(_directed_edge("e1", "a", "b"))
+    view.add_edge(_directed_edge("e2", "b", "c"))
+    view.add_edge(_directed_edge("e3", "c", "a"))
+    cycle = has_directed_cycle(hg, "material_composition")
+    assert cycle is not None
+    assert set(cycle) == {NodeId("a"), NodeId("b"), NodeId("c")}
+
+
+def test_has_directed_cycle_returns_none_on_dag() -> None:
+    hg = Hypergraph(layers=("material_composition",))
+    view = hg.layer("material_composition")
+    view.add_edge(_directed_edge("e1", "a", "b"))
+    view.add_edge(_directed_edge("e2", "a", "c"))
+    view.add_edge(_directed_edge("e3", "b", "d"))
+    view.add_edge(_directed_edge("e4", "c", "d"))
+    assert has_directed_cycle(hg, "material_composition") is None
+
+
+def test_has_directed_cycle_ignores_undirected_edges() -> None:
+    hg = Hypergraph(layers=("material_composition",))
+    view = hg.layer("material_composition")
+    view.add_edge(
+        Edge(
+            edge_id=EdgeId("e1"),
+            layer="material_composition",
+            endpoints=(NodeId("a"), NodeId("b")),
+            directed=False,
+            created_at=NOW,
+            modified_at=NOW,
+        ),
+    )
+    assert has_directed_cycle(hg, "material_composition") is None

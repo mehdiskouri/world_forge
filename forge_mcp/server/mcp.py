@@ -28,11 +28,13 @@ from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
 from forge_mcp.server.tools import inspection as inspection_tools
+from forge_mcp.server.tools import materials as material_tools
 from forge_mcp.server.tools import projects as project_tools
 from forge_mcp.server.tools import regions as region_tools
 from forge_mcp.server.tools import schema as schema_tools
 from forge_mcp.server.tools import set_realizer_factory
 from forge_mcp.server.tools import skills as skills_tools
+from forge_mcp.server.tools import sub_regions as sub_region_tools
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -274,6 +276,128 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "`forge.record_audit`."
         ),
     )(audit_tools.get_audit_schema)
+
+    # --- Materials (Phase 6-bis Phase C) ----------------------------------
+    server.tool(
+        name="forge.create_material_archetype",
+        title="Create a material archetype",
+        description=(
+            "Persist a new material archetype node (recipe + parameters). "
+            "Returns a structured error on invalid recipe / parameters."
+        ),
+    )(material_tools.create_material_archetype)
+    server.tool(
+        name="forge.update_material_archetype",
+        title="Update a material archetype",
+        description="Apply a partial update to an existing archetype.",
+    )(material_tools.update_material_archetype)
+    server.tool(
+        name="forge.delete_material_archetype",
+        title="Delete a material archetype",
+        description="Refuses if any material edge still references the archetype.",
+    )(material_tools.delete_material_archetype)
+    server.tool(
+        name="forge.list_material_archetypes",
+        title="List material archetypes",
+        description="Return a deterministic summary of every archetype.",
+    )(material_tools.list_material_archetypes)
+    server.tool(
+        name="forge.get_material_archetype",
+        title="Get one material archetype",
+        description="Return the full archetype record for `archetype_id`.",
+    )(material_tools.get_material_archetype)
+    server.tool(
+        name="forge.apply_material",
+        title="Apply a material to a target",
+        description=(
+            "Add a `material_application` edge from `archetype_id` to "
+            "`target_node_id` (region or world root). `attrs` selects "
+            "scope/priority/mask/parameter_overrides."
+        ),
+    )(material_tools.apply_material)
+    server.tool(
+        name="forge.unapply_material",
+        title="Remove a material application",
+        description="Delete the named `material_application` edge.",
+    )(material_tools.unapply_material)
+    server.tool(
+        name="forge.list_material_applications",
+        title="List material applications",
+        description="Return every `material_application` edge in deterministic order.",
+    )(material_tools.list_material_applications)
+    server.tool(
+        name="forge.compose_material",
+        title="Compose two material archetypes",
+        description=(
+            "Add a directed `material_composition` edge "
+            "`parent_archetype_id -> child_archetype_id` (extends/composes). "
+            "Refuses cycles."
+        ),
+    )(material_tools.compose_material)
+    server.tool(
+        name="forge.uncompose_material",
+        title="Remove a material composition",
+        description="Delete the named `material_composition` edge.",
+    )(material_tools.uncompose_material)
+    server.tool(
+        name="forge.resolve_material",
+        title="Resolve the composite material plan for a region",
+        description=(
+            "Walk spatial-containment ancestors, expand archetypes through "
+            "EXTENDS/COMPOSES, and return the deterministic CompositeMaterialPlan "
+            "(falls back to the default terrain archetype when no application "
+            "targets the region)."
+        ),
+    )(material_tools.resolve_material)
+
+    # --- Sub-regions (Phase 6-c Phase E) ----------------------------------
+    server.tool(
+        name="forge.create_sub_region",
+        title="Create a predicate-typed sub-region",
+        description=(
+            "Create a `sub_region` node under an existing region. The "
+            "predicate (height_band / slope / aspect / distance_to_stream) "
+            "is the sub-region's extent — it is evaluated lazily at "
+            "realize time against the parent's persisted heightmap, so "
+            "re-rolling the parent updates coverage on next "
+            "`forge.generate_region`."
+        ),
+    )(sub_region_tools.create_sub_region)
+    server.tool(
+        name="forge.update_sub_region",
+        title="Update a sub-region",
+        description="Apply a partial update to an existing sub-region.",
+    )(sub_region_tools.update_sub_region)
+    server.tool(
+        name="forge.delete_sub_region",
+        title="Delete a sub-region",
+        description=(
+            "Refuses if any `material_application` edge still targets "
+            "the sub-region; remove those applications first."
+        ),
+    )(sub_region_tools.delete_sub_region)
+    server.tool(
+        name="forge.list_sub_regions",
+        title="List sub-regions",
+        description=(
+            "Return a deterministic list of sub-region summaries; filterable by `parent_region_id`."
+        ),
+    )(sub_region_tools.list_sub_regions)
+    server.tool(
+        name="forge.get_sub_region",
+        title="Get one sub-region",
+        description="Return the full sub-region record for `sub_region_id`.",
+    )(sub_region_tools.get_sub_region)
+    server.tool(
+        name="forge.preview_sub_region_coverage",
+        title="Preview sub-region predicate coverage",
+        description=(
+            "Evaluate the sub-region's predicate against the parent "
+            "region's persisted heightmap and return vertex_count, "
+            "total_vertices, coverage_fraction, and bbox_uv. Read-only; "
+            "no Blender required."
+        ),
+    )(sub_region_tools.preview_sub_region_coverage)
 
     # --- Canvas (Phase 6 Stage D) -----------------------------------------
     server.tool(

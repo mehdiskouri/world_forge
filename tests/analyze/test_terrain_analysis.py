@@ -6,10 +6,12 @@ import numpy as np
 import pytest
 from forge_mcp.analyze.terrain_analysis import (
     ElevationStats,
+    PredicateGrids,
     SlopeStats,
     StreamSummary,
     TerrainAnalysis,
     analyze,
+    compute_predicate_grids,
 )
 from forge_mcp.generate.heightmap import Heightmap
 from forge_mcp.generate.stream import StreamGeometry
@@ -116,3 +118,44 @@ def test_stream_summary_zero_length_segments_are_skipped() -> None:
     result = analyze(hm, geo)
     assert result.stream is not None
     assert result.stream.length_meters == pytest.approx(4.0)
+
+
+def test_compute_predicate_grids_no_stream_yields_none_distance() -> None:
+    grids = compute_predicate_grids(_flat(50.0), None)
+    assert isinstance(grids, PredicateGrids)
+    assert grids.distance_to_stream_grid is None
+    assert grids.elevation_grid.shape == SHAPE
+    assert grids.slope_grid.shape == SHAPE
+    assert grids.aspect_grid.shape == SHAPE
+
+
+def test_compute_predicate_grids_elevation_matches_input() -> None:
+    grids = compute_predicate_grids(_flat(33.0), None)
+    assert float(grids.elevation_grid.mean()) == pytest.approx(33.0)
+
+
+def test_compute_predicate_grids_with_stream_emits_distance_grid() -> None:
+    geo = StreamGeometry(
+        path=((0.0, 0.0), (10.0, 0.0)),
+        width_meters=2.0,
+        carving_depth=1.0,
+        anchor_in=(0.0, 0.0),
+        anchor_out=(10.0, 0.0),
+    )
+    grids = compute_predicate_grids(_flat(50.0), geo)
+    assert grids.distance_to_stream_grid is not None
+    assert grids.distance_to_stream_grid.shape == SHAPE
+    # The pixel at the origin should be exactly on the stream → 0 m distance.
+    assert float(grids.distance_to_stream_grid[0, 0]) == pytest.approx(0.0)
+    # Pixels far from the stream should have positive distance.
+    assert float(grids.distance_to_stream_grid[-1, -1]) > 0.0
+
+
+def test_compute_predicate_grids_slope_matches_analyze() -> None:
+    """Sanity: predicate-grid slope IS the analyze slope (same routine)."""
+    hm = _tilted(1.0)
+    grids = compute_predicate_grids(hm, None)
+    expected_slope = float(np.degrees(np.arctan(1.0 / RES)))
+    # Sobel underestimates at edges; check the interior.
+    interior = grids.slope_grid[2:-2, 2:-2]
+    assert float(np.median(interior)) == pytest.approx(expected_slope, abs=2.0)

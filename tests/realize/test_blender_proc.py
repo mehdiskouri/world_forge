@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from forge_mcp.project.schemas import RegionId
 from forge_mcp.realize import (
     BLENDER_BIN_ENV,
     BlenderNotConfiguredError,
@@ -14,6 +15,8 @@ from forge_mcp.realize import (
     RpcError,
     blender_binary,
 )
+from forge_mcp.realize.material import default_terrain_archetype
+from forge_mcp.realize.material.plan import ResolvedLayer, make_plan
 from PIL import Image
 
 ERR_METHOD_NOT_FOUND = -32601
@@ -226,8 +229,16 @@ def test_integration_render_to_file_writes_png(tmp_path: Path) -> None:
     not os.environ.get(BLENDER_BIN_ENV) or not Path(os.environ[BLENDER_BIN_ENV]).exists(),
     reason=f"requires ${BLENDER_BIN_ENV} pointing at a real Blender 5.0 binary",
 )
-def test_integration_material_build_terrain_assigns_material() -> None:
-    """``material.build_terrain`` builds a node tree and binds it to the mesh."""
+def test_integration_material_build_composite_assigns_material() -> None:
+    """``material.build_composite`` builds a node tree and binds it to the mesh."""
+    arch = default_terrain_archetype(elevation_min=0.0, elevation_max=1.0)
+    layer = ResolvedLayer(
+        archetype_id=arch.node_id,
+        recipe=arch.recipe,
+        parameters=dict(arch.parameters),
+    )
+    plan = make_plan(RegionId("mat_target"), "terrain_mat_target", (layer,))
+    plan_payload = plan.model_dump(mode="json")
     with BlenderProcess() as proc:
         proc.client.call(
             "mesh.from_pydata",
@@ -239,19 +250,12 @@ def test_integration_material_build_terrain_assigns_material() -> None:
             },
         )
         result = proc.client.call(
-            "material.build_terrain",
-            {
-                "material_name": "forge_terrain_v1",
-                "target_object": "mat_target",
-                "color_ramp_stops": [
-                    {"position": 0.0, "color": [0.1, 0.2, 0.4, 1.0]},
-                    {"position": 1.0, "color": [0.9, 0.9, 0.9, 1.0]},
-                ],
-                "slope_threshold": 0.6,
-            },
+            "material.build_composite",
+            {"target_object": "mat_target", "plan": plan_payload},
         )
     assert isinstance(result, dict)
-    assert result.get("material_name") == "forge_terrain_v1"
+    assert result.get("material_name") == f"forge.material.{plan.plan_id}"
+    assert result.get("plan_id") == str(plan.plan_id)
 
 
 @pytest.mark.blender_integration

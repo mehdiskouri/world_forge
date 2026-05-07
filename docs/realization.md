@@ -41,7 +41,7 @@ nine macros:
 | --- | --- |
 | ``reset_scene`` | Wipe to ``read_factory_settings(use_empty=True)``. |
 | ``create_terrain_from_heightmap`` | ``mesh.from_pydata`` + IDProperty tags (``forge_node_id``, ``forge_spec_id``, ``forge_kind``). |
-| ``apply_terrain_material`` | ``material.build_terrain`` with elevation-driven color ramp. |
+| ``apply_terrain_material`` | ``material.build_composite`` from a resolved :class:`CompositeMaterialPlan` (see "Composite materials" below). |
 | ``carve_stream`` | Curve datablock + IDProperty tag for the optional stream geometry. |
 | ``set_camera_overview`` | Ortho-top + perspective cameras framing world bounds. |
 | ``add_basic_lighting`` | Sun lamp + procedural sky world. |
@@ -115,6 +115,102 @@ call so the on-disk ``.blend`` stays honest about what the most recent
 render actually drew. A missing factory returns the
 ``realizer_not_configured`` error envelope so the agent can fall back
 to the heightmap PNG.
+
+## Composite materials
+
+The terrain material a region renders with is no longer hard-coded; it
+is *resolved* from the project hypergraph at the start of every
+``forge.generate_region`` call. The pipeline is:
+
+1. ``forge_mcp.realize.material.resolve_plan(state, region_id, ...)``
+   walks the ancestor chain of ``region_id``
+   (``region``-scoped applications win over ``world`` scope; ties break
+   on ``priority`` then ``edge_id``), expands every
+   ``material_application`` edge against its archetype's
+   ``material_composition`` chain (``extends`` flattens parameters,
+   ``composes`` stacks an extra layer with a ``MaskSpec``), and emits
+   a ``CompositeMaterialPlan`` carrying a tuple of ``ResolvedLayer`` s.
+2. The plan is content-addressed: ``plan_id =
+   blake2b(canonical_json({region_id, mesh_name, layers}),
+   digest_size=10).hexdigest()`` (prefixed ``mplan_``). Two regions
+   that resolve to the same layers share the same ``plan_id`` — and
+   therefore the same ``forge.material.<plan_id>`` data-block in the
+   rendered ``.blend``.
+3. When no ``material_application`` is in scope, the resolver falls
+   back to the synthesised default archetype produced by
+   ``forge_mcp.realize.material.defaults.default_terrain_archetype``
+   (the green/brown/white height ramp the prior hard-coded path used).
+   This is the regression gate for projects with no material wiring.
+4. The plan is JSON-serialised and threaded through the
+   ``apply_terrain_material`` macro to ``material.build_composite``,
+   which in the Blender adapter dispatches each layer through a recipe
+   registry (``principled_height_ramp``, ``triplanar_rock``,
+   ``flat_color``) and mixes consecutive layers via
+   ``ShaderNodeMixShader`` driven by the layer's ``MaskSpec``
+   (``height_ramp`` / ``slope`` / ``constant``).
+
+The MCP surface for material wiring lives in
+``forge_mcp/server/tools/materials.py``: ``forge.create_material_archetype``,
+``forge.update_material_archetype``, ``forge.delete_material_archetype``,
+``forge.list_material_archetypes``, ``forge.get_material_archetype``,
+``forge.apply_material``, ``forge.unapply_material``,
+``forge.list_material_applications``, ``forge.compose_material``,
+``forge.uncompose_material``, and the read-only
+``forge.resolve_material`` (which returns the same
+``CompositeMaterialPlan`` ``forge.generate_region`` will use).
+
+The realization summary in the ``forge.generate_region`` envelope
+exposes ``plan_id`` and ``elevation_band`` so callers can correlate
+trace records, on-disk material names, and resolver previews without
+re-deriving them.
+
+### Sub-regions
+
+A region is rarely materially homogeneous: a single "alpine valley"
+descriptor may want grass in the basin, scree on the steep faces,
+and snow above an elevation line. Phase 6-c models this by adding a
+typed ``sub_region`` node that hangs off a parent region via a
+``LAYER_SPATIAL_CONTAINMENT`` edge and carries a
+:class:`SubRegionPredicate` describing *which* surface points it
+covers. Predicates are evaluated lazily — the sub_region itself is
+just a query.
+
+Four predicate kinds ship in v1:
+
+* ``height_band`` — half-open ``[low_m, high_m)`` on absolute
+  elevation;
+* ``slope`` — half-open ``[min_deg, max_deg)`` on the surface slope
+  (degrees from horizontal);
+* ``aspect`` — half-open ``[min_deg, max_deg)`` on the compass bearing
+  of the downhill direction (north = 0°), with wrap-through-north
+  ``min > max`` interpreted as ``[min, 360) ∪ [0, max)``;
+* ``distance_to_stream`` — ``<= max_m``, evaluated against the
+  rasterised stream centerline.
+
+Sub_regions slot into the resolver as additional targets in the
+ancestor walk: an ``apply_material`` edge whose
+``scope = "sub_region"`` lands on the sub_region node, the resolver
+materialises the resulting ``CompositeMaterialPlan`` layer with a
+:class:`PredicateMask` attached, and the Blender adapter combines
+that predicate factor with the application's own ``MaskSpec`` via
+a clamped ``ShaderNodeMath`` multiply (predicate gates the *region of
+effect*, the application mask modulates *within* it). The plan is
+still content-addressed over the same canonical layer tuple, so two
+identical sub_region wirings collapse to the same ``plan_id`` and
+share the same on-disk material data-block.
+
+The MCP surface for sub_regions lives in
+``forge_mcp/server/tools/sub_regions.py``:
+``forge.create_sub_region``, ``forge.update_sub_region``,
+``forge.delete_sub_region``, ``forge.list_sub_regions``,
+``forge.get_sub_region``, and the read-only
+``forge.preview_sub_region_coverage`` (which evaluates the predicate
+against the parent region's heightmap and returns the selected vertex
+count, coverage fraction, and UV-space AABB without launching
+Blender). End-to-end behaviour is exercised in
+``tests/integration/test_sub_region_material_resolution.py`` and
+walked through in
+[``docs/p6c_subregions_walkthrough.md``](p6c_subregions_walkthrough.md).
 
 ## On-disk layout
 

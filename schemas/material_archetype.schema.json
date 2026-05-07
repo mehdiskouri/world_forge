@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MaterialRecipe": {
+      "description": "Names of the v1 recipe templates implemented by the Blender adapter.\n\nEach recipe is a small Python builder in\n``scripts/blender/adapter.py`` that constructs a Blender shader\nnode group from a parameter dict. Adding a new recipe requires (1)\nadding the enum value here, (2) adding a parameter validator to\n:func:`forge_mcp.realize.material.defaults.validate_recipe_parameters`,\nand (3) adding a builder to the adapter's recipe registry.",
+      "enum": [
+        "principled_height_ramp",
+        "triplanar_rock",
+        "flat_color"
+      ],
+      "title": "MaterialRecipe",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One reusable material archetype.\n\nArchetypes live in the same node table as regions and the world\nroot so material edges (in the ``material_application`` and\n``material_composition`` layers) have node-only endpoints.\n\n``recipe`` selects the adapter shader-graph template;\n``parameters`` is the recipe-specific parameter dict (a Pydantic\nunion would compose poorly with the override-merge step the\nresolver performs, so v1 keeps parameters as a dict and validates\nits shape against the recipe via\n:func:`forge_mcp.realize.material.defaults.validate_recipe_parameters`).",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "const": "material_archetype",
+      "default": "material_archetype",
+      "title": "Kind",
+      "type": "string"
+    },
+    "modified_at": {
+      "format": "date-time",
+      "title": "Modified At",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    },
+    "notes": {
+      "default": "",
+      "title": "Notes",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Parameters",
+      "type": "object"
+    },
+    "recipe": {
+      "$ref": "#/$defs/MaterialRecipe"
+    },
+    "tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "node_id",
+    "name",
+    "recipe",
+    "created_at",
+    "modified_at"
+  ],
+  "title": "ForgeMaterialArchetype",
+  "type": "object"
+}

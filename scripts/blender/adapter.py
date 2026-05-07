@@ -27,8 +27,10 @@ realizer is Phase 4):
   ``bpy.data.images`` (Phase 4 displacement texture path)
 * ``render.to_file``                — render the active scene to a
   PNG path with controlled resolution / compression (Phase 4 preview)
-* ``material.build_terrain``        — build a single elevation-driven
-  terrain material and assign it to a mesh object (Phase 4)
+* ``material.build_composite``      — build a composite material from a
+  resolved CompositeMaterialPlan (one or more layered shader recipes
+  combined via MixShader nodes driven by per-layer mask specs) and
+  assign it to a mesh object (Phase 6-bis)
 * ``object.from_data``              — wrap a named ``bpy.data.<coll>``
   data-block in an object and link it into the scene collection
   (Phase 4 camera / lamp creation path)
@@ -282,33 +284,22 @@ def _handle_render_to_file(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
-    material_name = params.get("material_name")
-    target_object = params.get("target_object")
-    color_ramp_stops = params.get("color_ramp_stops", [])
-    slope_threshold = float(params.get("slope_threshold", 0.5))
-    elevation_min = float(params.get("elevation_min", 0.0))
-    elevation_max = float(params.get("elevation_max", 1.0))
+def _build_principled_height_ramp(  # noqa: C901, PLR0915 - shader graph assembly is linear
+    nodes: Any,  # noqa: ANN401 - bpy node tree is dynamically typed
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Build the elevation-driven Principled BSDF; return its surface output socket."""
+    color_ramp_stops = parameters.get("color_ramp_stops") or []
+    slope_threshold = float(parameters.get("slope_threshold", 0.5))
+    elevation_min = float(parameters.get("elevation_min", 0.0))
+    elevation_max = float(parameters.get("elevation_max", 1.0))
     elevation_span = elevation_max - elevation_min
     if elevation_span <= 0.0:
         elevation_span = 1.0
-    if not isinstance(material_name, str) or not isinstance(target_object, str):
-        msg = "material.build_terrain requires string 'material_name' and 'target_object'"
-        raise ValueError(msg)
     if not isinstance(color_ramp_stops, list) or not color_ramp_stops:
-        msg = "material.build_terrain requires non-empty 'color_ramp_stops'"
+        msg = "principled_height_ramp recipe requires non-empty color_ramp_stops"
         raise ValueError(msg)
-    obj = bpy.data.objects.get(target_object)
-    if obj is None:
-        msg = f"no object named {target_object!r}"
-        raise KeyError(msg)
-    mat = bpy.data.materials.new(name=material_name)
-    mat.use_nodes = True
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-    for node in list(nodes):
-        nodes.remove(node)
-    output = nodes.new("ShaderNodeOutputMaterial")
     bsdf = nodes.new("ShaderNodeBsdfPrincipled")
     geom = nodes.new("ShaderNodeNewGeometry")
     sep = nodes.new("ShaderNodeSeparateXYZ")
@@ -327,10 +318,6 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
         a = float(color[3]) if len(color) >= rgba_min else 1.0
         elem.color = (r, g, b, a)
     bsdf.inputs["Roughness"].default_value = slope_threshold
-    # Normalize world-space Z (in metres) into the color ramp's [0, 1]
-    # input domain. Without this the ramp Fac receives raw metres, every
-    # vertex past the first stop clamps to the top colour, and the whole
-    # terrain renders in a single flat shade.
     sub = nodes.new("ShaderNodeMath")
     sub.operation = "SUBTRACT"
     sub.inputs[1].default_value = elevation_min
@@ -343,13 +330,400 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
     links.new(sub.outputs["Value"], div.inputs[0])
     links.new(div.outputs["Value"], ramp.inputs["Fac"])
     links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
-    links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
+    return bsdf.outputs["BSDF"]
+
+
+def _build_triplanar_rock(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Build a basic triplanar-projection Principled BSDF."""
+    base_color = parameters.get("base_color") or [0.5, 0.5, 0.5, 1.0]
+    roughness = float(parameters.get("roughness", 0.7))
+    scale = float(parameters.get("scale_meters", 1.0))
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    rgba_min = 4
+    r, g, b = float(base_color[0]), float(base_color[1]), float(base_color[2])
+    a = float(base_color[3]) if len(base_color) >= rgba_min else 1.0
+    bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+    bsdf.inputs["Roughness"].default_value = roughness
+    # Light triplanar wiring: feed world-space position (scaled) into a
+    # Voronoi for surface variation. Kept intentionally simple in v1; a
+    # real triplanar would split per-axis projections.
+    geom = nodes.new("ShaderNodeNewGeometry")
+    mul = nodes.new("ShaderNodeVectorMath")
+    mul.operation = "SCALE"
+    mul.inputs["Scale"].default_value = scale
+    voronoi = nodes.new("ShaderNodeTexVoronoi")
+    mix = nodes.new("ShaderNodeMixRGB")
+    mix.inputs["Fac"].default_value = 0.15
+    mix.inputs["Color1"].default_value = (r, g, b, a)
+    links.new(geom.outputs["Position"], mul.inputs["Vector"])
+    links.new(mul.outputs["Vector"], voronoi.inputs["Vector"])
+    links.new(voronoi.outputs["Color"], mix.inputs["Color2"])
+    links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
+    return bsdf.outputs["BSDF"]
+
+
+def _build_flat_color(
+    nodes: Any,  # noqa: ANN401
+    _links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Build a minimal solid-color Principled BSDF."""
+    color = parameters.get("color") or [0.5, 0.5, 0.5, 1.0]
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    rgba_min = 4
+    r, g, b = float(color[0]), float(color[1]), float(color[2])
+    a = float(color[3]) if len(color) >= rgba_min else 1.0
+    bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+    return bsdf.outputs["BSDF"]
+
+
+_RECIPE_BUILDERS = {
+    "principled_height_ramp": _build_principled_height_ramp,
+    "triplanar_rock": _build_triplanar_rock,
+    "flat_color": _build_flat_color,
+}
+
+
+def _build_mask_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    mask: dict[str, Any] | None,
+    weight: float | None,
+    predicate_mask: dict[str, Any] | None = None,
+) -> Any:  # noqa: ANN401
+    """Return a node-graph value socket suitable for a MixShader Fac.
+
+    ``None`` mask + ``None`` weight → default 0.5 mix. A height-ramp
+    mask blends along world-space Z. A constant mask emits its
+    configured value. Weight further scales the resulting factor.
+
+    Phase 6-c: when ``predicate_mask`` is provided (sub-region scoped
+    application), the predicate's per-pixel boolean is built as a 0/1
+    step factor and multiplied with the application's own mask factor
+    so the predicate gates the layer's region of effect while the mask
+    modulates within it.
+    """
+    base_factor = _build_base_mask_factor(nodes, links, mask, weight)
+    if predicate_mask is None:
+        return base_factor
+    predicate_factor = _build_predicate_factor(nodes, links, predicate_mask)
+    multiply = nodes.new("ShaderNodeMath")
+    multiply.operation = "MULTIPLY"
+    multiply.use_clamp = True
+    links.new(base_factor, multiply.inputs[0])
+    links.new(predicate_factor, multiply.inputs[1])
+    return multiply.outputs["Value"]
+
+
+def _build_base_mask_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    mask: dict[str, Any] | None,
+    weight: float | None,
+) -> Any:  # noqa: ANN401
+    """Return the application's own mask factor (no predicate gating)."""
+    weight_value = 0.5 if weight is None else float(weight)
+    if mask is None:
+        const = nodes.new("ShaderNodeValue")
+        const.outputs[0].default_value = weight_value
+        return const.outputs[0]
+    kind = mask.get("kind")
+    if kind == "constant":
+        const = nodes.new("ShaderNodeValue")
+        const.outputs[0].default_value = float(mask.get("value", 0.5)) * weight_value
+        return const.outputs[0]
+    if kind == "height_ramp":
+        low = float(mask.get("low_m", 0.0))
+        high = float(mask.get("high_m", 1.0))
+        span = high - low if high > low else 1.0
+        geom = nodes.new("ShaderNodeNewGeometry")
+        sep = nodes.new("ShaderNodeSeparateXYZ")
+        sub = nodes.new("ShaderNodeMath")
+        sub.operation = "SUBTRACT"
+        sub.inputs[1].default_value = low
+        div = nodes.new("ShaderNodeMath")
+        div.operation = "DIVIDE"
+        div.inputs[1].default_value = span
+        div.use_clamp = True
+        scale = nodes.new("ShaderNodeMath")
+        scale.operation = "MULTIPLY"
+        scale.inputs[1].default_value = weight_value
+        scale.use_clamp = True
+        links.new(geom.outputs["Position"], sep.inputs["Vector"])
+        links.new(sep.outputs["Z"], sub.inputs[0])
+        links.new(sub.outputs["Value"], div.inputs[0])
+        links.new(div.outputs["Value"], scale.inputs[0])
+        return scale.outputs["Value"]
+    # Unknown / slope mask: fall back to a constant weight; richer mask
+    # support lands in a follow-up phase.
+    const = nodes.new("ShaderNodeValue")
+    const.outputs[0].default_value = weight_value
+    return const.outputs[0]
+
+
+def _build_predicate_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    predicate_mask: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Return a 0-or-1 step factor encoding the sub-region predicate.
+
+    Builds a small per-predicate-kind shader-node graph:
+
+    * ``height_band``: world-space Z compared against ``[low_m, high_m)``;
+    * ``slope``: surface-normal Z → arccos → degrees, compared against
+      ``[min_deg, max_deg)``;
+    * ``aspect``: surface-normal X/Y → arctan2 → compass degrees,
+      compared against ``[min_deg, max_deg)`` with wrap-through-north
+      when ``min_deg > max_deg``;
+    * ``distance_to_stream``: not realisable in shader-only Phase 6-c
+      (needs a baked vertex attribute or texture); falls back to an
+      always-on factor with a stderr warning so the rest of the
+      composite still renders.
+    """
+    predicate = predicate_mask.get("predicate")
+    if not isinstance(predicate, dict):
+        return _build_constant_factor(nodes, 1.0)
+    kind = predicate.get("kind")
+    if kind == "height_band":
+        return _build_height_band_factor(
+            nodes,
+            links,
+            float(predicate.get("low_m", 0.0)),
+            float(predicate.get("high_m", 1.0)),
+        )
+    if kind == "slope":
+        return _build_slope_factor(
+            nodes,
+            links,
+            float(predicate.get("min_deg", 0.0)),
+            float(predicate.get("max_deg", 90.0)),
+        )
+    if kind == "aspect":
+        return _build_aspect_factor(
+            nodes,
+            links,
+            float(predicate.get("min_deg", 0.0)),
+            float(predicate.get("max_deg", 360.0)),
+        )
+    if kind == "distance_to_stream":
+        sys.stderr.write(
+            "forge: distance_to_stream predicate is not realisable in shader nodes; "
+            "falling back to always-on factor\n",
+        )
+        return _build_constant_factor(nodes, 1.0)
+    return _build_constant_factor(nodes, 1.0)
+
+
+def _build_constant_factor(nodes: Any, value: float) -> Any:  # noqa: ANN401
+    const = nodes.new("ShaderNodeValue")
+    const.outputs[0].default_value = value
+    return const.outputs[0]
+
+
+def _build_in_band_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    value_socket: Any,  # noqa: ANN401
+    low: float,
+    high: float,
+) -> Any:  # noqa: ANN401
+    """Return ``1.0`` when ``low <= value < high`` else ``0.0``."""
+    ge_low = nodes.new("ShaderNodeMath")
+    ge_low.operation = "GREATER_THAN"
+    ge_low.inputs[1].default_value = low - 1e-6
+    lt_high = nodes.new("ShaderNodeMath")
+    lt_high.operation = "LESS_THAN"
+    lt_high.inputs[1].default_value = high
+    multiply = nodes.new("ShaderNodeMath")
+    multiply.operation = "MULTIPLY"
+    multiply.use_clamp = True
+    links.new(value_socket, ge_low.inputs[0])
+    links.new(value_socket, lt_high.inputs[0])
+    links.new(ge_low.outputs["Value"], multiply.inputs[0])
+    links.new(lt_high.outputs["Value"], multiply.inputs[1])
+    return multiply.outputs["Value"]
+
+
+def _build_height_band_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    low_m: float,
+    high_m: float,
+) -> Any:  # noqa: ANN401
+    geom = nodes.new("ShaderNodeNewGeometry")
+    sep = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(geom.outputs["Position"], sep.inputs["Vector"])
+    return _build_in_band_factor(nodes, links, sep.outputs["Z"], low_m, high_m)
+
+
+def _build_slope_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    min_deg: float,
+    max_deg: float,
+) -> Any:  # noqa: ANN401
+    """Build a slope-degrees value socket and gate it on ``[min_deg, max_deg)``."""
+    geom = nodes.new("ShaderNodeNewGeometry")
+    sep = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(geom.outputs["Normal"], sep.inputs["Vector"])
+    # slope = arccos(|normal.z|) in radians; clamp to [-1, 1] to be safe.
+    abs_z = nodes.new("ShaderNodeMath")
+    abs_z.operation = "ABSOLUTE"
+    links.new(sep.outputs["Z"], abs_z.inputs[0])
+    arccos = nodes.new("ShaderNodeMath")
+    arccos.operation = "ARCCOSINE"
+    links.new(abs_z.outputs["Value"], arccos.inputs[0])
+    # radians -> degrees.
+    to_deg = nodes.new("ShaderNodeMath")
+    to_deg.operation = "MULTIPLY"
+    to_deg.inputs[1].default_value = 180.0 / 3.141592653589793
+    links.new(arccos.outputs["Value"], to_deg.inputs[0])
+    return _build_in_band_factor(nodes, links, to_deg.outputs["Value"], min_deg, max_deg)
+
+
+def _build_aspect_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    min_deg: float,
+    max_deg: float,
+) -> Any:  # noqa: ANN401
+    """Build an aspect-degrees value socket and gate it on ``[min_deg, max_deg)``.
+
+    When ``min_deg > max_deg`` the band wraps through north; we OR the
+    two half-bands ``[min, 360)`` and ``[0, max)`` by adding their two
+    in-band factors and clamping back to ``[0, 1]``.
+    """
+    aspect_socket = _build_aspect_value_socket(nodes, links)
+    if min_deg < max_deg:
+        return _build_in_band_factor(nodes, links, aspect_socket, min_deg, max_deg)
+    upper = _build_in_band_factor(nodes, links, aspect_socket, min_deg, 360.0)
+    lower = _build_in_band_factor(nodes, links, aspect_socket, 0.0, max_deg)
+    add = nodes.new("ShaderNodeMath")
+    add.operation = "ADD"
+    add.use_clamp = True
+    links.new(upper, add.inputs[0])
+    links.new(lower, add.inputs[1])
+    return add.outputs["Value"]
+
+
+def _build_aspect_value_socket(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+) -> Any:  # noqa: ANN401
+    """Compute aspect (compass bearing of downhill, ``[0, 360)``) as a value socket.
+
+    Mirrors ``forge_mcp.analyze.terrain_analysis._slope_and_aspect``:
+    aspect = ``atan2(-normal.x, -normal.y)`` in radians, converted to
+    degrees and wrapped to ``[0, 360)``.
+    """
+    geom = nodes.new("ShaderNodeNewGeometry")
+    sep = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(geom.outputs["Normal"], sep.inputs["Vector"])
+    neg_x = nodes.new("ShaderNodeMath")
+    neg_x.operation = "MULTIPLY"
+    neg_x.inputs[1].default_value = -1.0
+    links.new(sep.outputs["X"], neg_x.inputs[0])
+    neg_y = nodes.new("ShaderNodeMath")
+    neg_y.operation = "MULTIPLY"
+    neg_y.inputs[1].default_value = -1.0
+    links.new(sep.outputs["Y"], neg_y.inputs[0])
+    atan2 = nodes.new("ShaderNodeMath")
+    atan2.operation = "ARCTAN2"
+    links.new(neg_x.outputs["Value"], atan2.inputs[0])
+    links.new(neg_y.outputs["Value"], atan2.inputs[1])
+    to_deg = nodes.new("ShaderNodeMath")
+    to_deg.operation = "MULTIPLY"
+    to_deg.inputs[1].default_value = 180.0 / 3.141592653589793
+    links.new(atan2.outputs["Value"], to_deg.inputs[0])
+    # wrap to [0, 360): degrees mod 360.
+    wrap = nodes.new("ShaderNodeMath")
+    wrap.operation = "MODULO"
+    wrap.inputs[1].default_value = 360.0
+    # Add 360 first to handle negatives produced by atan2 in [-180, 180].
+    add360 = nodes.new("ShaderNodeMath")
+    add360.operation = "ADD"
+    add360.inputs[1].default_value = 360.0
+    links.new(to_deg.outputs["Value"], add360.inputs[0])
+    links.new(add360.outputs["Value"], wrap.inputs[0])
+    return wrap.outputs["Value"]
+
+
+def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
+    """Realize a :class:`CompositeMaterialPlan` into a Blender material.
+
+    The plan's content-hashed ``plan_id`` is used as the Blender
+    material name (prefixed with ``forge.material.``) so two regions
+    that resolve to the same plan share a single ``bpy.data.materials``
+    data-block and a single shader compile.
+    """
+    target_object = params.get("target_object")
+    plan = params.get("plan")
+    if not isinstance(target_object, str):
+        msg = "material.build_composite requires string 'target_object'"
+        raise ValueError(msg)
+    if not isinstance(plan, dict):
+        msg = "material.build_composite requires 'plan' object"
+        raise ValueError(msg)
+    plan_id = plan.get("plan_id")
+    layers = plan.get("layers")
+    if not isinstance(plan_id, str) or not isinstance(layers, list) or not layers:
+        msg = "plan must have string 'plan_id' and non-empty 'layers'"
+        raise ValueError(msg)
+    obj = bpy.data.objects.get(target_object)
+    if obj is None:
+        msg = f"no object named {target_object!r}"
+        raise KeyError(msg)
+    material_name = f"forge.material.{plan_id}"
+    existing = bpy.data.materials.get(material_name)
+    if existing is not None:
+        # Reuse the shared material; just bind it to the mesh.
+        mat = existing
+    else:
+        mat = bpy.data.materials.new(name=material_name)
+        mat.use_nodes = True
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+        for node in list(nodes):
+            nodes.remove(node)
+        output = nodes.new("ShaderNodeOutputMaterial")
+        # Build each layer's shader, mixing into a running composite.
+        composite = None
+        for layer in layers:
+            recipe = layer.get("recipe")
+            parameters = layer.get("parameters") or {}
+            builder = _RECIPE_BUILDERS.get(recipe)
+            if builder is None:
+                msg = f"unknown material recipe {recipe!r}"
+                raise ValueError(msg)
+            shader_socket = builder(nodes, links, parameters)
+            if composite is None:
+                composite = shader_socket
+                continue
+            mix = nodes.new("ShaderNodeMixShader")
+            fac_socket = _build_mask_factor(
+                nodes,
+                links,
+                layer.get("mask"),
+                layer.get("weight"),
+                layer.get("predicate_mask"),
+            )
+            links.new(fac_socket, mix.inputs["Fac"])
+            links.new(composite, mix.inputs[1])
+            links.new(shader_socket, mix.inputs[2])
+            composite = mix.outputs["Shader"]
+        if composite is not None:
+            links.new(composite, output.inputs["Surface"])
     if obj.data is not None and hasattr(obj.data, "materials"):
         if len(obj.data.materials) > 0:
             obj.data.materials[0] = mat
         else:
             obj.data.materials.append(mat)
-    return {"material_name": mat.name}
+    return {"material_name": mat.name, "plan_id": plan_id}
 
 
 def _handle_mesh_add_displace_modifier(params: dict[str, Any]) -> dict[str, Any]:
@@ -391,12 +765,15 @@ def _handle_object_from_data(params: dict[str, Any]) -> dict[str, Any]:
     name = params.get("name")
     data_collection = params.get("data_collection")
     data_name = params.get("data_name")
-    if not isinstance(name, str) or not isinstance(data_collection, str) or not isinstance(
-        data_name, str,
-    ):
-        msg = (
-            "object.from_data requires string 'name', 'data_collection', 'data_name'"
+    if (
+        not isinstance(name, str)
+        or not isinstance(data_collection, str)
+        or not isinstance(
+            data_name,
+            str,
         )
+    ):
+        msg = "object.from_data requires string 'name', 'data_collection', 'data_name'"
         raise ValueError(msg)
     coll = getattr(bpy.data, data_collection, None)
     if coll is None:
@@ -463,8 +840,8 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_image_from_file(params)
     if method == "render.to_file":
         return _handle_render_to_file(params)
-    if method == "material.build_terrain":
-        return _handle_material_build_terrain(params)
+    if method == "material.build_composite":
+        return _handle_material_build_composite(params)
     if method == "object.from_data":
         return _handle_object_from_data(params)
     if method == "scene.assign_world":
@@ -475,7 +852,9 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
     raise LookupError(msg)
 
 
-def _make_response(req_id: object, result: dict[str, Any] | None, error: dict[str, Any] | None) -> str:
+def _make_response(
+    req_id: object, result: dict[str, Any] | None, error: dict[str, Any] | None
+) -> str:
     payload: dict[str, Any] = {"jsonrpc": "2.0", "id": req_id}
     if error is not None:
         payload["error"] = error
@@ -494,20 +873,28 @@ def _process_line(line: str) -> tuple[str | None, bool]:
     except json.JSONDecodeError as exc:
         return _make_response(None, None, {"code": ERR_PARSE, "message": str(exc)}), False
     if not isinstance(req, dict):
-        return _make_response(None, None, {"code": ERR_INVALID_REQUEST, "message": "not an object"}), False
+        return _make_response(
+            None, None, {"code": ERR_INVALID_REQUEST, "message": "not an object"}
+        ), False
     req_id = req.get("id")
     method = req.get("method")
     params_raw = req.get("params", {})
     if not isinstance(method, str) or not isinstance(params_raw, dict):
-        return _make_response(req_id, None, {"code": ERR_INVALID_REQUEST, "message": "bad method/params"}), False
+        return _make_response(
+            req_id, None, {"code": ERR_INVALID_REQUEST, "message": "bad method/params"}
+        ), False
     if method == "shutdown":
         return _make_response(req_id, {"shutdown": True}, None), True
     try:
         result = _dispatch(method, params_raw)
     except LookupError as exc:
-        return _make_response(req_id, None, {"code": ERR_METHOD_NOT_FOUND, "message": str(exc)}), False
+        return _make_response(
+            req_id, None, {"code": ERR_METHOD_NOT_FOUND, "message": str(exc)}
+        ), False
     except (ValueError, KeyError, TypeError, FileNotFoundError) as exc:
-        return _make_response(req_id, None, {"code": ERR_INVALID_PARAMS, "message": str(exc)}), False
+        return _make_response(
+            req_id, None, {"code": ERR_INVALID_PARAMS, "message": str(exc)}
+        ), False
     except Exception as exc:
         traceback.print_exc(file=sys.stderr)
         return _make_response(req_id, None, {"code": ERR_BLENDER, "message": str(exc)}), False

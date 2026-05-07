@@ -55,6 +55,7 @@ class RealizationTraceRecord(BaseModel):  # type: ignore[explicit-any]  # pydant
     total_duration_ms: float
     final_result: JsonValue
     steps: tuple[TraceStepRecord, ...]
+    plan_id: str | None = None
 
 
 def _diff_to_dict(diff: Mapping[str, int] | None) -> dict[str, int] | None:
@@ -80,8 +81,15 @@ def record_from_result(
     *,
     region_id: str,
     view_kind: str,
+    plan_id: str | None = None,
 ) -> RealizationTraceRecord:
-    """Build a :class:`RealizationTraceRecord` from the engine's output."""
+    """Build a :class:`RealizationTraceRecord` from the engine's output.
+
+    ``plan_id`` is the deterministic content hash of the
+    :class:`~forge_mcp.realize.material.CompositeMaterialPlan` used
+    during realization; recorded so a downstream auditor can link the
+    rendered material slot back to the resolver inputs.
+    """
     return RealizationTraceRecord(
         region_id=region_id,
         view_kind=view_kind,
@@ -90,6 +98,7 @@ def record_from_result(
         total_duration_ms=result.total_duration_ms,
         final_result=result.final_result,
         steps=tuple(_step_to_record(s) for s in result.trace),
+        plan_id=plan_id,
     )
 
 

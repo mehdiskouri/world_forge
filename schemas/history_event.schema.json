@@ -22,7 +22,17 @@
         "delete_region",
         "generate_region",
         "reroll_seed",
-        "audit_recorded"
+        "audit_recorded",
+        "material_archetype_created",
+        "material_archetype_updated",
+        "material_archetype_deleted",
+        "material_applied",
+        "material_unapplied",
+        "material_composed",
+        "material_uncomposed",
+        "sub_region_created",
+        "sub_region_updated",
+        "sub_region_deleted"
       ],
       "title": "HistoryEventKind",
       "type": "string"

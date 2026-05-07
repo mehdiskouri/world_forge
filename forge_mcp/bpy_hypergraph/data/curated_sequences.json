@@ -97,26 +97,18 @@
     {
       "name": "apply_terrain_material",
       "version": "v1",
-      "description": "Build the elevation-driven terrain material and bind it to the target mesh. The material's color ramp is fed the geometry Z position (world metres) normalised by the region's elevation band so each stop's [0,1] position maps onto the actual elevation range; without elevation_min/max the ramp would receive raw metres and clamp every vertex to the top stop.",
+      "description": "Build the composite material from a resolved CompositeMaterialPlan and bind it to the target mesh. The plan carries an ordered list of resolved layers; the adapter's recipe registry instantiates each archetype's shader graph and composites them via MixShader nodes driven by per-layer mask specs. The plan_id is the deterministic content hash; two regions resolving to the same plan share one Blender material data-block.",
       "inputs_schema": {
         "object_name": "str",
-        "material_name": "str",
-        "color_ramp_stops": "list[ColorStop]",
-        "slope_threshold": "float",
-        "elevation_min": "float",
-        "elevation_max": "float"
+        "plan": "CompositeMaterialPlan"
       },
-      "outputs_schema": {"material_name": "str"},
+      "outputs_schema": {"material_name": "str", "plan_id": "str"},
       "steps": [
         {
-          "call": "material.build_terrain",
+          "call": "material.build_composite",
           "params": {
-            "material_name": "${material_name}",
             "target_object": "${object_name}",
-            "color_ramp_stops": "${color_ramp_stops}",
-            "slope_threshold": "${slope_threshold}",
-            "elevation_min": "${elevation_min}",
-            "elevation_max": "${elevation_max}"
+            "plan": "${plan}"
           },
           "expects": {"scene_diff": {"materials": {"delta": 1}}}
         }
@@ -383,18 +375,14 @@
     {
       "name": "realize_region",
       "version": "v1",
-      "description": "Composite v1 macro: empty scene → terrain mesh → material → optional stream → cameras → lighting → save .blend. Render is driven separately by render_preview because both ortho and perspective views need to flow through the same realised scene.",
+      "description": "Composite v1 macro: empty scene → terrain mesh → composite material → optional stream → cameras → lighting → save .blend. Render is driven separately by render_preview because both ortho and perspective views need to flow through the same realised scene.",
       "inputs_schema": {
         "object_name": "str",
         "vertices": "list[list[float]]",
         "faces": "list[list[int]]",
         "region_id": "str",
         "spec_id": "str",
-        "material_name": "str",
-        "color_ramp_stops": "list[ColorStop]",
-        "slope_threshold": "float",
-        "elevation_min": "float",
-        "elevation_max": "float",
+        "plan": "CompositeMaterialPlan",
         "curve_name": "str",
         "ortho_camera_name": "str",
         "perspective_camera_name": "str",
