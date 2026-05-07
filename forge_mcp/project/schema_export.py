@@ -35,6 +35,7 @@ from forge_mcp.project.schemas import (
     ProjectMetadata,
     RegionNode,
     SpecRecord,
+    SubRegionNode,
     WorldRootNode,
 )
 
@@ -74,6 +75,7 @@ def iter_published_schemas() -> Iterator[tuple[str, dict[str, object]]]:
     yield _pydantic_schema(ProjectMetadata, "project", "ForgeProject")
     yield _pydantic_schema(WorldRootNode, "world_root", "ForgeWorldRootNode")
     yield _pydantic_schema(RegionNode, "region", "ForgeRegion")
+    yield _pydantic_schema(SubRegionNode, "sub_region", "ForgeSubRegion")
     yield _pydantic_schema(
         MaterialArchetypeNode,
         "material_archetype",

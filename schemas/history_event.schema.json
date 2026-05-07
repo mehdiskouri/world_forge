@@ -29,7 +29,10 @@
         "material_applied",
         "material_unapplied",
         "material_composed",
-        "material_uncomposed"
+        "material_uncomposed",
+        "sub_region_created",
+        "sub_region_updated",
+        "sub_region_deleted"
       ],
       "title": "HistoryEventKind",
       "type": "string"

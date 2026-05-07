@@ -1,5 +1,35 @@
 {
   "$defs": {
+    "AspectPredicate": {
+      "additionalProperties": false,
+      "description": "Selects pixels whose aspect (compass bearing, ``[0, 360)``) lies in the range.\n\nBoth bounds live in ``[0, 360)``. When ``min_deg < max_deg`` the\nselected band is the half-open interval ``[min_deg, max_deg)``;\nwhen ``min_deg > max_deg`` the band wraps through north\n(``[min_deg, 360) and [0, max_deg)``), letting agents author \"north-\nfacing\" predicates without two-step composition. ``min_deg ==\nmax_deg`` is rejected as degenerate (zero-area band).",
+      "properties": {
+        "kind": {
+          "const": "aspect",
+          "default": "aspect",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_deg": {
+          "exclusiveMaximum": 360.0,
+          "minimum": 0.0,
+          "title": "Max Deg",
+          "type": "number"
+        },
+        "min_deg": {
+          "exclusiveMaximum": 360.0,
+          "minimum": 0.0,
+          "title": "Min Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min_deg",
+        "max_deg"
+      ],
+      "title": "AspectPredicate",
+      "type": "object"
+    },
     "ConstantMask": {
       "additionalProperties": false,
       "description": "Constant mix factor in ``[0, 1]``; ``1.0`` is fully replace, ``0.0`` skip.",
@@ -21,6 +51,54 @@
         "value"
       ],
       "title": "ConstantMask",
+      "type": "object"
+    },
+    "DistanceToStreamPredicate": {
+      "additionalProperties": false,
+      "description": "Selects pixels within ``max_m`` meters of the parent region's stream geometry.\n\nEvaluated against the persisted\n:class:`forge_mcp.generate.stream.StreamGeometry` for the parent\nregion. Predicate evaluates to all-``False`` (and\n:func:`preview_sub_region_coverage` returns ``coverage_fraction == 0.0``)\nwhen the parent has no stream.",
+      "properties": {
+        "kind": {
+          "const": "distance_to_stream",
+          "default": "distance_to_stream",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_m": {
+          "exclusiveMinimum": 0.0,
+          "title": "Max M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "max_m"
+      ],
+      "title": "DistanceToStreamPredicate",
+      "type": "object"
+    },
+    "HeightBandPredicate": {
+      "additionalProperties": false,
+      "description": "Selects pixels whose elevation lies in ``[low_m, high_m)``.",
+      "properties": {
+        "high_m": {
+          "title": "High M",
+          "type": "number"
+        },
+        "kind": {
+          "const": "height_band",
+          "default": "height_band",
+          "title": "Kind",
+          "type": "string"
+        },
+        "low_m": {
+          "title": "Low M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low_m",
+        "high_m"
+      ],
+      "title": "HeightBandPredicate",
       "type": "object"
     },
     "HeightRampMask": {
@@ -92,6 +170,40 @@
       "title": "MaterialScope",
       "type": "string"
     },
+    "PredicateMask": {
+      "additionalProperties": false,
+      "description": "MaskSpec variant whose mix factor IS a sub-region predicate.\n\nPhase 6-c: when a ``material_application`` edge targets a\n:class:`SubRegionNode`, the resolver wraps the sub-region's\npredicate in :class:`PredicateMask` and threads it as the layer's\nmask. Combination semantics (predicate AND application's own mask)\nare documented in\n:func:`forge_mcp.realize.material.resolver._collect_sub_region_applications`.",
+      "properties": {
+        "kind": {
+          "const": "predicate",
+          "default": "predicate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HeightBandPredicate"
+            },
+            {
+              "$ref": "#/$defs/SlopePredicate"
+            },
+            {
+              "$ref": "#/$defs/AspectPredicate"
+            },
+            {
+              "$ref": "#/$defs/DistanceToStreamPredicate"
+            }
+          ],
+          "title": "Predicate"
+        }
+      },
+      "required": [
+        "predicate"
+      ],
+      "title": "PredicateMask",
+      "type": "object"
+    },
     "SlopeMask": {
       "additionalProperties": false,
       "description": "Slope-driven mix mask: full strength above ``high``, zero below ``low``.\n\n``low`` / ``high`` are slope thresholds in the cosine-of-normal\ndomain ``[0, 1]`` where ``1`` is flat ground (normal pointing\nstraight up) and ``0`` is a vertical cliff. ``softness`` is an\nadditive band width for smoothstep blending; ``0`` is a hard step.",
@@ -128,6 +240,36 @@
       ],
       "title": "SlopeMask",
       "type": "object"
+    },
+    "SlopePredicate": {
+      "additionalProperties": false,
+      "description": "Selects pixels whose slope (degrees, ``[0, 90]``) lies in ``[min_deg, max_deg)``.\n\nSlope is computed by :func:`forge_mcp.analyze.terrain_analysis._slope_and_aspect`\nin degrees (``0`` = flat, ``90`` = vertical), matching the analysis surface so\npredicates are authored in the same units operators see.",
+      "properties": {
+        "kind": {
+          "const": "slope",
+          "default": "slope",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_deg": {
+          "maximum": 90.0,
+          "minimum": 0.0,
+          "title": "Max Deg",
+          "type": "number"
+        },
+        "min_deg": {
+          "maximum": 90.0,
+          "minimum": 0.0,
+          "title": "Min Deg",
+          "type": "number"
+        }
+      },
+      "required": [
+        "min_deg",
+        "max_deg"
+      ],
+      "title": "SlopePredicate",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -143,6 +285,9 @@
         },
         {
           "$ref": "#/$defs/ConstantMask"
+        },
+        {
+          "$ref": "#/$defs/PredicateMask"
         },
         {
           "type": "null"

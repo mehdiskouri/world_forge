@@ -67,6 +67,15 @@ MaterialArchetypeId = NewType("MaterialArchetypeId", str)
 MaterialPlanId = NewType("MaterialPlanId", str)
 """Content-addressed composite-material plan id, ``mplan_<10-hex>``."""
 
+SubRegionId = NewType("SubRegionId", str)
+"""Sub-region node id, ``subregion_<slug>`` plus optional ``_NN`` collision suffix.
+
+Phase 6-c addition. A sub-region is a predicate-typed child of a
+:class:`RegionNode` whose spatial extent is defined by evaluating its
+:class:`SubRegionPredicate` against the parent region's heightmap at
+realize time — *not* by a stored polygon.
+"""
+
 
 # ---------------------------------------------------------------------------
 # Geometric primitives
@@ -363,8 +372,179 @@ class ConstantMask(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs l
     value: float = Field(ge=0.0, le=1.0)
 
 
-MaskSpec = HeightRampMask | SlopeMask | ConstantMask
+# ---------------------------------------------------------------------------
+# Sub-region predicates (Phase 6-c)
+# ---------------------------------------------------------------------------
+# A sub-region is "what its predicate says it is": the predicate is the
+# extent. v1 ships four predicate kinds; the union is discriminated on
+# the literal ``kind`` field exactly like :data:`MaskSpec`.
+
+_ASPECT_DEGREES_MAX: Final[float] = 360.0
+_SLOPE_DEGREES_MAX: Final[float] = 90.0
+
+
+class HeightBandPredicate(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Selects pixels whose elevation lies in ``[low_m, high_m)``."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["height_band"] = "height_band"
+    low_m: float
+    high_m: float
+
+    @model_validator(mode="after")
+    def _check_band(self) -> HeightBandPredicate:
+        if not self.low_m < self.high_m:
+            msg = (
+                f"height_band predicate requires low_m < high_m, got [{self.low_m}, {self.high_m}]"
+            )
+            raise ValueError(msg)
+        return self
+
+
+class SlopePredicate(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Selects pixels whose slope (degrees, ``[0, 90]``) lies in ``[min_deg, max_deg)``.
+
+    Slope is computed by :func:`forge_mcp.analyze.terrain_analysis._slope_and_aspect`
+    in degrees (``0`` = flat, ``90`` = vertical), matching the analysis surface so
+    predicates are authored in the same units operators see.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["slope"] = "slope"
+    min_deg: float = Field(ge=0.0, le=_SLOPE_DEGREES_MAX)
+    max_deg: float = Field(ge=0.0, le=_SLOPE_DEGREES_MAX)
+
+    @model_validator(mode="after")
+    def _check_band(self) -> SlopePredicate:
+        if not self.min_deg < self.max_deg:
+            msg = (
+                f"slope predicate requires min_deg < max_deg, got [{self.min_deg}, {self.max_deg}]"
+            )
+            raise ValueError(msg)
+        return self
+
+
+class AspectPredicate(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Selects pixels whose aspect (compass bearing, ``[0, 360)``) lies in the range.
+
+    Both bounds live in ``[0, 360)``. When ``min_deg < max_deg`` the
+    selected band is the half-open interval ``[min_deg, max_deg)``;
+    when ``min_deg > max_deg`` the band wraps through north
+    (``[min_deg, 360) and [0, max_deg)``), letting agents author "north-
+    facing" predicates without two-step composition. ``min_deg ==
+    max_deg`` is rejected as degenerate (zero-area band).
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["aspect"] = "aspect"
+    min_deg: float = Field(ge=0.0, lt=_ASPECT_DEGREES_MAX)
+    max_deg: float = Field(ge=0.0, lt=_ASPECT_DEGREES_MAX)
+
+    @model_validator(mode="after")
+    def _check_band(self) -> AspectPredicate:
+        if self.min_deg == self.max_deg:
+            msg = (
+                f"aspect predicate requires min_deg != max_deg, "
+                f"got [{self.min_deg}, {self.max_deg})"
+            )
+            raise ValueError(msg)
+        return self
+
+
+class DistanceToStreamPredicate(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Selects pixels within ``max_m`` meters of the parent region's stream geometry.
+
+    Evaluated against the persisted
+    :class:`forge_mcp.generate.stream.StreamGeometry` for the parent
+    region. Predicate evaluates to all-``False`` (and
+    :func:`preview_sub_region_coverage` returns ``coverage_fraction == 0.0``)
+    when the parent has no stream.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["distance_to_stream"] = "distance_to_stream"
+    max_m: float = Field(gt=0.0)
+
+
+SubRegionPredicate = (
+    HeightBandPredicate | SlopePredicate | AspectPredicate | DistanceToStreamPredicate
+)
+"""Discriminated union over v1 sub-region predicate kinds, keyed on ``kind``."""
+
+
+class PredicateMask(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """MaskSpec variant whose mix factor IS a sub-region predicate.
+
+    Phase 6-c: when a ``material_application`` edge targets a
+    :class:`SubRegionNode`, the resolver wraps the sub-region's
+    predicate in :class:`PredicateMask` and threads it as the layer's
+    mask. Combination semantics (predicate AND application's own mask)
+    are documented in
+    :func:`forge_mcp.realize.material.resolver._collect_sub_region_applications`.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["predicate"] = "predicate"
+    predicate: SubRegionPredicate
+
+
+MaskSpec = HeightRampMask | SlopeMask | ConstantMask | PredicateMask
 """Discriminated union over v1 mask kinds, keyed on ``kind``."""
+
+
+class SubRegionNode(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """A predicate-typed child of a :class:`RegionNode` (Phase 6-c).
+
+    Sub-regions exist to escape polygon-based subdivision: a region is
+    rarely materially homogeneous, but its heterogeneity follows
+    semantic axes (elevation band, slope, aspect, proximity to water)
+    rather than arbitrary boundaries. The sub-region's ``predicate``
+    *is* its extent — it is evaluated at realize time against the
+    parent region's heightmap (and stream geometry, for
+    :class:`DistanceToStreamPredicate`), so re-rolling the parent
+    region updates sub-region coverage without any sub-region edits.
+
+    Sub-regions are first-class nodes in the hypergraph: they live on
+    disk under ``<project>/sub_regions/<id>.json``, the parent region
+    appends them to ``RegionNode.children``, and an automatic
+    ``spatial_containment`` edge ``(region → sub_region)`` is
+    maintained by the project service so the realizer can walk
+    children deterministically.
+
+    Lifetime invariants (enforced in
+    :mod:`forge_mcp.project.service`):
+
+    * ``parent_node`` must be an existing :class:`RegionNode`. v1
+      forbids sub-region nesting (a sub-region cannot parent another
+      sub-region) — predicate composition is the intended escape hatch.
+    * Deletion is rejected when any ``material_application`` edge
+      targets the sub-region; agents must unapply first.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    node_id: SubRegionId
+    kind: Literal["sub_region"] = "sub_region"
+    parent_node: RegionId
+    name: str
+    predicate: SubRegionPredicate
+    tags: tuple[str, ...] = ()
+    notes: str = ""
+    created_at: datetime
+    modified_at: datetime
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, value: str) -> str:
+        if not value.strip():
+            msg = "sub-region name must be non-empty"
+            raise ValueError(msg)
+        return value
 
 
 class MaterialScope(StrEnum):
@@ -931,6 +1111,9 @@ class HistoryEventKind(StrEnum):
     MATERIAL_UNAPPLIED = "material_unapplied"
     MATERIAL_COMPOSED = "material_composed"
     MATERIAL_UNCOMPOSED = "material_uncomposed"
+    SUB_REGION_CREATED = "sub_region_created"
+    SUB_REGION_UPDATED = "sub_region_updated"
+    SUB_REGION_DELETED = "sub_region_deleted"
 
 
 class HistoryEvent(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
