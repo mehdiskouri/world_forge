@@ -28,6 +28,7 @@ from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
 from forge_mcp.server.tools import inspection as inspection_tools
+from forge_mcp.server.tools import materials as material_tools
 from forge_mcp.server.tools import projects as project_tools
 from forge_mcp.server.tools import regions as region_tools
 from forge_mcp.server.tools import schema as schema_tools
@@ -274,6 +275,79 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "`forge.record_audit`."
         ),
     )(audit_tools.get_audit_schema)
+
+    # --- Materials (Phase 6-bis Phase C) ----------------------------------
+    server.tool(
+        name="forge.create_material_archetype",
+        title="Create a material archetype",
+        description=(
+            "Persist a new material archetype node (recipe + parameters). "
+            "Returns a structured error on invalid recipe / parameters."
+        ),
+    )(material_tools.create_material_archetype)
+    server.tool(
+        name="forge.update_material_archetype",
+        title="Update a material archetype",
+        description="Apply a partial update to an existing archetype.",
+    )(material_tools.update_material_archetype)
+    server.tool(
+        name="forge.delete_material_archetype",
+        title="Delete a material archetype",
+        description="Refuses if any material edge still references the archetype.",
+    )(material_tools.delete_material_archetype)
+    server.tool(
+        name="forge.list_material_archetypes",
+        title="List material archetypes",
+        description="Return a deterministic summary of every archetype.",
+    )(material_tools.list_material_archetypes)
+    server.tool(
+        name="forge.get_material_archetype",
+        title="Get one material archetype",
+        description="Return the full archetype record for `archetype_id`.",
+    )(material_tools.get_material_archetype)
+    server.tool(
+        name="forge.apply_material",
+        title="Apply a material to a target",
+        description=(
+            "Add a `material_application` edge from `archetype_id` to "
+            "`target_node_id` (region or world root). `attrs` selects "
+            "scope/priority/mask/parameter_overrides."
+        ),
+    )(material_tools.apply_material)
+    server.tool(
+        name="forge.unapply_material",
+        title="Remove a material application",
+        description="Delete the named `material_application` edge.",
+    )(material_tools.unapply_material)
+    server.tool(
+        name="forge.list_material_applications",
+        title="List material applications",
+        description="Return every `material_application` edge in deterministic order.",
+    )(material_tools.list_material_applications)
+    server.tool(
+        name="forge.compose_material",
+        title="Compose two material archetypes",
+        description=(
+            "Add a directed `material_composition` edge "
+            "`parent_archetype_id -> child_archetype_id` (extends/composes). "
+            "Refuses cycles."
+        ),
+    )(material_tools.compose_material)
+    server.tool(
+        name="forge.uncompose_material",
+        title="Remove a material composition",
+        description="Delete the named `material_composition` edge.",
+    )(material_tools.uncompose_material)
+    server.tool(
+        name="forge.resolve_material",
+        title="Resolve the composite material plan for a region",
+        description=(
+            "Walk spatial-containment ancestors, expand archetypes through "
+            "EXTENDS/COMPOSES, and return the deterministic CompositeMaterialPlan "
+            "(falls back to the default terrain archetype when no application "
+            "targets the region)."
+        ),
+    )(material_tools.resolve_material)
 
     # --- Canvas (Phase 6 Stage D) -----------------------------------------
     server.tool(
