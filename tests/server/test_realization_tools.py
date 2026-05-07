@@ -23,6 +23,7 @@ from forge_mcp.realize.engine import (
 from forge_mcp.server.tools import set_realizer_factory, set_service
 from forge_mcp.server.tools.generation import (
     generate_region,
+    list_render_devices,
     render_view,
 )
 from forge_mcp.server.tools.projects import create_project
@@ -85,6 +86,11 @@ class _FakeEngine:
 
     def __init__(self) -> None:
         self.macros_called: list[str] = []
+        self.available_device_types: tuple[str, ...] = ()
+        self.default_device_type: str = "CPU"
+
+    def refresh_render_devices(self) -> tuple[str, ...]:
+        return self.available_device_types
 
 
 def _install_fake_factory(
@@ -340,3 +346,193 @@ def test_render_view_with_no_render_size_field(
     _ok(generate_region(rid))
     result = _ok(render_view(rid, view_kind="ortho_top", resolution="preview"))
     assert result["render_file_size_bytes"] is None
+
+
+# ---------------------------------------------------------------------------
+# Phase 6-d: render_options plumbing + forge.list_render_devices
+# ---------------------------------------------------------------------------
+
+
+def test_generate_region_rejects_invalid_render_options(tmp_path: Path) -> None:
+    rid = _bootstrap(tmp_path)
+    err = generate_region(rid, render_options={"engine": "EEVEE", "device": "OPTIX"})
+    assert err["ok"] is False
+    error = cast("dict[str, object]", err["error"])
+    assert error["code"] == "invalid_render_options"
+
+
+def test_generate_region_rejects_non_object_render_options(tmp_path: Path) -> None:
+    rid = _bootstrap(tmp_path)
+    err = generate_region(rid, render_options=cast("dict[str, object]", "oops"))
+    assert err["ok"] is False
+    error = cast("dict[str, object]", err["error"])
+    assert error["code"] == "invalid_render_options"
+
+
+def test_generate_region_legacy_default_keeps_eevee_even_with_gpu(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rid = _bootstrap(tmp_path)
+    fake = _install_fake_factory(monkeypatch)
+    fake.available_device_types = ("OPTIX",)
+
+    captured: list[str] = []
+
+    def capture_render(
+        engine: RealizerEngine,
+        inputs: RenderPreviewInputs,
+    ) -> RealizationResult:
+        captured.append(inputs.engine)
+        Path(inputs.filepath).write_bytes(b"PNG")
+        cast("_FakeEngine", engine).macros_called.append("render_preview")
+        return RealizationResult(
+            macro="render_preview",
+            trace=(),
+            final_result={"path": inputs.filepath, "file_size_bytes": 3},
+            total_duration_ms=0.0,
+            sequence_id="d" * 20,
+        )
+
+    fake2 = _install_fake_factory(monkeypatch, on_render=capture_render)
+    fake2.available_device_types = ("OPTIX",)
+    # _install_fake_factory replaces the engine; refetch via the factory.
+    result = _ok(generate_region(rid))
+    realization = cast("dict[str, object]", result["realization"])
+    assert realization["render_engine"] == "BLENDER_EEVEE"
+    assert all(eng == "BLENDER_EEVEE" for eng in captured)
+
+
+def test_generate_region_explicit_options_pick_cycles_on_gpu(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rid = _bootstrap(tmp_path)
+
+    captured_engines: list[str] = []
+    captured_devices: list[str] = []
+
+    def capture_render(
+        engine: RealizerEngine,
+        inputs: RenderPreviewInputs,
+    ) -> RealizationResult:
+        captured_engines.append(inputs.engine)
+        captured_devices.append(inputs.device_type)
+        Path(inputs.filepath).write_bytes(b"PNG")
+        cast("_FakeEngine", engine).macros_called.append("render_preview")
+        return RealizationResult(
+            macro="render_preview",
+            trace=(),
+            final_result={"path": inputs.filepath, "file_size_bytes": 3},
+            total_duration_ms=0.0,
+            sequence_id="e" * 20,
+        )
+
+    fake = _install_fake_factory(monkeypatch, on_render=capture_render)
+    fake.available_device_types = ("OPTIX", "CPU")
+
+    result = _ok(generate_region(rid, render_options={}))
+    realization = cast("dict[str, object]", result["realization"])
+    assert realization["render_engine"] == "CYCLES"
+    assert realization["render_device_type"] == "OPTIX"
+    assert captured_engines == ["CYCLES", "CYCLES"]
+    assert captured_devices == ["OPTIX", "OPTIX"]
+
+
+def test_generate_region_unavailable_device_returns_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rid = _bootstrap(tmp_path)
+    fake = _install_fake_factory(monkeypatch)
+    fake.available_device_types = ("CPU",)
+
+    err = generate_region(
+        rid,
+        render_options={"engine": "CYCLES", "device": "OPTIX"},
+    )
+    assert err["ok"] is False
+    error = cast("dict[str, object]", err["error"])
+    assert error["code"] == "device_unavailable"
+    details = cast("dict[str, object]", error["details"])
+    assert details["device"] == "OPTIX"
+
+
+def test_render_view_passes_render_options_through(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rid = _bootstrap(tmp_path)
+    captured: list[tuple[int, int, int]] = []
+
+    def capture_render(
+        engine: RealizerEngine,
+        inputs: RenderPreviewInputs,
+    ) -> RealizationResult:
+        captured.append((inputs.resolution_x, inputs.resolution_y, inputs.cycles_samples))
+        Path(inputs.filepath).write_bytes(b"PNG")
+        cast("_FakeEngine", engine).macros_called.append("render_preview")
+        return RealizationResult(
+            macro="render_preview",
+            trace=(),
+            final_result={"path": inputs.filepath, "file_size_bytes": 3},
+            total_duration_ms=0.0,
+            sequence_id="f" * 20,
+        )
+
+    fake = _install_fake_factory(monkeypatch, on_render=capture_render)
+    fake.available_device_types = ("OPTIX", "CPU")
+    _ok(generate_region(rid))
+    captured.clear()
+
+    result = _ok(
+        render_view(
+            rid,
+            view_kind="ortho_top",
+            resolution="default",
+            render_options={
+                "engine": "CYCLES",
+                "device": "OPTIX",
+                "width": 1920,
+                "height": 1080,
+                "cycles_samples": 128,
+            },
+        ),
+    )
+    assert captured == [(1920, 1080, 128)]
+    assert result["render_engine"] == "CYCLES"
+    assert result["render_device_type"] == "OPTIX"
+    assert result["render_cycles_samples"] == 128  # noqa: PLR2004 - explicit override
+
+
+def test_list_render_devices_no_factory_returns_error() -> None:
+    err = list_render_devices()
+    assert err["ok"] is False
+    error = cast("dict[str, object]", err["error"])
+    assert error["code"] == "realizer_not_configured"
+
+
+def test_list_render_devices_returns_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _install_fake_factory(monkeypatch)
+    fake.available_device_types = ("OPTIX", "CUDA")
+    fake.default_device_type = "OPTIX"
+
+    result = _ok(list_render_devices())
+    assert result["available_device_types"] == ["OPTIX", "CUDA"]
+    assert result["default_device_type"] == "OPTIX"
+
+
+def test_list_render_devices_force_refresh_invokes_engine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = _install_fake_factory(monkeypatch)
+    fake.available_device_types = ("CPU",)
+    refreshed: list[bool] = []
+
+    def refresh() -> tuple[str, ...]:
+        refreshed.append(True)
+        return fake.available_device_types
+
+    monkeypatch.setattr(fake, "refresh_render_devices", refresh)
+    _ok(list_render_devices(force_refresh=True))
+    assert refreshed == [True]

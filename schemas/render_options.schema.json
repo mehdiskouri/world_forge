@@ -1,0 +1,93 @@
+{
+  "additionalProperties": false,
+  "description": "User-facing render-knob bundle for ``forge.generate_region``.\n\nEvery field is optional; an empty payload (``{}``) reproduces the\npre-Phase-6-d behaviour byte-for-byte. Validation is total —\ninvalid combinations (EEVEE + GPU device, EEVEE + ``cycles_samples``,\nwidth without height, oversize pixel budget) are rejected at parse\ntime so the MCP tools never reach the realizer with a bad payload.",
+  "properties": {
+    "cycles_samples": {
+      "anyOf": [
+        {
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cycles Samples"
+    },
+    "device": {
+      "default": "AUTO",
+      "enum": [
+        "AUTO",
+        "CPU",
+        "OPTIX",
+        "CUDA",
+        "HIP",
+        "METAL"
+      ],
+      "title": "Device",
+      "type": "string"
+    },
+    "engine": {
+      "anyOf": [
+        {
+          "enum": [
+            "EEVEE",
+            "CYCLES"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engine"
+    },
+    "height": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "maximum": 4096,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Height"
+    },
+    "png_max_bytes": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "maximum": 33554432,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Png Max Bytes"
+    },
+    "width": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "maximum": 4096,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Width"
+    }
+  },
+  "title": "ForgeRenderOptions",
+  "type": "object"
+}

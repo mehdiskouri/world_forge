@@ -76,7 +76,7 @@ def forge_get_descriptor_schema() -> dict[str, object]:
     return schema_tools.get_descriptor_schema()
 
 
-def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's session generics default to Any
+def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's session generics default to Any  # noqa: PLR0915 - one server() registration per tool
     """Construct the MCP server with the v1 tool surface registered.
 
     Kept as a separate function so tests can introspect the server
@@ -199,7 +199,11 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
         title="Generate a region",
         description=(
             "Compile the region's descriptor into a spec, run the terrain "
-            "pipeline, persist the heightmap + analysis, and return both."
+            "pipeline, persist the heightmap + analysis, and return both. "
+            "Optional `render_options` overrides the per-tier render "
+            "defaults (engine, device, width/height, cycles_samples, "
+            "png_max_bytes); see `forge.list_render_devices` for the "
+            "host's device menu."
         ),
     )(generation_tools.generate_region)
     server.tool(
@@ -227,9 +231,19 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "Re-run the v1 realize_region macro on a previously-generated region "
             "and render a `preview` (512x384), `default` (1024x768), or `full` "
             "(2048x1536) PNG. Persists `.blend`, preview, and trace under "
-            "`realizations/blender/`."
+            "`realizations/blender/`. Optional `render_options` accepts the "
+            "same knobs as `forge.generate_region`."
         ),
     )(generation_tools.render_view)
+    server.tool(
+        name="forge.list_render_devices",
+        title="List Cycles render devices",
+        description=(
+            "Return the host's available Cycles compute backends "
+            "(OPTIX/CUDA/HIP/METAL/CPU) and the auto-pick default. "
+            "Pass `force_refresh=True` to re-issue the device probe."
+        ),
+    )(generation_tools.list_render_devices)
 
     # --- Skills surface (Phase 5 Stage A) ---------------------------------
     server.tool(

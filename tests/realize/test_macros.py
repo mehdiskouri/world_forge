@@ -135,6 +135,8 @@ def test_render_preview_facade_threads_render_inputs() -> None:
             resolution_y=384,
             camera_name="cam",
             engine="CYCLES",
+            device_type="CPU",
+            cycles_samples=64,
         ),
     )
     assert result.final_result == {"file_size_bytes": 500}
@@ -159,6 +161,8 @@ def test_render_preview_facade_retries_with_higher_compression_when_oversize() -
             resolution_y=384,
             camera_name="cam",
             engine="BLENDER_EEVEE",
+            device_type="CPU",
+            cycles_samples=64,
         ),
     )
     fake = cast("_ScriptedClient", engine._client)  # noqa: SLF001
@@ -188,6 +192,8 @@ def test_render_preview_facade_propagates_when_retry_also_oversize() -> None:
                 resolution_y=384,
                 camera_name="cam",
                 engine="BLENDER_EEVEE",
+                device_type="CPU",
+                cycles_samples=64,
             ),
         )
     assert excinfo.value.reason_code == "png_oversize"

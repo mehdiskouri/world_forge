@@ -38,6 +38,7 @@ from forge_mcp.project.schemas import (
     SubRegionNode,
     WorldRootNode,
 )
+from forge_mcp.realize.render_options import RenderOptions
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -99,6 +100,7 @@ def iter_published_schemas() -> Iterator[tuple[str, dict[str, object]]]:
     yield _pydantic_schema(HistoryEvent, "history_event", "ForgeHistoryEvent")
     yield _pydantic_schema(SpecRecord, "spec", "ForgeSpec")
     yield _pydantic_schema(AuditRecord, "audit", "ForgeAudit")
+    yield _pydantic_schema(RenderOptions, "render_options", "ForgeRenderOptions")
     yield "audit_verdict", audit_verdict_json_schema()
 
 

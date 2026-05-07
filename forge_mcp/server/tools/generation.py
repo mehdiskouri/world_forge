@@ -65,6 +65,13 @@ from forge_mcp.realize.macros import (
 )
 from forge_mcp.realize.material import resolve_plan
 from forge_mcp.realize.realization import record_from_result, write_trace_record
+from forge_mcp.realize.render_options import (
+    DeviceUnavailableError,
+    InvalidRenderOptionsError,
+    RenderOptions,
+    ResolvedRender,
+    resolve_render_settings,
+)
 from forge_mcp.server.tools import get_realizer_factory, get_service
 from forge_mcp.server.tools._responses import fail, ok
 
@@ -111,8 +118,6 @@ _PNG_MAX_BYTES: Final[dict[str, int]] = {
 
 _DEFAULT_PLAN_MESH_PREFIX: Final[str] = "terrain_"
 
-_RENDER_ENGINE: Final[str] = "BLENDER_EEVEE"  # Blender 5.0 enum identifier
-
 
 def _camera_name_for_view(region_id: RegionId, view_kind: str) -> str:
     """Return the per-region camera object name for ``view_kind``."""
@@ -130,6 +135,7 @@ class _ViewArtifacts:
     preview_path: Path
     trace_path: Path
     render_result: RealizationResult
+    resolved: ResolvedRender
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,18 +309,23 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     )
 
 
-def _run_realizer(
+def _run_realizer(  # noqa: PLR0913 - one assembly site, all named
     service: ProjectService,
     region_id: RegionId,
     spec_id: SpecId,
     heightmap: Heightmap,
     targets: tuple[tuple[str, str], ...],
+    *,
+    render_options: RenderOptions,
+    legacy_default: bool,
 ) -> _RealizationArtifacts | None:
     """Drive the realizer, persisting all outputs atomically.
 
     ``targets`` is a tuple of ``(view_kind, resolution)`` pairs to
     render after the single ``realize_region`` macro completes. Returns
-    ``None`` when no realizer factory is installed.
+    ``None`` when no realizer factory is installed. ``render_options``
+    is the validated user payload (use ``RenderOptions()`` for the
+    no-override path).
     """
     factory = get_realizer_factory()
     if factory is None:
@@ -362,30 +373,63 @@ def _run_realizer(
         plan_payload,
     )
 
-    plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs]] = []
-    for view_kind, resolution in targets:
-        preview_path = paths.preview_path(region_id, view_kind, resolution)
-        preview_tmp = preview_path.with_name(preview_path.name + ".tmp")
-        trace_path = paths.realization_trace_path(region_id, view_kind, resolution)
-        width, height = _RESOLUTIONS[resolution]
-        render_inputs = RenderPreviewInputs(
-            filepath=str(preview_tmp),
-            resolution_x=width,
-            resolution_y=height,
-            camera_name=_camera_name_for_view(region_id, view_kind),
-            engine=_RENDER_ENGINE,
-            png_max_bytes=_PNG_MAX_BYTES[resolution],
-        )
-        plan.append((view_kind, resolution, preview_path, preview_tmp, trace_path, render_inputs))
+    plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs, ResolvedRender]] = []
 
     with factory() as engine:
+        # Phase 6-d: fold the per-tier defaults with the user's
+        # ``render_options`` against the live device probe before any
+        # render input is built.
+        available_devices = engine.available_device_types
+        for view_kind, resolution in targets:
+            preview_path = paths.preview_path(region_id, view_kind, resolution)
+            preview_tmp = preview_path.with_name(preview_path.name + ".tmp")
+            trace_path = paths.realization_trace_path(region_id, view_kind, resolution)
+            tier_width, tier_height = _RESOLUTIONS[resolution]
+            resolved = resolve_render_settings(
+                tier_width=tier_width,
+                tier_height=tier_height,
+                tier_png_max_bytes=_PNG_MAX_BYTES[resolution],
+                options=render_options,
+                available_device_types=available_devices,
+                legacy_default=legacy_default,
+            )
+            render_inputs = RenderPreviewInputs(
+                filepath=str(preview_tmp),
+                resolution_x=resolved.width,
+                resolution_y=resolved.height,
+                camera_name=_camera_name_for_view(region_id, view_kind),
+                engine=resolved.engine,
+                device_type=resolved.device_type,
+                cycles_samples=resolved.cycles_samples,
+                png_max_bytes=resolved.png_max_bytes,
+            )
+            plan.append(
+                (
+                    view_kind,
+                    resolution,
+                    preview_path,
+                    preview_tmp,
+                    trace_path,
+                    render_inputs,
+                    resolved,
+                ),
+            )
+
         realize_result = realize_region(engine, realize_inputs)
         render_results = [render_preview(engine, item[5]) for item in plan]
 
     # Atomic publish: only after every render succeeded.
     os.replace(blend_tmp, blend_path)  # noqa: PTH105 - need os primitive on Path
     views: list[_ViewArtifacts] = []
-    for (view_kind, resolution, preview_path, preview_tmp, trace_path, _ri), render_result in zip(
+    for (
+        view_kind,
+        resolution,
+        preview_path,
+        preview_tmp,
+        trace_path,
+        _ri,
+        resolved,
+    ), render_result in zip(
         plan,
         render_results,
         strict=True,
@@ -405,6 +449,7 @@ def _run_realizer(
                 preview_path=preview_path,
                 trace_path=trace_path,
                 render_result=render_result,
+                resolved=resolved,
             ),
         )
 
@@ -424,13 +469,54 @@ def _view_summary(view: _ViewArtifacts) -> dict[str, object]:
         "resolution": view.resolution,
         "preview_path": str(view.preview_path),
         "realization_trace_path": str(view.trace_path),
-        "render_resolution": list(_RESOLUTIONS[view.resolution]),
+        "render_resolution": [view.resolved.width, view.resolved.height],
         "render_file_size_bytes": _render_size(view.render_result),
+        "render_engine": view.resolved.engine,
+        "render_device_type": view.resolved.device_type,
+        "render_cycles_samples": view.resolved.cycles_samples,
+        "render_notes": list(view.resolved.notes),
     }
 
 
-def generate_region(region_id: str) -> dict[str, object]:  # noqa: PLR0911 - one return per failure surface
-    """Compile + generate + analyze a region. Persists spec, heightmap, analysis."""
+def _parse_render_options(
+    payload: object | None,
+) -> tuple[RenderOptions, bool] | dict[str, object]:
+    """Validate ``render_options`` payload.
+
+    Returns either ``(options, legacy_default)`` (where
+    ``legacy_default`` is True iff the caller omitted the argument
+    entirely — used to preserve byte-for-byte backwards compatibility)
+    or an MCP error envelope.
+    """
+    if payload is None:
+        return RenderOptions(), True
+    if not isinstance(payload, dict):
+        return fail(
+            "invalid_render_options",
+            f"render_options must be an object, got {type(payload).__name__}",
+        )
+    try:
+        return RenderOptions.model_validate(payload), False
+    except (ValidationError, InvalidRenderOptionsError) as exc:
+        return fail("invalid_render_options", str(exc))
+
+
+def generate_region(  # noqa: PLR0911 - one return per failure surface
+    region_id: str,
+    *,
+    render_options: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Compile + generate + analyze a region. Persists spec, heightmap, analysis.
+
+    ``render_options`` (Phase 6-d) is an optional, validated bundle of
+    user knobs over the per-tier render defaults (engine, device,
+    width/height, ``cycles_samples``, ``png_max_bytes``). Omitting it
+    reproduces the pre-Phase-6-d behaviour byte-for-byte.
+    """
+    parsed = _parse_render_options(render_options)
+    if isinstance(parsed, dict):
+        return parsed
+    options_model, legacy_default = parsed
     rid, lookup = _resolve_region(region_id)
     if isinstance(lookup, dict):
         return lookup  # already-shaped error envelope
@@ -512,17 +598,27 @@ def generate_region(region_id: str) -> dict[str, object]:  # noqa: PLR0911 - one
             spec_with_summary.spec_id,
             result.heightmap,
             tuple((view, DEFAULT_RESOLUTION) for view in _VIEW_KINDS),
+            render_options=options_model,
+            legacy_default=legacy_default,
+        )
+    except DeviceUnavailableError as exc:
+        return fail(
+            "device_unavailable",
+            str(exc),
+            details={"device": exc.device, "available": list(exc.available)},
         )
     except RealizerError as exc:
         return fail("realizer_failed", str(exc))
     if artifacts is not None:
         blend_path = str(artifacts.blend_path)
         previews = {view.view_kind: _view_summary(view) for view in artifacts.views}
+        first_view = artifacts.views[0]
         realization_summary = {
             "macro": artifacts.realize_result.macro,
             "sequence_id": artifacts.realize_result.sequence_id,
-            "render_engine": _RENDER_ENGINE,
-            "default_resolution": list(_RESOLUTIONS[DEFAULT_RESOLUTION]),
+            "render_engine": first_view.resolved.engine,
+            "render_device_type": first_view.resolved.device_type,
+            "default_resolution": [first_view.resolved.width, first_view.resolved.height],
             "default_view_kind": DEFAULT_VIEW_KIND,
             "plan_id": str(artifacts.plan_id),
             "elevation_band": [
@@ -614,6 +710,8 @@ def render_view(
     region_id: str,
     view_kind: str = DEFAULT_VIEW_KIND,
     resolution: str = DEFAULT_RESOLUTION,
+    *,
+    render_options: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Re-render a previously-generated region for one ``(view_kind, resolution)``.
 
@@ -622,7 +720,14 @@ def render_view(
     (1024x768) / ``"full"`` (2048x1536). The realizer rebuilds the
     scene from the persisted heightmap each call so the on-disk
     ``.blend`` stays honest about what the most recent render drew.
+
+    ``render_options`` (Phase 6-d) accepts the same knobs as
+    :func:`generate_region` and overrides the per-tier defaults.
     """
+    parsed = _parse_render_options(render_options)
+    if isinstance(parsed, dict):
+        return parsed
+    options_model, legacy_default = parsed
     target = _resolve_render_view_target(region_id, view_kind, resolution)
     if isinstance(target, dict):
         return target
@@ -636,6 +741,14 @@ def render_view(
             spec_id,
             heightmap,
             ((view_kind, resolution),),
+            render_options=options_model,
+            legacy_default=legacy_default,
+        )
+    except DeviceUnavailableError as exc:
+        return fail(
+            "device_unavailable",
+            str(exc),
+            details={"device": exc.device, "available": list(exc.available)},
         )
     except RealizerError as exc:
         return fail("realizer_failed", str(exc))
@@ -645,8 +758,37 @@ def render_view(
         {
             "region_id": region_id,
             "blend_path": str(artifacts.blend_path),
-            "render_engine": _RENDER_ENGINE,
+            "render_engine": view.resolved.engine,
+            "render_device_type": view.resolved.device_type,
             **_view_summary(view),
+        },
+    )
+
+
+def list_render_devices(*, force_refresh: bool = False) -> dict[str, object]:
+    """Return the host's Cycles compute-device probe.
+
+    The probe is captured once when the realizer first connects to
+    Blender (folded into the ``ping`` round-trip). Pass
+    ``force_refresh=True`` to re-issue ``ping`` and pick up any
+    add-on changes the user made in Blender's preferences without
+    restarting the host.
+    """
+    factory = get_realizer_factory()
+    if factory is None:
+        return fail(
+            "realizer_not_configured",
+            "no realizer factory installed; cannot probe render devices",
+        )
+    with factory() as engine:
+        if force_refresh:
+            engine.refresh_render_devices()
+        devices = list(engine.available_device_types)
+        default = engine.default_device_type
+    return ok(
+        {
+            "available_device_types": devices,
+            "default_device_type": default,
         },
     )
 

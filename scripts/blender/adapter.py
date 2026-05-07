@@ -88,7 +88,99 @@ def _set_attr(root: object, path: str, value: object) -> None:
 
 
 def _handle_ping(_params: dict[str, Any]) -> dict[str, Any]:
-    return {"alive": True, "blender": _bpy_version()}
+    return {
+        "alive": True,
+        "blender": _bpy_version(),
+        "render_devices": _probe_render_devices(),
+    }
+
+
+_CYCLES_DEVICE_TYPES: tuple[str, ...] = ("OPTIX", "CUDA", "HIP", "METAL", "CPU")
+
+
+def _probe_render_devices() -> dict[str, Any]:
+    """Return the available Cycles compute devices and a default hint.
+
+    ``available`` is the union of devices Blender's Cycles add-on
+    reports for each backend. ``default_device_type`` is the highest-
+    priority non-CPU backend that has at least one device, falling
+    back to ``"CPU"`` so the field is always populated. The probe is
+    side-effect-free apart from importing the Cycles add-on (Blender
+    bundles it; the import succeeds on every host).
+    """
+    available: list[dict[str, Any]] = []
+    default_type = "CPU"
+    try:
+        prefs = bpy.context.preferences.addons["cycles"].preferences
+    except KeyError:
+        return {"available": available, "default_device_type": default_type}
+    for device_type in _CYCLES_DEVICE_TYPES:
+        try:
+            devices = prefs.get_devices_for_type(device_type)
+        except (RuntimeError, TypeError):
+            continue
+        for device in devices or ():
+            available.append(
+                {
+                    "type": device_type,
+                    "name": str(getattr(device, "name", "")),
+                },
+            )
+    for device in available:
+        if device["type"] != "CPU":
+            default_type = device["type"]
+            break
+    return {"available": available, "default_device_type": default_type}
+
+
+def _handle_render_set_engine_device(params: dict[str, Any]) -> dict[str, Any]:
+    """Configure ``scene.render.engine`` plus the Cycles device selection.
+
+    Idempotent. ``device_type`` is one of
+    ``OPTIX|CUDA|HIP|METAL|CPU``. For ``BLENDER_EEVEE`` the device
+    selection is ignored (the engine has no compute-device concept).
+    For ``CYCLES`` the function flips the Cycles add-on's
+    ``compute_device_type``, enables every device matching that type
+    plus the host CPU, disables the rest, and sets
+    ``scene.cycles.device`` to ``GPU`` (or ``CPU`` for the CPU-only
+    case). When ``device_type == "CPU"`` only the CPU is enabled and
+    ``scene.cycles.device`` becomes ``CPU``.
+
+    Optional ``samples`` (Cycles only) sets ``scene.cycles.samples``;
+    when supplied with ``use_adaptive_sampling=False`` (the default)
+    adaptive sampling is also turned off so two renders at the same
+    sample count produce identical IDAT digests.
+    """
+    engine = params.get("engine")
+    device_type = params.get("device_type", "CPU")
+    samples = params.get("samples")
+    if not isinstance(engine, str):
+        msg = "render.set_engine_device requires string 'engine'"
+        raise ValueError(msg)
+    if not isinstance(device_type, str):
+        msg = "render.set_engine_device requires string 'device_type'"
+        raise ValueError(msg)
+    scene = bpy.context.scene
+    scene.render.engine = engine
+    resolved_samples = 0
+    if engine == "CYCLES":
+        cycles_prefs = bpy.context.preferences.addons["cycles"].preferences
+        cycles_prefs.compute_device_type = device_type if device_type != "CPU" else "NONE"
+        for device in cycles_prefs.devices:
+            if device_type == "CPU":
+                device.use = device.type == "CPU"
+            else:
+                device.use = device.type in (device_type, "CPU")
+        scene.cycles.device = "CPU" if device_type == "CPU" else "GPU"
+        if samples is not None:
+            scene.cycles.samples = int(samples)
+            scene.cycles.use_adaptive_sampling = False
+        resolved_samples = int(scene.cycles.samples)
+    return {
+        "engine": engine,
+        "device_type": device_type,
+        "samples": resolved_samples,
+    }
 
 
 def _handle_bpy_ops(method: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -855,6 +947,8 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_image_from_file(params)
     if method == "render.to_file":
         return _handle_render_to_file(params)
+    if method == "render.set_engine_device":
+        return _handle_render_set_engine_device(params)
     if method == "material.build_composite":
         return _handle_material_build_composite(params)
     if method == "object.from_data":
