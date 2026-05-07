@@ -116,6 +116,55 @@ render actually drew. A missing factory returns the
 ``realizer_not_configured`` error envelope so the agent can fall back
 to the heightmap PNG.
 
+## GPU rendering and render_options
+
+Both ``forge.generate_region`` and ``forge.render_view`` accept an
+optional ``render_options`` object that swaps the underlying engine and
+device, and overrides resolution / png-budget / Cycles sample count for
+that one call. The schema (``schemas/render_options.schema.json``) is
+generated from
+``forge_mcp.realize.render_options.RenderOptions``.
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| ``engine`` | ``"BLENDER_EEVEE"`` \| ``"CYCLES"`` | auto | EEVEE = deterministic raster baseline; Cycles = path tracer. |
+| ``device`` | ``"AUTO" \| "CPU" \| "OPTIX" \| "CUDA" \| "HIP" \| "METAL"`` | ``"AUTO"`` | Non-AUTO devices that are not present return ``device_unavailable``. |
+| ``width`` / ``height`` | int (1..4096) | tier preset | Must be paired; ``width * height`` capped at 16 MP (4096*4096). |
+| ``png_max_bytes`` | int (1..32 MiB) | tier preset | Lifts the NF-1.5 ceiling for that one render. |
+| ``cycles_samples`` | int (1..4096) | 64 | Cycles only; forces ``use_adaptive_sampling=False`` so digests stay stable. |
+
+**Engine baselines.** EEVEE always runs on CPU and is the determinism
+baseline used by the integration suite (byte-for-byte digest equality
+on identical descriptors). Cycles is the path-traced engine; when a GPU
+backend is detected it is preferred over CPU. EEVEE + a GPU device, or
+EEVEE + ``cycles_samples``, is rejected at validation time.
+
+**Auto-pick rules.** When ``render_options`` is supplied and ``engine``
+is unset, the realizer picks Cycles + the first available GPU device
+(probe order ``OPTIX, CUDA, HIP, METAL``); if no GPU is present it falls
+back to EEVEE on CPU. An explicit ``engine="CYCLES"`` with ``device``
+unset prefers GPU but falls back to CPU and adds the
+``cycles_cpu_fallback`` note to the trace. Resolved settings (engine,
+device, width, height, png cap, samples, notes) are surfaced on every
+``generate_region`` / ``render_view`` response under
+``render_engine`` / ``render_device_type`` / ``render_cycles_samples``
+/ ``render_notes``.
+
+**Backwards compatibility.** Calls that omit ``render_options``
+entirely continue to use EEVEE on CPU at the tier defaults — the
+``legacy_default`` resolver flag preserves byte-for-byte parity with
+pre-Phase-6-d artifacts. Pass ``render_options={}`` (an empty object)
+to opt in to the new auto-pick behaviour without specifying any
+overrides.
+
+**Device discovery.** ``forge.list_render_devices`` returns the
+adapter's most recent probe (``available_device_types``,
+``default_device_type``). The probe is captured during the version-check
+ping and cached per process; pass ``force_refresh=true`` to re-issue
+the ping. The same probe powers the resolver's GPU detection inside
+``generate_region`` / ``render_view`` so device availability stays
+consistent across calls.
+
 ## Composite materials
 
 The terrain material a region renders with is no longer hard-coded; it

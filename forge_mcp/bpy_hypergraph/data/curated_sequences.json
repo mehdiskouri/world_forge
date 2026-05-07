@@ -327,13 +327,15 @@
     {
       "name": "render_preview",
       "version": "v1",
-      "description": "Render the active scene through the named camera at the requested resolution / engine to a PNG. The host facade re-runs this macro once with compression bumped from 15 to 100 if the engine reports the file exceeded ${png_max_bytes}.",
+      "description": "Configure scene.render.engine plus the Cycles compute device, then render the active scene through the named camera at the requested resolution / engine to a PNG. The host facade re-runs this macro once with compression bumped from 15 to 100 if the engine reports the file exceeded ${png_max_bytes}.",
       "inputs_schema": {
         "filepath": "str",
         "resolution_x": "int",
         "resolution_y": "int",
         "camera_name": "str",
         "engine": "str",
+        "device_type": "str",
+        "cycles_samples": "int",
         "compression": "int",
         "png_max_bytes": "int"
       },
@@ -342,6 +344,14 @@
         "file_size_bytes": "int"
       },
       "steps": [
+        {
+          "call": "render.set_engine_device",
+          "params": {
+            "engine": "${engine}",
+            "device_type": "${device_type}",
+            "samples": "${cycles_samples}"
+          }
+        },
         {
           "call": "render.to_file",
           "params": {

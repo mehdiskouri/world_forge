@@ -63,6 +63,8 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         "forge.inspect_spec",
         # Realization views (Phase 4)
         "forge.render_view",
+        # Render device probe (Phase 6-d)
+        "forge.list_render_devices",
         # Skills surface (Phase 5)
         "forge.list_skills",
         "forge.get_skill",

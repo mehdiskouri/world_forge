@@ -251,6 +251,8 @@ class RealizerEngine:
         self._bundle = (
             bundle if bundle is not None else load_curated_sequences(hypergraph=self._hypergraph)
         )
+        self._available_device_types: tuple[str, ...] = ()
+        self._default_device_type: str = "CPU"
         if not skip_version_check:
             self._assert_blender_version()
 
@@ -258,6 +260,54 @@ class RealizerEngine:
     def bundle(self) -> CuratedSequenceBundle:
         """The curated-sequence bundle this engine drives."""
         return self._bundle
+
+    @property
+    def available_device_types(self) -> tuple[str, ...]:
+        """Device-type strings the running Blender's Cycles probe reported.
+
+        Populated lazily by the version check (which folds the probe
+        into the same ``ping`` round-trip) and refreshed by
+        :py:meth:`refresh_render_devices`. ``CPU`` is always implicitly
+        available; this tuple may or may not include it explicitly
+        depending on what the adapter found.
+        """
+        return self._available_device_types
+
+    @property
+    def default_device_type(self) -> str:
+        """Best non-CPU device the host advertised, or ``"CPU"``."""
+        return self._default_device_type
+
+    def refresh_render_devices(self) -> tuple[str, ...]:
+        """Re-issue ``ping`` and refresh the cached device probe.
+
+        Returns the new ``available_device_types`` tuple. Callers that
+        only need the cached value should read
+        :py:attr:`available_device_types` directly.
+        """
+        result = self._client.call(RpcMethods.PING)
+        if not isinstance(result, dict):
+            msg = f"ping returned {type(result).__name__}, expected object"
+            raise BlenderVersionMismatchError(msg)
+        self._capture_render_devices(result)
+        return self._available_device_types
+
+    def _capture_render_devices(self, ping_result: Mapping[str, JsonValue]) -> None:
+        probe = ping_result.get("render_devices")
+        if not isinstance(probe, dict):
+            return
+        available_raw = probe.get("available")
+        types: list[str] = []
+        if isinstance(available_raw, list):
+            for entry in available_raw:
+                if isinstance(entry, dict):
+                    type_value = entry.get("type")
+                    if isinstance(type_value, str) and type_value not in types:
+                        types.append(type_value)
+        self._available_device_types = tuple(types)
+        default = probe.get("default_device_type")
+        if isinstance(default, str):
+            self._default_device_type = default
 
     def _assert_blender_version(self) -> None:
         result = self._client.call(RpcMethods.PING)
@@ -271,6 +321,7 @@ class RealizerEngine:
                 f"running Blender {running!r} does not match curated hypergraph target {expected!r}"
             )
             raise BlenderVersionMismatchError(msg)
+        self._capture_render_devices(result)
 
     def execute_macro(self, name: str, inputs: Mapping[str, JsonValue]) -> RealizationResult:
         """Execute a curated macro and return the gathered trace."""

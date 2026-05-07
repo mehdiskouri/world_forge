@@ -151,6 +151,7 @@ class RpcMethods:
     MESH_ADD_DISPLACE: Final[str] = "mesh.add_displace_modifier"
     IMAGE_FROM_FILE: Final[str] = "image.from_file"
     RENDER_TO_FILE: Final[str] = "render.to_file"
+    RENDER_SET_ENGINE_DEVICE: Final[str] = "render.set_engine_device"
     MATERIAL_BUILD_COMPOSITE: Final[str] = "material.build_composite"
     OBJECT_FROM_DATA: Final[str] = "object.from_data"
     SCENE_ASSIGN_WORLD: Final[str] = "scene.assign_world"

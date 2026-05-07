@@ -120,6 +120,8 @@ class RenderPreviewInputs:
     resolution_y: int
     camera_name: str
     engine: str
+    device_type: str
+    cycles_samples: int
     compression: int = DEFAULT_PNG_COMPRESSION
     png_max_bytes: int = DEFAULT_PNG_MAX_BYTES
 

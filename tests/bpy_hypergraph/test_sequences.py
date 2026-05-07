@@ -80,6 +80,7 @@ def test_calls_validate_against_hypergraph_when_provided() -> None:
         "mesh.add_displace_modifier",
         "image.from_file",
         "render.to_file",
+        "render.set_engine_device",
         "material.build_composite",
         "scene.diff",
         "object.from_data",
