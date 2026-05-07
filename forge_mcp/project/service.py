@@ -42,6 +42,7 @@ from forge_mcp.project.schemas import (
     DEFAULT_REGISTERED_LAYERS,
     LAYER_MATERIAL_APPLICATION,
     LAYER_MATERIAL_COMPOSITION,
+    LAYER_SPATIAL_CONTAINMENT,
     BoundaryId,
     BoundaryRecord,
     Edge,
@@ -66,6 +67,9 @@ from forge_mcp.project.schemas import (
     SpatialBounds,
     SpecId,
     SpecRecord,
+    SubRegionId,
+    SubRegionNode,
+    SubRegionPredicate,
     WorldBounds,
     WorldRootNode,
 )
@@ -197,6 +201,15 @@ class ProjectPaths:
         """Path of the per-region JSON for ``region_id``."""
         return self.regions_dir / f"{region_id}.json"
 
+    @property
+    def sub_regions_dir(self) -> Path:
+        """One ``<sub_region_id>.json`` per :class:`SubRegionNode` (Phase 6-c)."""
+        return self.root / "sub_regions"
+
+    def sub_region_path(self, sub_region_id: SubRegionId) -> Path:
+        """Path of the per-sub-region JSON for ``sub_region_id``."""
+        return self.sub_regions_dir / f"{sub_region_id}.json"
+
     def edge_layer_path(self, layer: str) -> Path:
         """Path of the per-layer edge JSON for ``layer``."""
         return self.edges_dir / f"{layer}.json"
@@ -262,6 +275,7 @@ class ProjectPaths:
             self.root,
             self.nodes_dir,
             self.regions_dir,
+            self.sub_regions_dir,
             self.edges_dir,
             self.specs_dir,
             self.boundaries_dir,
@@ -292,6 +306,7 @@ class ProjectState:
     metadata: ProjectMetadata
     regions: dict[RegionId, RegionNode] = field(default_factory=dict)
     archetypes: dict[MaterialArchetypeId, MaterialArchetypeNode] = field(default_factory=dict)
+    sub_regions: dict[SubRegionId, SubRegionNode] = field(default_factory=dict)
     boundaries: dict[BoundaryId, BoundaryRecord] = field(default_factory=dict)
     edges: dict[str, list[Edge]] = field(default_factory=dict)
     history: HistoryLog = field(init=False)
@@ -505,10 +520,14 @@ class ProjectService:
             if not directory.is_dir():
                 msg = f"project layout is missing required directory: {directory}"
                 raise ProjectFormatError(msg)
+        # ``sub_regions_dir`` is auto-created on bootstrap (Phase 6-c) but
+        # treated as optional for projects authored against older Forge
+        # checkouts; ``_load_sub_regions`` returns ``{}`` when missing.
 
         state = ProjectState(paths=paths, metadata=metadata)
         state.regions = self._load_regions(paths)
         state.archetypes = self._load_archetypes(paths)
+        state.sub_regions = self._load_sub_regions(paths)
         state.edges = self._load_edges(paths, metadata.registered_layers)
         state.boundaries = self._load_boundaries(paths)
         try:
@@ -546,6 +565,8 @@ class ProjectService:
             write_json(state.paths.region_path(region.node_id), region)
         for archetype in state.archetypes.values():
             write_json(self._archetype_path(state.paths, archetype.node_id), archetype)
+        for sub_region in state.sub_regions.values():
+            write_json(state.paths.sub_region_path(sub_region.node_id), sub_region)
         for layer, edges in state.edges.items():
             write_json(
                 state.paths.edge_layer_path(layer),
@@ -620,6 +641,31 @@ class ProjectService:
                 raise ProjectFormatError(msg) from exc
             archetypes[archetype.node_id] = archetype
         return archetypes
+
+    @staticmethod
+    def _load_sub_regions(
+        paths: ProjectPaths,
+    ) -> dict[SubRegionId, SubRegionNode]:
+        """Load every persisted :class:`SubRegionNode` from ``sub_regions/``.
+
+        Returns an empty dict when ``sub_regions/`` does not exist (older
+        projects pre-Phase 6-c). Discriminated-union deserialisation of
+        the embedded :data:`SubRegionPredicate` happens automatically via
+        Pydantic's ``kind`` literal discriminator.
+        """
+        sub_regions: dict[SubRegionId, SubRegionNode] = {}
+        if not paths.sub_regions_dir.is_dir():
+            return sub_regions
+        for path in sorted(paths.sub_regions_dir.glob("*.json")):
+            try:
+                sub_region = SubRegionNode.model_validate_json(
+                    path.read_text(encoding="utf-8"),
+                )
+            except (OSError, ValidationError) as exc:
+                msg = f"failed to load sub-region {path.name}: {exc}"
+                raise ProjectFormatError(msg) from exc
+            sub_regions[sub_region.node_id] = sub_region
+        return sub_regions
 
     @staticmethod
     def _load_edges(
@@ -966,6 +1012,191 @@ class ProjectService:
         )
 
     # ------------------------------------------------------------------
+    # Sub-region CRUD (Phase 6-c)
+    # ------------------------------------------------------------------
+    def create_sub_region(
+        self,
+        parent_region_id: RegionId,
+        name: str,
+        predicate: SubRegionPredicate,
+        *,
+        tags: tuple[str, ...] = (),
+        notes: str = "",
+    ) -> SubRegionNode:
+        """Create and persist a new :class:`SubRegionNode` under a region.
+
+        Side effects:
+
+        * appends the freshly-allocated id to the parent region's
+          :attr:`RegionNode.children` tuple and rewrites the region JSON;
+        * inserts a directed ``spatial_containment`` edge
+          ``(parent_region_id, sub_region_id)`` so the realizer can walk
+          children deterministically;
+        * records a single ``SUB_REGION_CREATED`` history event.
+
+        Raises :class:`UnknownParentRegionError` if ``parent_region_id``
+        is not an existing region (sub-region nesting is not supported
+        in v1 — pass a ``RegionId``).
+        """
+        state = self.state
+        parent = state.regions.get(parent_region_id)
+        if parent is None:
+            msg = f"unknown parent region {parent_region_id!r}"
+            raise UnknownParentRegionError(msg)
+        now = _now()
+        sub_region_id = self._allocate_sub_region_id(name)
+        sub_region = SubRegionNode(
+            node_id=sub_region_id,
+            parent_node=parent_region_id,
+            name=name,
+            predicate=predicate,
+            tags=tags,
+            notes=notes,
+            created_at=now,
+            modified_at=now,
+        )
+        state.sub_regions[sub_region_id] = sub_region
+        write_json(state.paths.sub_region_path(sub_region_id), sub_region)
+
+        # Append the child id to the parent region's frozen children tuple.
+        new_children = (*parent.children, NodeId(str(sub_region_id)))
+        new_parent: RegionNode = parent.model_copy(
+            update={"children": new_children, "modified_at": now},
+        )
+        state.regions[parent_region_id] = new_parent
+        write_json(state.paths.region_path(parent_region_id), new_parent)
+
+        # Insert the directed (parent_region -> sub_region) containment edge.
+        edge_id = self._allocate_edge_id(LAYER_SPATIAL_CONTAINMENT, "cont")
+        edge = Edge(
+            edge_id=edge_id,
+            layer=LAYER_SPATIAL_CONTAINMENT,
+            endpoints=(NodeId(str(parent_region_id)), NodeId(str(sub_region_id))),
+            directed=True,
+            attrs={},
+            created_at=now,
+            modified_at=now,
+        )
+        state.edges.setdefault(LAYER_SPATIAL_CONTAINMENT, []).append(edge)
+        write_json(
+            state.paths.edge_layer_path(LAYER_SPATIAL_CONTAINMENT),
+            EdgeLayerFile(
+                layer=LAYER_SPATIAL_CONTAINMENT,
+                edges=tuple(state.edges[LAYER_SPATIAL_CONTAINMENT]),
+            ),
+        )
+
+        self._append_history(
+            HistoryEventKind.SUB_REGION_CREATED,
+            payload={
+                "sub_region_id": str(sub_region_id),
+                "parent_region_id": str(parent_region_id),
+                "predicate_kind": predicate.kind,
+                "name": name,
+            },
+            now=now,
+        )
+        self._notify("create_sub_region")
+        return sub_region
+
+    def update_sub_region(
+        self,
+        sub_region_id: SubRegionId,
+        *,
+        name: str | None = None,
+        predicate: SubRegionPredicate | None = None,
+        tags: tuple[str, ...] | None = None,
+        notes: str | None = None,
+    ) -> SubRegionNode:
+        """Apply a partial update to an existing :class:`SubRegionNode`."""
+        state = self.state
+        existing = state.sub_regions.get(sub_region_id)
+        if existing is None:
+            msg = f"unknown sub-region {sub_region_id!r}"
+            raise UnknownSubRegionError(msg)
+        now = _now()
+        update: dict[str, object] = {"modified_at": now}
+        if name is not None:
+            update["name"] = name
+        if predicate is not None:
+            update["predicate"] = predicate
+        if tags is not None:
+            update["tags"] = tags
+        if notes is not None:
+            update["notes"] = notes
+        new_sub_region: SubRegionNode = existing.model_copy(update=update)
+        state.sub_regions[sub_region_id] = new_sub_region
+        write_json(state.paths.sub_region_path(sub_region_id), new_sub_region)
+        self._append_history(
+            HistoryEventKind.SUB_REGION_UPDATED,
+            payload={"sub_region_id": str(sub_region_id)},
+            now=now,
+        )
+        self._notify("update_sub_region")
+        return new_sub_region
+
+    def delete_sub_region(self, sub_region_id: SubRegionId) -> None:
+        """Delete a sub-region iff no ``material_application`` edge targets it.
+
+        Also removes the parent region's ``spatial_containment`` edge and
+        prunes the id from :attr:`RegionNode.children`. Raises
+        :class:`SubRegionInUseError` if any material application still
+        references the sub-region.
+        """
+        state = self.state
+        existing = state.sub_regions.get(sub_region_id)
+        if existing is None:
+            msg = f"unknown sub-region {sub_region_id!r}"
+            raise UnknownSubRegionError(msg)
+        node_id = NodeId(str(sub_region_id))
+        for edge in state.edges.get(LAYER_MATERIAL_APPLICATION, ()):
+            if node_id in edge.endpoints:
+                msg = (
+                    f"sub-region {sub_region_id!r} is still referenced by "
+                    f"material application edge {edge.edge_id!r}"
+                )
+                raise SubRegionInUseError(msg)
+
+        del state.sub_regions[sub_region_id]
+        path = state.paths.sub_region_path(sub_region_id)
+        with suppress(FileNotFoundError):
+            path.unlink()
+
+        # Drop the spatial_containment edge whose child endpoint is this id.
+        containment = state.edges.get(LAYER_SPATIAL_CONTAINMENT, [])
+        kept = [e for e in containment if node_id not in e.endpoints]
+        if len(kept) != len(containment):
+            state.edges[LAYER_SPATIAL_CONTAINMENT] = kept
+            write_json(
+                state.paths.edge_layer_path(LAYER_SPATIAL_CONTAINMENT),
+                EdgeLayerFile(
+                    layer=LAYER_SPATIAL_CONTAINMENT,
+                    edges=tuple(kept),
+                ),
+            )
+
+        # Prune the child id from the parent region's children tuple.
+        parent_id = existing.parent_node
+        parent = state.regions.get(parent_id)
+        if parent is not None and node_id in parent.children:
+            now = _now()
+            new_children = tuple(c for c in parent.children if c != node_id)
+            new_parent: RegionNode = parent.model_copy(
+                update={"children": new_children, "modified_at": now},
+            )
+            state.regions[parent_id] = new_parent
+            write_json(state.paths.region_path(parent_id), new_parent)
+
+        self._append_history(
+            HistoryEventKind.SUB_REGION_DELETED,
+            payload={
+                "sub_region_id": str(sub_region_id),
+                "parent_region_id": str(parent_id),
+            },
+        )
+        self._notify("delete_sub_region")
+
+    # ------------------------------------------------------------------
     # Material archetype CRUD (Phase 6-bis)
     # ------------------------------------------------------------------
     def create_material_archetype(
@@ -1235,7 +1466,8 @@ class ProjectService:
         state = self.state
         is_world = target_node_id == state.metadata.world_node_id
         is_region = RegionId(str(target_node_id)) in state.regions
-        if not (is_world or is_region):
+        is_sub_region = SubRegionId(str(target_node_id)) in state.sub_regions
+        if not (is_world or is_region or is_sub_region):
             msg = f"unknown application target node {target_node_id!r}"
             raise UnknownTargetNodeError(msg)
         if scope is MaterialScope.WORLD and not is_world:
@@ -1246,6 +1478,9 @@ class ProjectService:
             raise MaterialEdgePolicyError(msg)
         if scope is MaterialScope.REGION and not is_region:
             msg = f"scope=region requires target to be a region id, got {target_node_id!r}"
+            raise MaterialEdgePolicyError(msg)
+        if scope is MaterialScope.SUB_REGION and not is_sub_region:
+            msg = f"scope=sub_region requires target to be a sub-region id, got {target_node_id!r}"
             raise MaterialEdgePolicyError(msg)
 
     def _composition_cycle_after_change(self) -> tuple[NodeId, ...] | None:
@@ -1268,6 +1503,21 @@ class ProjectService:
                 if MaterialArchetypeId(candidate) not in self.state.archetypes:
                     return MaterialArchetypeId(candidate)
         msg = f"could not allocate a unique archetype id for name {name!r}"
+        raise ProjectError(msg)
+
+    def _allocate_sub_region_id(self, name: str) -> SubRegionId:
+        """Return a fresh ``subregion_<slug>`` id, suffixing on collision."""
+        base = _slugify(name) or "sub_region"
+        candidate = f"subregion_{base}"
+        if SubRegionId(candidate) not in self.state.sub_regions:
+            return SubRegionId(candidate)
+        for suffix_len in range(2, 9):
+            for _ in range(16):
+                token = uuid4().hex[:suffix_len]
+                candidate = f"subregion_{base}_{token}"
+                if SubRegionId(candidate) not in self.state.sub_regions:
+                    return SubRegionId(candidate)
+        msg = f"could not allocate a unique sub-region id for name {name!r}"
         raise ProjectError(msg)
 
     def _allocate_edge_id(self, layer: str, prefix: str) -> EdgeId:
@@ -1360,6 +1610,22 @@ class MaterialCompositionCycleError(MaterialError):
     """Raised when a composition edge would introduce a cycle."""
 
 
+class SubRegionError(ProjectError):
+    """Base class for sub-region-CRUD errors (Phase 6-c)."""
+
+
+class UnknownSubRegionError(SubRegionError):
+    """Raised when a sub-region id does not exist in the open project."""
+
+
+class SubRegionInUseError(SubRegionError):
+    """Raised when deleting a sub-region still referenced by a material edge."""
+
+
+class UnknownParentRegionError(SubRegionError):
+    """Raised when ``create_sub_region`` is called with an unknown parent region."""
+
+
 __all__ = [
     "ArchetypeInUseError",
     "MaterialCompositionCycleError",
@@ -1377,9 +1643,13 @@ __all__ = [
     "RegionError",
     "RegionOverlapError",
     "RegionPolygonError",
+    "SubRegionError",
+    "SubRegionInUseError",
     "UnknownArchetypeError",
     "UnknownMaterialEdgeError",
+    "UnknownParentRegionError",
     "UnknownRegionError",
     "UnknownSpecError",
+    "UnknownSubRegionError",
     "UnknownTargetNodeError",
 ]
