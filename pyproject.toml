@@ -27,7 +27,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "fastapi>=0.118.0",
+    "fastapi>=0.136.1",
     "mcp>=1.27.0",
     "numpy>=2.0",
     "pillow>=10.4",
