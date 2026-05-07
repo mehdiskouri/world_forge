@@ -26,7 +26,9 @@ from forge_mcp.project.schemas import (
     MaterialCompositionAttrs,
     MaterialCompositionMode,
     NodeId,
+    PredicateMask,
     RegionId,
+    SubRegionNode,
     material_scope_specificity,
 )
 from forge_mcp.realize.material.defaults import (
@@ -63,7 +65,8 @@ def resolve_plan(
     spatial-containment ancestors.
     """
     chain = _ancestor_chain(state, region_id)
-    apps = _collect_applications(state, chain)
+    sub_region_targets = _sub_region_targets(state, region_id)
+    apps = _collect_applications(state, chain | set(sub_region_targets.keys()))
 
     if not apps:
         archetype = default_terrain_archetype(
@@ -80,7 +83,12 @@ def resolve_plan(
 
     layers: list[ResolvedLayer] = []
     for edge, attrs in apps:
-        layers.extend(_expand_application(state, edge, attrs))
+        target = edge.endpoints[1]
+        sub_region = sub_region_targets.get(target)
+        predicate_mask = (
+            PredicateMask(predicate=sub_region.predicate) if sub_region is not None else None
+        )
+        layers.extend(_expand_application(state, edge, attrs, predicate_mask=predicate_mask))
     return make_plan(region_id, mesh_name, tuple(layers))
 
 
@@ -121,6 +129,26 @@ def _ancestor_chain(state: ProjectState, region_id: RegionId) -> set[NodeId]:
     return chain
 
 
+def _sub_region_targets(
+    state: ProjectState,
+    region_id: RegionId,
+) -> dict[NodeId, SubRegionNode]:
+    """Return ``{NodeId(sub_region_id): SubRegionNode}`` for ``region_id``'s children.
+
+    Phase 6-c: sub-region applications target sub-region ids, not the
+    parent region id. The resolver therefore extends the
+    ``_collect_applications`` target set to cover them and remembers
+    the originating sub-region so the predicate can be wrapped into a
+    :class:`PredicateMask` on the resulting layers.
+    """
+    parent = NodeId(str(region_id))
+    return {
+        NodeId(str(sub.node_id)): sub
+        for sub in state.sub_regions.values()
+        if NodeId(str(sub.parent_node)) == parent
+    }
+
+
 def _collect_applications(
     state: ProjectState,
     chain: set[NodeId],
@@ -154,11 +182,21 @@ def _expand_application(
     state: ProjectState,
     application_edge: Edge,
     attrs: MaterialApplicationAttrs,
+    *,
+    predicate_mask: PredicateMask | None = None,
 ) -> list[ResolvedLayer]:
     """Expand one application edge into its ordered list of resolved layers.
 
     Order within an application: composed children render *under* the
     primary archetype, so the primary archetype is appended *last*.
+
+    When ``predicate_mask`` is non-``None`` (the application targets a
+    sub-region) every emitted layer carries it on
+    :attr:`ResolvedLayer.predicate_mask`. The application's own
+    :attr:`MaterialApplicationAttrs.mask` is left on
+    :attr:`ResolvedLayer.mask` unchanged: the adapter combines them as
+    ``predicate_factor * mask_factor`` so the predicate gates the
+    region of effect while ``mask`` modulates within it.
     """
     archetype_id = MaterialArchetypeId(str(application_edge.endpoints[0]))
     primary = state.archetypes.get(archetype_id)
@@ -181,6 +219,7 @@ def _expand_application(
                 parameters=params,
                 mask=comp_attrs.mask,
                 weight=comp_attrs.weight,
+                predicate_mask=predicate_mask,
                 source_application_edge_id=application_edge.edge_id,
                 source_composition_edge_id=comp_edge.edge_id,
             ),
@@ -194,6 +233,7 @@ def _expand_application(
             recipe=primary.recipe,
             parameters=primary_params,
             mask=attrs.mask,
+            predicate_mask=predicate_mask,
             source_application_edge_id=application_edge.edge_id,
         ),
     )

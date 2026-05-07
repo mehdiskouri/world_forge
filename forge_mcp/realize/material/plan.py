@@ -15,6 +15,7 @@ from forge_mcp.project.schemas import (
     MaterialArchetypeId,
     MaterialPlanId,
     MaterialRecipe,
+    PredicateMask,
     RegionId,
 )
 
@@ -42,6 +43,11 @@ class ResolvedLayer(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs 
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
     mask: MaskSpec | None = None
     weight: float | None = None
+    predicate_mask: PredicateMask | None = None
+    """Phase 6-c: when set, gates the layer's region of effect via the
+    sub-region's predicate. Adapter combines as ``predicate_factor *
+    mask_factor`` (predicate gates, ``mask`` modulates within); a
+    ``None`` ``predicate_mask`` is the pre-Phase-6-c behaviour."""
     source_application_edge_id: EdgeId | None = None
     source_composition_edge_id: EdgeId | None = None
 
