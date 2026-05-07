@@ -1,0 +1,319 @@
+"""Pure-function resolver: project state → composite material plan.
+
+The resolver never mutates state. It reads the ``spatial_containment``,
+``material_application``, and ``material_composition`` layers, expands
+each application through its archetype's extends/composes graph, sorts
+the resulting layers by *most-specific-on-top* precedence, and emits a
+deterministic :class:`CompositeMaterialPlan`.
+
+Determinism: the plan id depends only on the resolved layers, so two
+regions that resolve to the same flattened layer set share a single
+Blender material across the realization.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from forge_mcp.project.schemas import (
+    LAYER_MATERIAL_APPLICATION,
+    LAYER_MATERIAL_COMPOSITION,
+    LAYER_SPATIAL_CONTAINMENT,
+    Edge,
+    MaterialApplicationAttrs,
+    MaterialArchetypeId,
+    MaterialArchetypeNode,
+    MaterialCompositionAttrs,
+    MaterialCompositionMode,
+    NodeId,
+    RegionId,
+    material_scope_specificity,
+)
+from forge_mcp.realize.material.defaults import (
+    default_terrain_archetype,
+    validate_recipe_parameters,
+)
+from forge_mcp.realize.material.plan import (
+    CompositeMaterialPlan,
+    ResolvedLayer,
+    make_plan,
+)
+
+if TYPE_CHECKING:
+    from forge_mcp._types import JsonValue
+    from forge_mcp.project.service import ProjectState
+
+
+class ResolverError(ValueError):
+    """Raised when the project state cannot produce a valid material plan."""
+
+
+def resolve_plan(
+    state: ProjectState,
+    region_id: RegionId,
+    *,
+    mesh_name: str,
+    elevation_min: float,
+    elevation_max: float,
+) -> CompositeMaterialPlan:
+    """Resolve the composite material plan for ``region_id``'s mesh.
+
+    Falls back to a synthetic Phase-4-compatible default archetype when
+    no ``material_application`` edge targets the region or any of its
+    spatial-containment ancestors.
+    """
+    chain = _ancestor_chain(state, region_id)
+    apps = _collect_applications(state, chain)
+
+    if not apps:
+        archetype = default_terrain_archetype(
+            elevation_min=elevation_min,
+            elevation_max=elevation_max,
+        )
+        validate_recipe_parameters(archetype.recipe, archetype.parameters)
+        layer = ResolvedLayer(
+            archetype_id=archetype.node_id,
+            recipe=archetype.recipe,
+            parameters=dict(archetype.parameters),
+        )
+        return make_plan(region_id, mesh_name, (layer,))
+
+    layers: list[ResolvedLayer] = []
+    for edge, attrs in apps:
+        layers.extend(_expand_application(state, edge, attrs))
+    return make_plan(region_id, mesh_name, tuple(layers))
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _ancestor_chain(state: ProjectState, region_id: RegionId) -> set[NodeId]:
+    """Return the set of ``{region_id, ..., world_root}`` via spatial_containment.
+
+    Walks parent → child edges (``directed=True``, endpoints
+    ``(parent, child)``) backwards. Undirected containment edges are
+    treated as parent links by inspecting both endpoints; this is
+    consistent with the Phase-2 boundary stubs which ship undirected.
+    """
+    chain: set[NodeId] = {NodeId(str(region_id))}
+    parents: dict[NodeId, set[NodeId]] = {}
+    for edge in state.edges.get(LAYER_SPATIAL_CONTAINMENT, ()):
+        if len(edge.endpoints) != 2:  # noqa: PLR2004 - binary containment only
+            continue
+        a, b = edge.endpoints[0], edge.endpoints[1]
+        # Treat 'a' as the parent of 'b' for directed edges; for
+        # undirected edges record both directions so the walk is robust
+        # to whichever ordering the writer chose.
+        parents.setdefault(b, set()).add(a)
+        if not edge.directed:
+            parents.setdefault(a, set()).add(b)
+    frontier: list[NodeId] = [NodeId(str(region_id))]
+    while frontier:
+        node = frontier.pop()
+        for parent in parents.get(node, ()):
+            if parent in chain:
+                continue
+            chain.add(parent)
+            frontier.append(parent)
+    chain.add(state.metadata.world_node_id)
+    return chain
+
+
+def _collect_applications(
+    state: ProjectState,
+    chain: set[NodeId],
+) -> list[tuple[Edge, MaterialApplicationAttrs]]:
+    """Return material_application edges targeting any node in ``chain``, sorted.
+
+    Sort order is *render order* — the most specific / highest priority
+    application ends up last so it composites on top in the adapter.
+    Ties break on edge_id for determinism.
+    """
+    out: list[tuple[Edge, MaterialApplicationAttrs]] = []
+    for edge in state.edges.get(LAYER_MATERIAL_APPLICATION, ()):
+        if len(edge.endpoints) != 2:  # noqa: PLR2004 - binary applications only
+            continue
+        target = edge.endpoints[1]
+        if target not in chain:
+            continue
+        attrs = MaterialApplicationAttrs.model_validate(edge.attrs)
+        out.append((edge, attrs))
+    out.sort(
+        key=lambda pair: (
+            material_scope_specificity(pair[1].scope),
+            pair[1].priority,
+            pair[0].edge_id,
+        ),
+    )
+    return out
+
+
+def _expand_application(
+    state: ProjectState,
+    application_edge: Edge,
+    attrs: MaterialApplicationAttrs,
+) -> list[ResolvedLayer]:
+    """Expand one application edge into its ordered list of resolved layers.
+
+    Order within an application: composed children render *under* the
+    primary archetype, so the primary archetype is appended *last*.
+    """
+    archetype_id = MaterialArchetypeId(str(application_edge.endpoints[0]))
+    primary = state.archetypes.get(archetype_id)
+    if primary is None:
+        msg = (
+            f"material_application edge {application_edge.edge_id!r} references "
+            f"unknown archetype {archetype_id!r}"
+        )
+        raise ResolverError(msg)
+    composes_edges = _composes_children(state, archetype_id)
+    layers: list[ResolvedLayer] = []
+    # Composed children render below; iterate in deterministic edge order.
+    for comp_edge, comp_attrs, child_archetype in composes_edges:
+        params = _merge_extends_chain(state, child_archetype)
+        validate_recipe_parameters(child_archetype.recipe, params)
+        layers.append(
+            ResolvedLayer(
+                archetype_id=child_archetype.node_id,
+                recipe=child_archetype.recipe,
+                parameters=params,
+                mask=comp_attrs.mask,
+                weight=comp_attrs.weight,
+                source_application_edge_id=application_edge.edge_id,
+                source_composition_edge_id=comp_edge.edge_id,
+            ),
+        )
+    primary_params = _merge_extends_chain(state, primary)
+    primary_params = _deep_merge(primary_params, dict(attrs.parameter_overrides))
+    validate_recipe_parameters(primary.recipe, primary_params)
+    layers.append(
+        ResolvedLayer(
+            archetype_id=primary.node_id,
+            recipe=primary.recipe,
+            parameters=primary_params,
+            mask=attrs.mask,
+            source_application_edge_id=application_edge.edge_id,
+        ),
+    )
+    return layers
+
+
+def _composes_children(
+    state: ProjectState,
+    parent_id: MaterialArchetypeId,
+) -> list[tuple[Edge, MaterialCompositionAttrs, MaterialArchetypeNode]]:
+    """Return ``(edge, attrs, child_archetype)`` triples for COMPOSES edges, sorted."""
+    out: list[tuple[Edge, MaterialCompositionAttrs, MaterialArchetypeNode]] = []
+    parent_node = NodeId(str(parent_id))
+    for edge in state.edges.get(LAYER_MATERIAL_COMPOSITION, ()):
+        if len(edge.endpoints) != 2 or edge.endpoints[0] != parent_node:  # noqa: PLR2004
+            continue
+        attrs = MaterialCompositionAttrs.model_validate(edge.attrs)
+        if attrs.mode is not MaterialCompositionMode.COMPOSES:
+            continue
+        child_id = MaterialArchetypeId(str(edge.endpoints[1]))
+        child = state.archetypes.get(child_id)
+        if child is None:
+            msg = (
+                f"material_composition edge {edge.edge_id!r} references "
+                f"unknown child archetype {child_id!r}"
+            )
+            raise ResolverError(msg)
+        out.append((edge, attrs, child))
+    out.sort(key=lambda triple: triple[0].edge_id)
+    return out
+
+
+def _merge_extends_chain(
+    state: ProjectState,
+    archetype: MaterialArchetypeNode,
+) -> dict[str, JsonValue]:
+    """Flatten the EXTENDS chain rooted at ``archetype``; child params win.
+
+    Walks ``archetype`` ↑ via EXTENDS edges (``parent extends child``
+    means ``parent`` declares ``child`` as a base it overrides). Cycles
+    are impossible by service-layer construction
+    (:class:`MaterialCompositionCycleError`), but the walk caps at
+    project-archetype-count to remain robust against malformed input.
+    """
+    seen: set[MaterialArchetypeId] = set()
+    cursor: MaterialArchetypeNode | None = archetype
+    chain: list[MaterialArchetypeNode] = []
+    while cursor is not None:
+        if cursor.node_id in seen:
+            msg = f"extends chain contains a cycle through {cursor.node_id!r}"
+            raise ResolverError(msg)
+        seen.add(cursor.node_id)
+        chain.append(cursor)
+        if len(chain) > len(state.archetypes) + 1:
+            msg = "extends chain exceeded archetype count; corrupt project"
+            raise ResolverError(msg)
+        cursor = _extends_parent(state, cursor.node_id)
+    # ``chain[0]`` is the leaf (most specific); apply oldest-first so the
+    # leaf's parameters override the ancestors.
+    merged: dict[str, JsonValue] = {}
+    for node in reversed(chain):
+        merged = _deep_merge(merged, dict(node.parameters))
+    return merged
+
+
+def _extends_parent(
+    state: ProjectState,
+    archetype_id: MaterialArchetypeId,
+) -> MaterialArchetypeNode | None:
+    """Return the EXTENDS parent of ``archetype_id`` if exactly one exists.
+
+    More than one parent is a configuration error (an archetype can
+    only extend a single base in v1 to keep merge order well-defined);
+    raises :class:`ResolverError` rather than silently picking one.
+    """
+    parents: list[MaterialArchetypeNode] = []
+    child_node = NodeId(str(archetype_id))
+    for edge in state.edges.get(LAYER_MATERIAL_COMPOSITION, ()):
+        if len(edge.endpoints) != 2:  # noqa: PLR2004
+            continue
+        if edge.endpoints[0] != child_node:
+            continue
+        attrs = MaterialCompositionAttrs.model_validate(edge.attrs)
+        if attrs.mode is not MaterialCompositionMode.EXTENDS:
+            continue
+        parent_id = MaterialArchetypeId(str(edge.endpoints[1]))
+        parent = state.archetypes.get(parent_id)
+        if parent is None:
+            msg = f"extends edge {edge.edge_id!r} references unknown archetype {parent_id!r}"
+            raise ResolverError(msg)
+        parents.append(parent)
+    if not parents:
+        return None
+    if len(parents) > 1:
+        msg = (
+            f"archetype {archetype_id!r} extends >1 base "
+            f"({[p.node_id for p in parents]!r}); v1 supports a single base"
+        )
+        raise ResolverError(msg)
+    return parents[0]
+
+
+def _deep_merge(
+    base: dict[str, JsonValue],
+    overrides: dict[str, JsonValue],
+) -> dict[str, JsonValue]:
+    """Return ``base`` overlaid with ``overrides``; nested dicts merge recursively.
+
+    Lists and scalar values from ``overrides`` *replace* the base value
+    (no element-wise merge); this matches the principle of least
+    surprise for material parameter overrides.
+    """
+    out: dict[str, JsonValue] = dict(base)
+    for key, value in overrides.items():
+        existing = out.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            out[key] = _deep_merge(existing, value)
+        else:
+            out[key] = value
+    return out
+
+
+__all__ = ["ResolverError", "resolve_plan"]
