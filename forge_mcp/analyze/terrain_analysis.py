@@ -16,12 +16,13 @@ exactly what a renderer would shade.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from itertools import pairwise
 from typing import TYPE_CHECKING, ClassVar, Final
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
-from scipy.ndimage import sobel
+from scipy.ndimage import distance_transform_edt, sobel
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -235,8 +236,84 @@ def analyze(
 
 __all__ = [
     "ElevationStats",
+    "PredicateGrids",
     "SlopeStats",
     "StreamSummary",
     "TerrainAnalysis",
     "analyze",
+    "compute_predicate_grids",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class PredicateGrids:
+    """Per-pixel grids consumed by :func:`evaluate_predicate`.
+
+    All grids share the parent heightmap's shape. ``elevation_grid`` is in
+    meters (the heightmap's own units); ``slope_grid`` and ``aspect_grid``
+    are in degrees and match the surfaces shaded by the renderer (sobel-
+    filtered, compass-bearing aspect with downhill = 0° at north).
+    ``distance_to_stream_grid`` is in world meters and is ``None`` when
+    the parent region has no realised stream — predicates of kind
+    ``distance_to_stream`` evaluate to all-``False`` in that case.
+    """
+
+    elevation_grid: NDArray[np.float32]
+    slope_grid: NDArray[np.float32]
+    aspect_grid: NDArray[np.float32]
+    distance_to_stream_grid: NDArray[np.float32] | None
+
+
+def compute_predicate_grids(
+    heightmap: Heightmap,
+    stream: StreamGeometry | None,
+) -> PredicateGrids:
+    """Build the four grids the predicate evaluator consumes.
+
+    Pure: no IO, no RNG. ``slope_grid``/``aspect_grid`` reuse the same
+    sobel routine as :func:`analyze` so predicate evaluation matches what
+    the renderer shades. ``distance_to_stream_grid`` rasterises the
+    stream path onto the heightmap raster and runs an EDT in pixel
+    units, scaled to meters by ``resolution_meters_per_pixel``.
+    """
+    elevation_grid = heightmap.data.astype(np.float32, copy=False)
+    slope_grid, aspect_grid = _slope_and_aspect(
+        heightmap.data,
+        heightmap.resolution_meters_per_pixel,
+    )
+    distance_to_stream_grid = (
+        _distance_to_stream_grid(heightmap, stream) if stream is not None else None
+    )
+    return PredicateGrids(
+        elevation_grid=elevation_grid,
+        slope_grid=slope_grid,
+        aspect_grid=aspect_grid,
+        distance_to_stream_grid=distance_to_stream_grid,
+    )
+
+
+def _distance_to_stream_grid(
+    heightmap: Heightmap,
+    stream: StreamGeometry,
+) -> NDArray[np.float32]:
+    """Rasterise ``stream.path`` onto the heightmap raster, return EDT in meters.
+
+    Each path vertex is clamped to the in-bounds raster and stamped as a
+    seed pixel. The EDT then gives, for every pixel, the meters-distance
+    to the nearest stream vertex. Segment-interior pixels are not
+    rasterised explicitly; for v1 the path is dense enough (one vertex
+    per ~pixel) that vertex-only stamping matches segment rasterisation
+    to within sub-pixel error.
+    """
+    height, width = heightmap.data.shape
+    res = heightmap.resolution_meters_per_pixel
+    ox, oy = heightmap.origin
+    seeds = np.ones((height, width), dtype=bool)
+    for x, y in stream.path:
+        col = max(0, min(width - 1, round((x - ox) / res)))
+        row = max(0, min(height - 1, round((y - oy) / res)))
+        seeds[row, col] = False
+    if seeds.all():  # pragma: no cover  # path always has >=2 anchors
+        return np.full((height, width), np.inf, dtype=np.float32)
+    distances_pixels = distance_transform_edt(seeds)
+    return (distances_pixels * res).astype(np.float32, copy=False)
