@@ -137,6 +137,8 @@ class _RealizationArtifacts:
     blend_path: Path
     realize_result: RealizationResult
     views: tuple[_ViewArtifacts, ...]
+    plan_id: str
+    elevation_band: tuple[float, float]
 
 
 def _resolve_region(region_id_value: str) -> tuple[RegionId, object]:
@@ -408,6 +410,8 @@ def _run_realizer(
         blend_path=blend_path,
         realize_result=realize_result,
         views=tuple(views),
+        plan_id=str(composite_plan.plan_id),
+        elevation_band=(elevation_min, elevation_max),
     )
 
 
@@ -518,6 +522,11 @@ def generate_region(region_id: str) -> dict[str, object]:  # noqa: PLR0911 - one
             "render_engine": _RENDER_ENGINE,
             "default_resolution": list(_RESOLUTIONS[DEFAULT_RESOLUTION]),
             "default_view_kind": DEFAULT_VIEW_KIND,
+            "plan_id": str(artifacts.plan_id),
+            "elevation_band": [
+                float(artifacts.elevation_band[0]),
+                float(artifacts.elevation_band[1]),
+            ],
         }
 
     return ok(

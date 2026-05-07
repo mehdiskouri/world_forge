@@ -41,7 +41,7 @@ nine macros:
 | --- | --- |
 | ``reset_scene`` | Wipe to ``read_factory_settings(use_empty=True)``. |
 | ``create_terrain_from_heightmap`` | ``mesh.from_pydata`` + IDProperty tags (``forge_node_id``, ``forge_spec_id``, ``forge_kind``). |
-| ``apply_terrain_material`` | ``material.build_terrain`` with elevation-driven color ramp. |
+| ``apply_terrain_material`` | ``material.build_composite`` from a resolved :class:`CompositeMaterialPlan` (see "Composite materials" below). |
 | ``carve_stream`` | Curve datablock + IDProperty tag for the optional stream geometry. |
 | ``set_camera_overview`` | Ortho-top + perspective cameras framing world bounds. |
 | ``add_basic_lighting`` | Sun lamp + procedural sky world. |
@@ -115,6 +115,54 @@ call so the on-disk ``.blend`` stays honest about what the most recent
 render actually drew. A missing factory returns the
 ``realizer_not_configured`` error envelope so the agent can fall back
 to the heightmap PNG.
+
+## Composite materials
+
+The terrain material a region renders with is no longer hard-coded; it
+is *resolved* from the project hypergraph at the start of every
+``forge.generate_region`` call. The pipeline is:
+
+1. ``forge_mcp.realize.material.resolve_plan(state, region_id, ...)``
+   walks the ancestor chain of ``region_id``
+   (``region``-scoped applications win over ``world`` scope; ties break
+   on ``priority`` then ``edge_id``), expands every
+   ``material_application`` edge against its archetype's
+   ``material_composition`` chain (``extends`` flattens parameters,
+   ``composes`` stacks an extra layer with a ``MaskSpec``), and emits
+   a ``CompositeMaterialPlan`` carrying a tuple of ``ResolvedLayer`` s.
+2. The plan is content-addressed: ``plan_id =
+   blake2b(canonical_json({region_id, mesh_name, layers}),
+   digest_size=10).hexdigest()`` (prefixed ``mplan_``). Two regions
+   that resolve to the same layers share the same ``plan_id`` — and
+   therefore the same ``forge.material.<plan_id>`` data-block in the
+   rendered ``.blend``.
+3. When no ``material_application`` is in scope, the resolver falls
+   back to the synthesised default archetype produced by
+   ``forge_mcp.realize.material.defaults.default_terrain_archetype``
+   (the green/brown/white height ramp the prior hard-coded path used).
+   This is the regression gate for projects with no material wiring.
+4. The plan is JSON-serialised and threaded through the
+   ``apply_terrain_material`` macro to ``material.build_composite``,
+   which in the Blender adapter dispatches each layer through a recipe
+   registry (``principled_height_ramp``, ``triplanar_rock``,
+   ``flat_color``) and mixes consecutive layers via
+   ``ShaderNodeMixShader`` driven by the layer's ``MaskSpec``
+   (``height_ramp`` / ``slope`` / ``constant``).
+
+The MCP surface for material wiring lives in
+``forge_mcp/server/tools/materials.py``: ``forge.create_material_archetype``,
+``forge.update_material_archetype``, ``forge.delete_material_archetype``,
+``forge.list_material_archetypes``, ``forge.get_material_archetype``,
+``forge.apply_material``, ``forge.unapply_material``,
+``forge.list_material_applications``, ``forge.compose_material``,
+``forge.uncompose_material``, and the read-only
+``forge.resolve_material`` (which returns the same
+``CompositeMaterialPlan`` ``forge.generate_region`` will use).
+
+The realization summary in the ``forge.generate_region`` envelope
+exposes ``plan_id`` and ``elevation_band`` so callers can correlate
+trace records, on-disk material names, and resolver previews without
+re-deriving them.
 
 ## On-disk layout
 
