@@ -34,6 +34,7 @@ from forge_mcp.server.tools import regions as region_tools
 from forge_mcp.server.tools import schema as schema_tools
 from forge_mcp.server.tools import set_realizer_factory
 from forge_mcp.server.tools import skills as skills_tools
+from forge_mcp.server.tools import sub_regions as sub_region_tools
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -348,6 +349,55 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "targets the region)."
         ),
     )(material_tools.resolve_material)
+
+    # --- Sub-regions (Phase 6-c Phase E) ----------------------------------
+    server.tool(
+        name="forge.create_sub_region",
+        title="Create a predicate-typed sub-region",
+        description=(
+            "Create a `sub_region` node under an existing region. The "
+            "predicate (height_band / slope / aspect / distance_to_stream) "
+            "is the sub-region's extent — it is evaluated lazily at "
+            "realize time against the parent's persisted heightmap, so "
+            "re-rolling the parent updates coverage on next "
+            "`forge.generate_region`."
+        ),
+    )(sub_region_tools.create_sub_region)
+    server.tool(
+        name="forge.update_sub_region",
+        title="Update a sub-region",
+        description="Apply a partial update to an existing sub-region.",
+    )(sub_region_tools.update_sub_region)
+    server.tool(
+        name="forge.delete_sub_region",
+        title="Delete a sub-region",
+        description=(
+            "Refuses if any `material_application` edge still targets "
+            "the sub-region; remove those applications first."
+        ),
+    )(sub_region_tools.delete_sub_region)
+    server.tool(
+        name="forge.list_sub_regions",
+        title="List sub-regions",
+        description=(
+            "Return a deterministic list of sub-region summaries; filterable by `parent_region_id`."
+        ),
+    )(sub_region_tools.list_sub_regions)
+    server.tool(
+        name="forge.get_sub_region",
+        title="Get one sub-region",
+        description="Return the full sub-region record for `sub_region_id`.",
+    )(sub_region_tools.get_sub_region)
+    server.tool(
+        name="forge.preview_sub_region_coverage",
+        title="Preview sub-region predicate coverage",
+        description=(
+            "Evaluate the sub-region's predicate against the parent "
+            "region's persisted heightmap and return vertex_count, "
+            "total_vertices, coverage_fraction, and bbox_uv. Read-only; "
+            "no Blender required."
+        ),
+    )(sub_region_tools.preview_sub_region_coverage)
 
     # --- Canvas (Phase 6 Stage D) -----------------------------------------
     server.tool(

@@ -86,6 +86,13 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         "forge.compose_material",
         "forge.uncompose_material",
         "forge.resolve_material",
+        # Sub-regions surface (Phase 6-c Phase E)
+        "forge.create_sub_region",
+        "forge.update_sub_region",
+        "forge.delete_sub_region",
+        "forge.list_sub_regions",
+        "forge.get_sub_region",
+        "forge.preview_sub_region_coverage",
     },
 )
 
