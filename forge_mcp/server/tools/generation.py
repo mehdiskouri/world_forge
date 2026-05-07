@@ -101,9 +101,11 @@ _RESOLUTIONS: Final[dict[str, tuple[int, int]]] = {
 # realizer was fixed to frame the heightmap and orient the sun, default
 # 1024x768 renders measured ~350 KB under zlib level 9 (post-retry); we
 # add headroom and scale by pixel count for the other resolutions.
+# Ceiling raised to 1.5 MB for default: high-detail profiles (alpine_peaks
+# with ruggedness) produce ~1.13 MB renders that legitimately exceed 1 MB.
 _PNG_MAX_BYTES: Final[dict[str, int]] = {
     RESOLUTION_PREVIEW: 350_000,
-    RESOLUTION_DEFAULT: 1_000_000,
+    RESOLUTION_DEFAULT: 1_500_000,
     RESOLUTION_FULL: 4_000_000,
 }
 

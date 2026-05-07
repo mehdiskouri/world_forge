@@ -397,9 +397,11 @@ def _build_mask_factor(
 ) -> Any:  # noqa: ANN401
     """Return a node-graph value socket suitable for a MixShader Fac.
 
-    ``None`` mask + ``None`` weight → default 0.5 mix. A height-ramp
-    mask blends along world-space Z. A constant mask emits its
-    configured value. Weight further scales the resulting factor.
+    ``None`` mask + ``None`` weight → constant ``1.0`` (full
+    replacement; any caller-supplied predicate becomes the sole gate).
+    A height-ramp mask blends along world-space Z. A constant mask
+    emits its configured value. Weight further scales the resulting
+    factor.
 
     Phase 6-c: when ``predicate_mask`` is provided (sub-region scoped
     application), the predicate's per-pixel boolean is built as a 0/1
@@ -425,8 +427,21 @@ def _build_base_mask_factor(
     mask: dict[str, Any] | None,
     weight: float | None,
 ) -> Any:  # noqa: ANN401
-    """Return the application's own mask factor (no predicate gating)."""
-    weight_value = 0.5 if weight is None else float(weight)
+    """Return the application's own mask factor (no predicate gating).
+
+    With no explicit ``mask`` and no explicit ``weight`` the factor is
+    constant ``1.0`` so that any predicate gate from the caller is the
+    *sole* selector (predicate=1 ``\u2192`` Fac=1 ``\u2192`` full replacement
+    inside the band). Earlier revisions defaulted to ``0.5`` which was
+    a holdover from the pre-Phase-6-c "two materials, blend evenly"
+    case; combined with a predicate factor of 0/1 it caused
+    sub-region-scoped layers without an explicit mask or weight to
+    composite at half strength inside their predicate band, leaking
+    the underlying region material through at equal intensity. See
+    [`AGENT/dev_phases/phase6_c_subregion.md`](../../AGENT/dev_phases/phase6_c_subregion.md)
+    "Hotfix follow-up" for the diagnosis.
+    """
+    weight_value = 1.0 if weight is None else float(weight)
     if mask is None:
         const = nodes.new("ShaderNodeValue")
         const.outputs[0].default_value = weight_value

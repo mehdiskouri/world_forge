@@ -50,3 +50,29 @@ Add `sub_region` as a first-class node living between `region` and `asset` in `s
 2. **Resolver mask combination when both an application's own `attrs.mask` AND the sub_region's predicate are present.**  predicate gates the layer's region of effect, application mask modulates within that region; document precedence.
 3. **Parent-region edit propagation.**  leave sub_regions intact when the parent region's seed/descriptor changes (they re-evaluate against the new heightmap;preview_sub_region_coverage is the escape hatch)
 4.  dedicated `docs/p6c_subregions_walkthrough.md`that includes materials walkthrough steps into a single integrated flow that generates a complete region with proper materials reflective of the title for each subregion to demonstrate e2e success.
+
+---
+
+### Hotfix follow-up — sub-region materials render at half strength
+
+Discovered while reviewing the Phase 6-c sanity render: sub-region-scoped materials
+that carry only a predicate (no explicit `attrs.mask`, no `weight`) composite at
+**50%** instead of fully replacing the underlying region material inside the
+predicate band.
+
+**Location:** [scripts/blender/adapter.py](../../scripts/blender/adapter.py#L423-L437)
+in `_build_base_mask_factor`. When `mask is None` and `weight is None`, the
+function returns a constant `weight_value = 0.5`, which then multiplies with the
+predicate factor (0 or 1) and feeds the `MixShader.Fac` socket. Result: peaks at
+0.5 inside the predicate band, so the region-scoped base layer leaks through at
+equal strength.
+
+**Why CI didn't catch it:** the existing material-composition integration test
+([tests/integration/test_material_composition.py](../../tests/integration/test_material_composition.py#L70))
+passes an explicit `"weight": 1.0`. The Phase 6-c sub-region resolution test
+asserts `plan_id` determinism only — it never samples a rendered pixel.
+
+**Fix (planned, separate small PR):** default `weight_value` to `1.0` when both
+`mask` and `weight` are absent (treat the predicate as the sole gate); strengthen
+the integration suite to render a region with a disjoint predicate band and assert
+the sampled colour matches the sub-region archetype, not a 50/50 blend.
