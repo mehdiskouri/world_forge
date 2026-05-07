@@ -27,8 +27,10 @@ realizer is Phase 4):
   ``bpy.data.images`` (Phase 4 displacement texture path)
 * ``render.to_file``                — render the active scene to a
   PNG path with controlled resolution / compression (Phase 4 preview)
-* ``material.build_terrain``        — build a single elevation-driven
-  terrain material and assign it to a mesh object (Phase 4)
+* ``material.build_composite``      — build a composite material from a
+  resolved CompositeMaterialPlan (one or more layered shader recipes
+  combined via MixShader nodes driven by per-layer mask specs) and
+  assign it to a mesh object (Phase 6-bis)
 * ``object.from_data``              — wrap a named ``bpy.data.<coll>``
   data-block in an object and link it into the scene collection
   (Phase 4 camera / lamp creation path)
@@ -282,33 +284,22 @@ def _handle_render_to_file(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
-    material_name = params.get("material_name")
-    target_object = params.get("target_object")
-    color_ramp_stops = params.get("color_ramp_stops", [])
-    slope_threshold = float(params.get("slope_threshold", 0.5))
-    elevation_min = float(params.get("elevation_min", 0.0))
-    elevation_max = float(params.get("elevation_max", 1.0))
+def _build_principled_height_ramp(  # noqa: C901, PLR0915 - shader graph assembly is linear
+    nodes: Any,  # noqa: ANN401 - bpy node tree is dynamically typed
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Build the elevation-driven Principled BSDF; return its surface output socket."""
+    color_ramp_stops = parameters.get("color_ramp_stops") or []
+    slope_threshold = float(parameters.get("slope_threshold", 0.5))
+    elevation_min = float(parameters.get("elevation_min", 0.0))
+    elevation_max = float(parameters.get("elevation_max", 1.0))
     elevation_span = elevation_max - elevation_min
     if elevation_span <= 0.0:
         elevation_span = 1.0
-    if not isinstance(material_name, str) or not isinstance(target_object, str):
-        msg = "material.build_terrain requires string 'material_name' and 'target_object'"
-        raise ValueError(msg)
     if not isinstance(color_ramp_stops, list) or not color_ramp_stops:
-        msg = "material.build_terrain requires non-empty 'color_ramp_stops'"
+        msg = "principled_height_ramp recipe requires non-empty color_ramp_stops"
         raise ValueError(msg)
-    obj = bpy.data.objects.get(target_object)
-    if obj is None:
-        msg = f"no object named {target_object!r}"
-        raise KeyError(msg)
-    mat = bpy.data.materials.new(name=material_name)
-    mat.use_nodes = True
-    nodes = mat.node_tree.nodes
-    links = mat.node_tree.links
-    for node in list(nodes):
-        nodes.remove(node)
-    output = nodes.new("ShaderNodeOutputMaterial")
     bsdf = nodes.new("ShaderNodeBsdfPrincipled")
     geom = nodes.new("ShaderNodeNewGeometry")
     sep = nodes.new("ShaderNodeSeparateXYZ")
@@ -327,10 +318,6 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
         a = float(color[3]) if len(color) >= rgba_min else 1.0
         elem.color = (r, g, b, a)
     bsdf.inputs["Roughness"].default_value = slope_threshold
-    # Normalize world-space Z (in metres) into the color ramp's [0, 1]
-    # input domain. Without this the ramp Fac receives raw metres, every
-    # vertex past the first stop clamps to the top colour, and the whole
-    # terrain renders in a single flat shade.
     sub = nodes.new("ShaderNodeMath")
     sub.operation = "SUBTRACT"
     sub.inputs[1].default_value = elevation_min
@@ -343,13 +330,182 @@ def _handle_material_build_terrain(params: dict[str, Any]) -> dict[str, Any]:
     links.new(sub.outputs["Value"], div.inputs[0])
     links.new(div.outputs["Value"], ramp.inputs["Fac"])
     links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
-    links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
+    return bsdf.outputs["BSDF"]
+
+
+def _build_triplanar_rock(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Build a basic triplanar-projection Principled BSDF."""
+    base_color = parameters.get("base_color") or [0.5, 0.5, 0.5, 1.0]
+    roughness = float(parameters.get("roughness", 0.7))
+    scale = float(parameters.get("scale_meters", 1.0))
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    rgba_min = 4
+    r, g, b = float(base_color[0]), float(base_color[1]), float(base_color[2])
+    a = float(base_color[3]) if len(base_color) >= rgba_min else 1.0
+    bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+    bsdf.inputs["Roughness"].default_value = roughness
+    # Light triplanar wiring: feed world-space position (scaled) into a
+    # Voronoi for surface variation. Kept intentionally simple in v1; a
+    # real triplanar would split per-axis projections.
+    geom = nodes.new("ShaderNodeNewGeometry")
+    mul = nodes.new("ShaderNodeVectorMath")
+    mul.operation = "SCALE"
+    mul.inputs["Scale"].default_value = scale
+    voronoi = nodes.new("ShaderNodeTexVoronoi")
+    mix = nodes.new("ShaderNodeMixRGB")
+    mix.inputs["Fac"].default_value = 0.15
+    mix.inputs["Color1"].default_value = (r, g, b, a)
+    links.new(geom.outputs["Position"], mul.inputs["Vector"])
+    links.new(mul.outputs["Vector"], voronoi.inputs["Vector"])
+    links.new(voronoi.outputs["Color"], mix.inputs["Color2"])
+    links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
+    return bsdf.outputs["BSDF"]
+
+
+def _build_flat_color(
+    nodes: Any,  # noqa: ANN401
+    _links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Build a minimal solid-color Principled BSDF."""
+    color = parameters.get("color") or [0.5, 0.5, 0.5, 1.0]
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    rgba_min = 4
+    r, g, b = float(color[0]), float(color[1]), float(color[2])
+    a = float(color[3]) if len(color) >= rgba_min else 1.0
+    bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+    return bsdf.outputs["BSDF"]
+
+
+_RECIPE_BUILDERS = {
+    "principled_height_ramp": _build_principled_height_ramp,
+    "triplanar_rock": _build_triplanar_rock,
+    "flat_color": _build_flat_color,
+}
+
+
+def _build_mask_factor(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    mask: dict[str, Any] | None,
+    weight: float | None,
+) -> Any:  # noqa: ANN401
+    """Return a node-graph value socket suitable for a MixShader Fac.
+
+    ``None`` mask + ``None`` weight → default 0.5 mix. A height-ramp
+    mask blends along world-space Z. A constant mask emits its
+    configured value. Weight further scales the resulting factor.
+    """
+    weight_value = 0.5 if weight is None else float(weight)
+    if mask is None:
+        const = nodes.new("ShaderNodeValue")
+        const.outputs[0].default_value = weight_value
+        return const.outputs[0]
+    kind = mask.get("kind")
+    if kind == "constant":
+        const = nodes.new("ShaderNodeValue")
+        const.outputs[0].default_value = float(mask.get("value", 0.5)) * weight_value
+        return const.outputs[0]
+    if kind == "height_ramp":
+        low = float(mask.get("low_m", 0.0))
+        high = float(mask.get("high_m", 1.0))
+        span = high - low if high > low else 1.0
+        geom = nodes.new("ShaderNodeNewGeometry")
+        sep = nodes.new("ShaderNodeSeparateXYZ")
+        sub = nodes.new("ShaderNodeMath")
+        sub.operation = "SUBTRACT"
+        sub.inputs[1].default_value = low
+        div = nodes.new("ShaderNodeMath")
+        div.operation = "DIVIDE"
+        div.inputs[1].default_value = span
+        div.use_clamp = True
+        scale = nodes.new("ShaderNodeMath")
+        scale.operation = "MULTIPLY"
+        scale.inputs[1].default_value = weight_value
+        scale.use_clamp = True
+        links.new(geom.outputs["Position"], sep.inputs["Vector"])
+        links.new(sep.outputs["Z"], sub.inputs[0])
+        links.new(sub.outputs["Value"], div.inputs[0])
+        links.new(div.outputs["Value"], scale.inputs[0])
+        return scale.outputs["Value"]
+    # Unknown / slope mask: fall back to a constant weight; richer mask
+    # support lands in a follow-up phase.
+    const = nodes.new("ShaderNodeValue")
+    const.outputs[0].default_value = weight_value
+    return const.outputs[0]
+
+
+def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
+    """Realize a :class:`CompositeMaterialPlan` into a Blender material.
+
+    The plan's content-hashed ``plan_id`` is used as the Blender
+    material name (prefixed with ``forge.material.``) so two regions
+    that resolve to the same plan share a single ``bpy.data.materials``
+    data-block and a single shader compile.
+    """
+    target_object = params.get("target_object")
+    plan = params.get("plan")
+    if not isinstance(target_object, str):
+        msg = "material.build_composite requires string 'target_object'"
+        raise ValueError(msg)
+    if not isinstance(plan, dict):
+        msg = "material.build_composite requires 'plan' object"
+        raise ValueError(msg)
+    plan_id = plan.get("plan_id")
+    layers = plan.get("layers")
+    if not isinstance(plan_id, str) or not isinstance(layers, list) or not layers:
+        msg = "plan must have string 'plan_id' and non-empty 'layers'"
+        raise ValueError(msg)
+    obj = bpy.data.objects.get(target_object)
+    if obj is None:
+        msg = f"no object named {target_object!r}"
+        raise KeyError(msg)
+    material_name = f"forge.material.{plan_id}"
+    existing = bpy.data.materials.get(material_name)
+    if existing is not None:
+        # Reuse the shared material; just bind it to the mesh.
+        mat = existing
+    else:
+        mat = bpy.data.materials.new(name=material_name)
+        mat.use_nodes = True
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+        for node in list(nodes):
+            nodes.remove(node)
+        output = nodes.new("ShaderNodeOutputMaterial")
+        # Build each layer's shader, mixing into a running composite.
+        composite = None
+        for layer in layers:
+            recipe = layer.get("recipe")
+            parameters = layer.get("parameters") or {}
+            builder = _RECIPE_BUILDERS.get(recipe)
+            if builder is None:
+                msg = f"unknown material recipe {recipe!r}"
+                raise ValueError(msg)
+            shader_socket = builder(nodes, links, parameters)
+            if composite is None:
+                composite = shader_socket
+                continue
+            mix = nodes.new("ShaderNodeMixShader")
+            fac_socket = _build_mask_factor(
+                nodes, links, layer.get("mask"), layer.get("weight"),
+            )
+            links.new(fac_socket, mix.inputs["Fac"])
+            links.new(composite, mix.inputs[1])
+            links.new(shader_socket, mix.inputs[2])
+            composite = mix.outputs["Shader"]
+        if composite is not None:
+            links.new(composite, output.inputs["Surface"])
     if obj.data is not None and hasattr(obj.data, "materials"):
         if len(obj.data.materials) > 0:
             obj.data.materials[0] = mat
         else:
             obj.data.materials.append(mat)
-    return {"material_name": mat.name}
+    return {"material_name": mat.name, "plan_id": plan_id}
 
 
 def _handle_mesh_add_displace_modifier(params: dict[str, Any]) -> dict[str, Any]:
@@ -463,8 +619,8 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_image_from_file(params)
     if method == "render.to_file":
         return _handle_render_to_file(params)
-    if method == "material.build_terrain":
-        return _handle_material_build_terrain(params)
+    if method == "material.build_composite":
+        return _handle_material_build_composite(params)
     if method == "object.from_data":
         return _handle_object_from_data(params)
     if method == "scene.assign_world":

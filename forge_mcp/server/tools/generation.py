@@ -63,6 +63,7 @@ from forge_mcp.realize.macros import (
     realize_region,
     render_preview,
 )
+from forge_mcp.realize.material import resolve_plan
 from forge_mcp.realize.realization import record_from_result, write_trace_record
 from forge_mcp.server.tools import get_realizer_factory, get_service
 from forge_mcp.server.tools._responses import fail, ok
@@ -106,12 +107,7 @@ _PNG_MAX_BYTES: Final[dict[str, int]] = {
     RESOLUTION_FULL: 4_000_000,
 }
 
-_DEFAULT_COLOR_RAMP_STOPS: Final[tuple[dict[str, JsonValue], ...]] = (
-    {"position": 0.0, "color": [0.18, 0.34, 0.12, 1.0]},
-    {"position": 0.5, "color": [0.45, 0.36, 0.27, 1.0]},
-    {"position": 1.0, "color": [0.95, 0.95, 0.95, 1.0]},
-)
-_DEFAULT_SLOPE_THRESHOLD: Final[float] = 0.35
+_DEFAULT_PLAN_MESH_PREFIX: Final[str] = "terrain_"
 
 _RENDER_ENGINE: Final[str] = "BLENDER_EEVEE"  # Blender 5.0 enum identifier
 
@@ -273,7 +269,7 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     heightmap_image_filepath: Path,
     displace_strength: float,
     framing: SceneFraming,
-    elevation_band: tuple[float, float],
+    plan: JsonValue,
 ) -> RealizeRegionInputs:
     """Assemble the per-region :class:`RealizeRegionInputs` payload."""
     rid_str = str(region_id)
@@ -284,11 +280,7 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
         faces=faces,
         region_id=rid_str,
         spec_id=sid_str,
-        material_name=f"mat_{rid_str}",
-        color_ramp_stops=list(_DEFAULT_COLOR_RAMP_STOPS),
-        slope_threshold=_DEFAULT_SLOPE_THRESHOLD,
-        elevation_min=float(elevation_band[0]),
-        elevation_max=float(elevation_band[1]),
+        plan=plan,
         curve_name=f"stream_{rid_str}",
         ortho_camera_name=f"cam_ortho_{rid_str}",
         perspective_camera_name=f"cam_persp_{rid_str}",
@@ -343,6 +335,17 @@ def _run_realizer(
     displace_strength = 0.0
     framing = scene_framing_from_heightmap(heightmap)
 
+    elevation_min = float(heightmap.elevation_band[0])
+    elevation_max = float(heightmap.elevation_band[1])
+    composite_plan = resolve_plan(
+        service.state,
+        region_id,
+        mesh_name=f"{_DEFAULT_PLAN_MESH_PREFIX}{region_id}",
+        elevation_min=elevation_min,
+        elevation_max=elevation_max,
+    )
+    plan_payload = composite_plan.model_dump(mode="json")
+
     realize_inputs = _build_realize_inputs(
         region_id,
         spec_id,
@@ -352,7 +355,7 @@ def _run_realizer(
         heightmap_png,
         displace_strength,
         framing,
-        heightmap.elevation_band,
+        plan_payload,
     )
 
     plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs]] = []
@@ -388,6 +391,7 @@ def _run_realizer(
             render_result,
             region_id=str(region_id),
             view_kind=view_kind,
+            plan_id=str(composite_plan.plan_id),
         )
         write_trace_record(trace_path, record)
         views.append(
