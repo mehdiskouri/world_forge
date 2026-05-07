@@ -164,6 +164,54 @@ exposes ``plan_id`` and ``elevation_band`` so callers can correlate
 trace records, on-disk material names, and resolver previews without
 re-deriving them.
 
+### Sub-regions
+
+A region is rarely materially homogeneous: a single "alpine valley"
+descriptor may want grass in the basin, scree on the steep faces,
+and snow above an elevation line. Phase 6-c models this by adding a
+typed ``sub_region`` node that hangs off a parent region via a
+``LAYER_SPATIAL_CONTAINMENT`` edge and carries a
+:class:`SubRegionPredicate` describing *which* surface points it
+covers. Predicates are evaluated lazily — the sub_region itself is
+just a query.
+
+Four predicate kinds ship in v1:
+
+* ``height_band`` — half-open ``[low_m, high_m)`` on absolute
+  elevation;
+* ``slope`` — half-open ``[min_deg, max_deg)`` on the surface slope
+  (degrees from horizontal);
+* ``aspect`` — half-open ``[min_deg, max_deg)`` on the compass bearing
+  of the downhill direction (north = 0°), with wrap-through-north
+  ``min > max`` interpreted as ``[min, 360) ∪ [0, max)``;
+* ``distance_to_stream`` — ``<= max_m``, evaluated against the
+  rasterised stream centerline.
+
+Sub_regions slot into the resolver as additional targets in the
+ancestor walk: an ``apply_material`` edge whose
+``scope = "sub_region"`` lands on the sub_region node, the resolver
+materialises the resulting ``CompositeMaterialPlan`` layer with a
+:class:`PredicateMask` attached, and the Blender adapter combines
+that predicate factor with the application's own ``MaskSpec`` via
+a clamped ``ShaderNodeMath`` multiply (predicate gates the *region of
+effect*, the application mask modulates *within* it). The plan is
+still content-addressed over the same canonical layer tuple, so two
+identical sub_region wirings collapse to the same ``plan_id`` and
+share the same on-disk material data-block.
+
+The MCP surface for sub_regions lives in
+``forge_mcp/server/tools/sub_regions.py``:
+``forge.create_sub_region``, ``forge.update_sub_region``,
+``forge.delete_sub_region``, ``forge.list_sub_regions``,
+``forge.get_sub_region``, and the read-only
+``forge.preview_sub_region_coverage`` (which evaluates the predicate
+against the parent region's heightmap and returns the selected vertex
+count, coverage fraction, and UV-space AABB without launching
+Blender). End-to-end behaviour is exercised in
+``tests/integration/test_sub_region_material_resolution.py`` and
+walked through in
+[``docs/p6c_subregions_walkthrough.md``](p6c_subregions_walkthrough.md).
+
 ## On-disk layout
 
 ```
