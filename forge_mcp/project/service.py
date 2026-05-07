@@ -33,14 +33,19 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from forge_mcp._io.atomic import atomic_write_text, write_json
+from forge_mcp._types import JsonValue  # noqa: TC001 - runtime needed for Mapping[str, JsonValue]
 from forge_mcp.descriptor.schema import SCHEMA_VERSION as DESCRIPTOR_SCHEMA_VERSION
 from forge_mcp.descriptor.schema import StructuredDescriptor
 from forge_mcp.project.history import HistoryLog
 from forge_mcp.project.locks import LockStore, LockStoreError
 from forge_mcp.project.schemas import (
+    DEFAULT_REGISTERED_LAYERS,
+    LAYER_MATERIAL_APPLICATION,
+    LAYER_MATERIAL_COMPOSITION,
     BoundaryId,
     BoundaryRecord,
     Edge,
+    EdgeId,
     EdgeLayerFile,
     HistoryActor,
     HistoryEvent,
@@ -48,6 +53,11 @@ from forge_mcp.project.schemas import (
     HistoryEventKind,
     LockRecord,
     LockStoreFile,
+    MaterialApplicationAttrs,
+    MaterialArchetypeId,
+    MaterialArchetypeNode,
+    MaterialCompositionAttrs,
+    MaterialRecipe,
     NodeId,
     Polygon2D,
     ProjectMetadata,
@@ -91,11 +101,7 @@ _WORLD_ROOT_NAME: Final[str] = "World"
 # ``ProjectMetadata.registered_layers`` but kept as a separate constant
 # so a future "extra layers" knob can diverge without breaking either
 # call site.
-_DEFAULT_LAYERS: Final[tuple[str, ...]] = (
-    "spatial_containment",
-    "spatial_adjacency",
-    "hydrology",
-)
+_DEFAULT_LAYERS: Final[tuple[str, ...]] = DEFAULT_REGISTERED_LAYERS
 
 _GITIGNORE_BODY: Final[str] = "realizations/\n"
 
@@ -285,6 +291,7 @@ class ProjectState:
     paths: ProjectPaths
     metadata: ProjectMetadata
     regions: dict[RegionId, RegionNode] = field(default_factory=dict)
+    archetypes: dict[MaterialArchetypeId, MaterialArchetypeNode] = field(default_factory=dict)
     boundaries: dict[BoundaryId, BoundaryRecord] = field(default_factory=dict)
     edges: dict[str, list[Edge]] = field(default_factory=dict)
     history: HistoryLog = field(init=False)
@@ -501,6 +508,7 @@ class ProjectService:
 
         state = ProjectState(paths=paths, metadata=metadata)
         state.regions = self._load_regions(paths)
+        state.archetypes = self._load_archetypes(paths)
         state.edges = self._load_edges(paths, metadata.registered_layers)
         state.boundaries = self._load_boundaries(paths)
         try:
@@ -536,6 +544,8 @@ class ProjectService:
         write_json(state.paths.metadata_path, new_metadata)
         for region in state.regions.values():
             write_json(state.paths.region_path(region.node_id), region)
+        for archetype in state.archetypes.values():
+            write_json(self._archetype_path(state.paths, archetype.node_id), archetype)
         for layer, edges in state.edges.items():
             write_json(
                 state.paths.edge_layer_path(layer),
@@ -587,6 +597,29 @@ class ProjectService:
                 raise ProjectFormatError(msg) from exc
             regions[region.node_id] = region
         return regions
+
+    @staticmethod
+    def _archetype_path(paths: ProjectPaths, archetype_id: MaterialArchetypeId) -> Path:
+        """Return the on-disk path for ``archetype_id`` (under ``nodes/``)."""
+        return paths.nodes_dir / f"{archetype_id}.json"
+
+    @staticmethod
+    def _load_archetypes(
+        paths: ProjectPaths,
+    ) -> dict[MaterialArchetypeId, MaterialArchetypeNode]:
+        archetypes: dict[MaterialArchetypeId, MaterialArchetypeNode] = {}
+        if not paths.nodes_dir.is_dir():
+            return archetypes
+        for path in sorted(paths.nodes_dir.glob("material_*.json")):
+            try:
+                archetype = MaterialArchetypeNode.model_validate_json(
+                    path.read_text(encoding="utf-8"),
+                )
+            except (OSError, ValidationError) as exc:
+                msg = f"failed to load material archetype {path.name}: {exc}"
+                raise ProjectFormatError(msg) from exc
+            archetypes[archetype.node_id] = archetype
+        return archetypes
 
     @staticmethod
     def _load_edges(
@@ -933,6 +966,323 @@ class ProjectService:
         )
 
     # ------------------------------------------------------------------
+    # Material archetype CRUD (Phase 6-bis)
+    # ------------------------------------------------------------------
+    def create_material_archetype(
+        self,
+        name: str,
+        recipe: MaterialRecipe,
+        parameters: Mapping[str, JsonValue],
+        *,
+        tags: tuple[str, ...] = (),
+        notes: str = "",
+    ) -> MaterialArchetypeNode:
+        """Create and persist a new material archetype node.
+
+        ``parameters`` is recipe-specific and validated by the resolver
+        when a plan is built (Phase 6-bis Phase B). At this layer we
+        only enforce the structural shape declared on
+        :class:`~forge_mcp.project.schemas.MaterialArchetypeNode`.
+        """
+        state = self.state
+        now = _now()
+        archetype_id = self._allocate_archetype_id(name)
+        archetype = MaterialArchetypeNode(
+            node_id=archetype_id,
+            name=name,
+            recipe=recipe,
+            parameters=dict(parameters),
+            tags=tags,
+            notes=notes,
+            created_at=now,
+            modified_at=now,
+        )
+        state.archetypes[archetype_id] = archetype
+        write_json(self._archetype_path(state.paths, archetype_id), archetype)
+        self._append_history(
+            HistoryEventKind.MATERIAL_ARCHETYPE_CREATED,
+            payload={
+                "archetype_id": str(archetype_id),
+                "recipe": recipe.value,
+                "name": name,
+            },
+            now=now,
+        )
+        self._notify("create_material_archetype")
+        return archetype
+
+    def update_material_archetype(
+        self,
+        archetype_id: MaterialArchetypeId,
+        *,
+        name: str | None = None,
+        parameters: Mapping[str, JsonValue] | None = None,
+        tags: tuple[str, ...] | None = None,
+        notes: str | None = None,
+    ) -> MaterialArchetypeNode:
+        """Apply a partial update to an existing archetype node."""
+        state = self.state
+        existing = state.archetypes.get(archetype_id)
+        if existing is None:
+            msg = f"unknown material archetype {archetype_id!r}"
+            raise UnknownArchetypeError(msg)
+        now = _now()
+        update: dict[str, object] = {"modified_at": now}
+        if name is not None:
+            update["name"] = name
+        if parameters is not None:
+            update["parameters"] = dict(parameters)
+        if tags is not None:
+            update["tags"] = tags
+        if notes is not None:
+            update["notes"] = notes
+        new_archetype: MaterialArchetypeNode = existing.model_copy(update=update)
+        state.archetypes[archetype_id] = new_archetype
+        write_json(self._archetype_path(state.paths, archetype_id), new_archetype)
+        self._append_history(
+            HistoryEventKind.MATERIAL_ARCHETYPE_UPDATED,
+            payload={"archetype_id": str(archetype_id)},
+            now=now,
+        )
+        self._notify("update_material_archetype")
+        return new_archetype
+
+    def delete_material_archetype(self, archetype_id: MaterialArchetypeId) -> None:
+        """Delete an archetype iff no material edge references it."""
+        state = self.state
+        if archetype_id not in state.archetypes:
+            msg = f"unknown material archetype {archetype_id!r}"
+            raise UnknownArchetypeError(msg)
+        node_id = NodeId(str(archetype_id))
+        for layer_name in (LAYER_MATERIAL_APPLICATION, LAYER_MATERIAL_COMPOSITION):
+            for edge in state.edges.get(layer_name, ()):
+                if node_id in edge.endpoints:
+                    msg = (
+                        f"archetype {archetype_id!r} is still referenced by edge "
+                        f"{edge.edge_id!r} in layer {layer_name!r}"
+                    )
+                    raise ArchetypeInUseError(msg)
+        del state.archetypes[archetype_id]
+        path = self._archetype_path(state.paths, archetype_id)
+        with suppress(FileNotFoundError):
+            path.unlink()
+        self._append_history(
+            HistoryEventKind.MATERIAL_ARCHETYPE_DELETED,
+            payload={"archetype_id": str(archetype_id)},
+        )
+        self._notify("delete_material_archetype")
+
+    # ------------------------------------------------------------------
+    # Material edge CRUD (Phase 6-bis)
+    # ------------------------------------------------------------------
+    def apply_material(
+        self,
+        archetype_id: MaterialArchetypeId,
+        target_node_id: NodeId,
+        *,
+        attrs: MaterialApplicationAttrs,
+    ) -> Edge:
+        """Add a ``material_application`` edge from ``archetype`` to ``target``.
+
+        Endpoints are written as ``(archetype_id, target_node_id)`` —
+        archetype first so the directed projection is unambiguous.
+        Validates that the archetype exists, the target exists (region
+        or world root), and that ``attrs.scope`` is consistent with the
+        target's node kind.
+        """
+        state = self.state
+        if archetype_id not in state.archetypes:
+            msg = f"unknown material archetype {archetype_id!r}"
+            raise UnknownArchetypeError(msg)
+        self._require_target_node(target_node_id, attrs.scope)
+        now = _now()
+        edge_id = self._allocate_edge_id(LAYER_MATERIAL_APPLICATION, "matapp")
+        edge = Edge(
+            edge_id=edge_id,
+            layer=LAYER_MATERIAL_APPLICATION,
+            endpoints=(NodeId(str(archetype_id)), target_node_id),
+            directed=True,
+            attrs=attrs.model_dump(mode="json"),
+            created_at=now,
+            modified_at=now,
+        )
+        state.edges.setdefault(LAYER_MATERIAL_APPLICATION, []).append(edge)
+        write_json(
+            state.paths.edge_layer_path(LAYER_MATERIAL_APPLICATION),
+            EdgeLayerFile(
+                layer=LAYER_MATERIAL_APPLICATION,
+                edges=tuple(state.edges[LAYER_MATERIAL_APPLICATION]),
+            ),
+        )
+        self._append_history(
+            HistoryEventKind.MATERIAL_APPLIED,
+            payload={
+                "edge_id": str(edge_id),
+                "archetype_id": str(archetype_id),
+                "target_node_id": str(target_node_id),
+                "scope": attrs.scope.value,
+            },
+            now=now,
+        )
+        self._notify("apply_material")
+        return edge
+
+    def unapply_material(self, edge_id: str) -> None:
+        """Remove the named ``material_application`` edge."""
+        self._remove_material_edge(
+            edge_id=edge_id,
+            layer=LAYER_MATERIAL_APPLICATION,
+            kind=HistoryEventKind.MATERIAL_UNAPPLIED,
+            event_tag="unapply_material",
+        )
+
+    def compose_material(
+        self,
+        parent_archetype_id: MaterialArchetypeId,
+        child_archetype_id: MaterialArchetypeId,
+        *,
+        attrs: MaterialCompositionAttrs,
+    ) -> Edge:
+        """Add a directed ``material_composition`` edge ``parent -> child``."""
+        state = self.state
+        if parent_archetype_id == child_archetype_id:
+            msg = f"composition edge endpoints must differ (got {parent_archetype_id!r} twice)"
+            raise MaterialEdgePolicyError(msg)
+        for endpoint in (parent_archetype_id, child_archetype_id):
+            if endpoint not in state.archetypes:
+                msg = f"unknown material archetype {endpoint!r}"
+                raise UnknownArchetypeError(msg)
+        now = _now()
+        edge_id = self._allocate_edge_id(LAYER_MATERIAL_COMPOSITION, "matcmp")
+        edge = Edge(
+            edge_id=edge_id,
+            layer=LAYER_MATERIAL_COMPOSITION,
+            endpoints=(NodeId(str(parent_archetype_id)), NodeId(str(child_archetype_id))),
+            directed=True,
+            attrs=attrs.model_dump(mode="json"),
+            created_at=now,
+            modified_at=now,
+        )
+        state.edges.setdefault(LAYER_MATERIAL_COMPOSITION, []).append(edge)
+        cycle = self._composition_cycle_after_change()
+        if cycle is not None:
+            # Roll back and refuse.
+            state.edges[LAYER_MATERIAL_COMPOSITION].pop()
+            msg = (
+                f"composition edge would introduce a cycle through "
+                f"{' -> '.join(str(n) for n in cycle)}"
+            )
+            raise MaterialCompositionCycleError(msg)
+        write_json(
+            state.paths.edge_layer_path(LAYER_MATERIAL_COMPOSITION),
+            EdgeLayerFile(
+                layer=LAYER_MATERIAL_COMPOSITION,
+                edges=tuple(state.edges[LAYER_MATERIAL_COMPOSITION]),
+            ),
+        )
+        self._append_history(
+            HistoryEventKind.MATERIAL_COMPOSED,
+            payload={
+                "edge_id": str(edge_id),
+                "parent_archetype_id": str(parent_archetype_id),
+                "child_archetype_id": str(child_archetype_id),
+                "mode": attrs.mode.value,
+            },
+            now=now,
+        )
+        self._notify("compose_material")
+        return edge
+
+    def uncompose_material(self, edge_id: str) -> None:
+        """Remove the named ``material_composition`` edge."""
+        self._remove_material_edge(
+            edge_id=edge_id,
+            layer=LAYER_MATERIAL_COMPOSITION,
+            kind=HistoryEventKind.MATERIAL_UNCOMPOSED,
+            event_tag="uncompose_material",
+        )
+
+    # ------------------------------------------------------------------
+    # Material helpers
+    # ------------------------------------------------------------------
+    def _remove_material_edge(
+        self,
+        *,
+        edge_id: str,
+        layer: str,
+        kind: HistoryEventKind,
+        event_tag: str,
+    ) -> None:
+        state = self.state
+        bucket = state.edges.get(layer, [])
+        for i, edge in enumerate(bucket):
+            if edge.edge_id == edge_id:
+                del bucket[i]
+                write_json(
+                    state.paths.edge_layer_path(layer),
+                    EdgeLayerFile(layer=layer, edges=tuple(bucket)),
+                )
+                self._append_history(kind, payload={"edge_id": edge_id})
+                self._notify(event_tag)
+                return
+        msg = f"unknown {layer} edge {edge_id!r}"
+        raise UnknownMaterialEdgeError(msg)
+
+    def _require_target_node(self, target_node_id: NodeId, scope: object) -> None:
+        """Validate that ``target_node_id`` exists and matches ``scope``."""
+        from forge_mcp.project.schemas import MaterialScope  # noqa: PLC0415 - cycle break
+
+        state = self.state
+        is_world = target_node_id == state.metadata.world_node_id
+        is_region = RegionId(str(target_node_id)) in state.regions
+        if not (is_world or is_region):
+            msg = f"unknown application target node {target_node_id!r}"
+            raise UnknownTargetNodeError(msg)
+        if scope is MaterialScope.WORLD and not is_world:
+            msg = (
+                f"scope=world requires target=world_node_id "
+                f"({state.metadata.world_node_id!r}), got {target_node_id!r}"
+            )
+            raise MaterialEdgePolicyError(msg)
+        if scope is MaterialScope.REGION and not is_region:
+            msg = f"scope=region requires target to be a region id, got {target_node_id!r}"
+            raise MaterialEdgePolicyError(msg)
+
+    def _composition_cycle_after_change(self) -> tuple[NodeId, ...] | None:
+        from forge_mcp.hypergraph.core import Hypergraph  # noqa: PLC0415 - cycle break
+        from forge_mcp.hypergraph.traversal import has_directed_cycle  # noqa: PLC0415
+
+        hg = Hypergraph.from_project(self.state)
+        return has_directed_cycle(hg, LAYER_MATERIAL_COMPOSITION)
+
+    def _allocate_archetype_id(self, name: str) -> MaterialArchetypeId:
+        """Return a fresh ``material_<slug>`` id, suffixing on collision."""
+        base = _slugify(name) or "material"
+        candidate = f"material_{base}"
+        if MaterialArchetypeId(candidate) not in self.state.archetypes:
+            return MaterialArchetypeId(candidate)
+        for suffix_len in range(2, 9):
+            for _ in range(16):
+                token = uuid4().hex[:suffix_len]
+                candidate = f"material_{base}_{token}"
+                if MaterialArchetypeId(candidate) not in self.state.archetypes:
+                    return MaterialArchetypeId(candidate)
+        msg = f"could not allocate a unique archetype id for name {name!r}"
+        raise ProjectError(msg)
+
+    def _allocate_edge_id(self, layer: str, prefix: str) -> EdgeId:
+        """Return a fresh, deterministic edge id within ``layer``."""
+        existing = {edge.edge_id for edge in self.state.edges.get(layer, ())}
+        for suffix_len in range(4, 13):
+            for _ in range(16):
+                token = uuid4().hex[:suffix_len]
+                candidate = f"{prefix}_{token}"
+                if candidate not in existing:
+                    return EdgeId(candidate)
+        msg = f"could not allocate a unique edge id in layer {layer!r}"
+        raise ProjectError(msg)
+
+    # ------------------------------------------------------------------
     # Internal: region id allocation
     # ------------------------------------------------------------------
     def _allocate_region_id(self, name: str) -> RegionId:
@@ -982,7 +1332,39 @@ class UnknownSpecError(ProjectError):
     """Raised when a spec id does not exist on disk."""
 
 
+class MaterialError(ProjectError):
+    """Base class for material-CRUD errors."""
+
+
+class UnknownArchetypeError(MaterialError):
+    """Raised when a material archetype id does not exist."""
+
+
+class ArchetypeInUseError(MaterialError):
+    """Raised when deleting an archetype still referenced by a material edge."""
+
+
+class UnknownTargetNodeError(MaterialError):
+    """Raised when a material application targets an unknown node id."""
+
+
+class UnknownMaterialEdgeError(MaterialError):
+    """Raised when a material edge id does not exist in its layer."""
+
+
+class MaterialEdgePolicyError(MaterialError):
+    """Raised when a material edge violates the layer's endpoint or scope policy."""
+
+
+class MaterialCompositionCycleError(MaterialError):
+    """Raised when a composition edge would introduce a cycle."""
+
+
 __all__ = [
+    "ArchetypeInUseError",
+    "MaterialCompositionCycleError",
+    "MaterialEdgePolicyError",
+    "MaterialError",
     "NoOpenProjectError",
     "ProjectAlreadyExistsError",
     "ProjectError",
@@ -995,6 +1377,9 @@ __all__ = [
     "RegionError",
     "RegionOverlapError",
     "RegionPolygonError",
+    "UnknownArchetypeError",
+    "UnknownMaterialEdgeError",
     "UnknownRegionError",
     "UnknownSpecError",
+    "UnknownTargetNodeError",
 ]

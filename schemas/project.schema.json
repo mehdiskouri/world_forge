@@ -95,7 +95,9 @@
       "default": [
         "spatial_containment",
         "spatial_adjacency",
-        "hydrology"
+        "hydrology",
+        "material_application",
+        "material_composition"
       ],
       "items": {
         "type": "string"

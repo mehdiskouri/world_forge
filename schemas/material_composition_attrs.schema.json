@@ -1,0 +1,143 @@
+{
+  "$defs": {
+    "ConstantMask": {
+      "additionalProperties": false,
+      "description": "Constant mix factor in ``[0, 1]``; ``1.0`` is fully replace, ``0.0`` skip.",
+      "properties": {
+        "kind": {
+          "const": "constant",
+          "default": "constant",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "ConstantMask",
+      "type": "object"
+    },
+    "HeightRampMask": {
+      "additionalProperties": false,
+      "description": "Height-driven mix mask: full strength above ``high_m``, zero below ``low_m``.",
+      "properties": {
+        "high_m": {
+          "title": "High M",
+          "type": "number"
+        },
+        "kind": {
+          "const": "height_ramp",
+          "default": "height_ramp",
+          "title": "Kind",
+          "type": "string"
+        },
+        "low_m": {
+          "title": "Low M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low_m",
+        "high_m"
+      ],
+      "title": "HeightRampMask",
+      "type": "object"
+    },
+    "MaterialCompositionMode": {
+      "description": "Composition modes for the ``material_composition`` layer.",
+      "enum": [
+        "extends",
+        "composes"
+      ],
+      "title": "MaterialCompositionMode",
+      "type": "string"
+    },
+    "SlopeMask": {
+      "additionalProperties": false,
+      "description": "Slope-driven mix mask: full strength above ``high``, zero below ``low``.\n\n``low`` / ``high`` are slope thresholds in the cosine-of-normal\ndomain ``[0, 1]`` where ``1`` is flat ground (normal pointing\nstraight up) and ``0`` is a vertical cliff. ``softness`` is an\nadditive band width for smoothstep blending; ``0`` is a hard step.",
+      "properties": {
+        "high": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "High",
+          "type": "number"
+        },
+        "kind": {
+          "const": "slope",
+          "default": "slope",
+          "title": "Kind",
+          "type": "string"
+        },
+        "low": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Low",
+          "type": "number"
+        },
+        "softness": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Softness",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low",
+        "high"
+      ],
+      "title": "SlopeMask",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Strict shape of ``Edge.attrs`` for the ``material_composition`` layer.\n\nThe edge endpoints are always two material archetype ids:\n``(parent_id, child_id)``. ``mode`` selects flatten-vs-stack\nsemantics; ``mask`` and ``weight`` only apply to ``COMPOSES``\nedges and are ignored for ``EXTENDS`` (resolver enforces the\nconstraint).",
+  "properties": {
+    "mask": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HeightRampMask"
+        },
+        {
+          "$ref": "#/$defs/SlopeMask"
+        },
+        {
+          "$ref": "#/$defs/ConstantMask"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mask"
+    },
+    "mode": {
+      "$ref": "#/$defs/MaterialCompositionMode"
+    },
+    "weight": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Weight"
+    }
+  },
+  "required": [
+    "mode"
+  ],
+  "title": "ForgeMaterialCompositionAttrs",
+  "type": "object"
+}

@@ -26,6 +26,7 @@ from forge_mcp.project.schemas import (
     Edge,
     EdgeId,
     EdgeLayerFile,
+    MaterialArchetypeNode,
     NodeId,
     RegionNode,
     WorldRootNode,
@@ -38,8 +39,8 @@ if TYPE_CHECKING:
     from forge_mcp.project.service import ProjectState
 
 
-NodeRecord = RegionNode | WorldRootNode
-"""Every node kind that can live in the Phase-2 hypergraph."""
+NodeRecord = RegionNode | WorldRootNode | MaterialArchetypeNode
+"""Every node kind that can live in the hypergraph (regions, world root, materials)."""
 
 
 def _node_id_of(record: NodeRecord) -> NodeId:
@@ -203,6 +204,8 @@ class Hypergraph:
         hg.add_node(world_root)
         for region in state.regions.values():
             hg.add_node(region)
+        for archetype in state.archetypes.values():
+            hg.add_node(archetype)
         for layer, edges in state.edges.items():
             view = hg.layer(layer)
             for edge in edges:

@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "ConstantMask": {
+      "additionalProperties": false,
+      "description": "Constant mix factor in ``[0, 1]``; ``1.0`` is fully replace, ``0.0`` skip.",
+      "properties": {
+        "kind": {
+          "const": "constant",
+          "default": "constant",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "ConstantMask",
+      "type": "object"
+    },
+    "HeightRampMask": {
+      "additionalProperties": false,
+      "description": "Height-driven mix mask: full strength above ``high_m``, zero below ``low_m``.",
+      "properties": {
+        "high_m": {
+          "title": "High M",
+          "type": "number"
+        },
+        "kind": {
+          "const": "height_ramp",
+          "default": "height_ramp",
+          "title": "Kind",
+          "type": "string"
+        },
+        "low_m": {
+          "title": "Low M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low_m",
+        "high_m"
+      ],
+      "title": "HeightRampMask",
+      "type": "object"
+    },
+    "JsonValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MaterialScope": {
+      "description": "Scope of a material application; resolver precedence is *most specific wins*.\n\nOnly ``WORLD`` and ``REGION`` resolve to real targets in v1 (no\nsub-region or asset node types ship yet). The other values are\naccepted in the schema so downstream additions don't break\npersisted projects.",
+      "enum": [
+        "world",
+        "region_group",
+        "region",
+        "sub_region",
+        "asset"
+      ],
+      "title": "MaterialScope",
+      "type": "string"
+    },
+    "SlopeMask": {
+      "additionalProperties": false,
+      "description": "Slope-driven mix mask: full strength above ``high``, zero below ``low``.\n\n``low`` / ``high`` are slope thresholds in the cosine-of-normal\ndomain ``[0, 1]`` where ``1`` is flat ground (normal pointing\nstraight up) and ``0`` is a vertical cliff. ``softness`` is an\nadditive band width for smoothstep blending; ``0`` is a hard step.",
+      "properties": {
+        "high": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "High",
+          "type": "number"
+        },
+        "kind": {
+          "const": "slope",
+          "default": "slope",
+          "title": "Kind",
+          "type": "string"
+        },
+        "low": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Low",
+          "type": "number"
+        },
+        "softness": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Softness",
+          "type": "number"
+        }
+      },
+      "required": [
+        "low",
+        "high"
+      ],
+      "title": "SlopeMask",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Strict shape of ``Edge.attrs`` for the ``material_application`` layer.\n\nStored on disk as a plain JSON object inside ``Edge.attrs``;\nmaterialized by :func:`material_application_attrs` on read and\nserialized via ``model_dump`` on write. Keeping this as an\n*attrs validator* rather than a new Edge subclass preserves the\nlayer-string-keyed Edge surface every other layer already uses.",
+  "properties": {
+    "mask": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HeightRampMask"
+        },
+        {
+          "$ref": "#/$defs/SlopeMask"
+        },
+        {
+          "$ref": "#/$defs/ConstantMask"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mask"
+    },
+    "parameter_overrides": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "Parameter Overrides",
+      "type": "object"
+    },
+    "priority": {
+      "default": 0,
+      "title": "Priority",
+      "type": "integer"
+    },
+    "scope": {
+      "$ref": "#/$defs/MaterialScope"
+    }
+  },
+  "required": [
+    "scope"
+  ],
+  "title": "ForgeMaterialApplicationAttrs",
+  "type": "object"
+}

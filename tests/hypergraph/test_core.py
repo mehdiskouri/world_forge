@@ -180,6 +180,8 @@ def test_from_project_and_persistence_round_trip(tmp_path: Path) -> None:
     # one entry per registered layer
     assert {p.name for p, _ in written} == {
         "hydrology.json",
+        "material_application.json",
+        "material_composition.json",
         "spatial_adjacency.json",
         "spatial_containment.json",
     }
