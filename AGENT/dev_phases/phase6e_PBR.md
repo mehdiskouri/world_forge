@@ -26,6 +26,13 @@ Stages B–G open as fresh branches off main as they ship.
   retrofit) since the byte-identical IDAT gate is unnecessary risk for
   a recipe that doesn't replace anything. Legacy `flat_color` /
   `triplanar_rock` builders remain unchanged.
+- Stage C — **shipped** as PR #64 (biome-targeted procedural recipes:
+  `procedural_snow`, `procedural_sand`, `procedural_water`). v1 is
+  surface-only; volume sockets (snow SSS via Volume Scatter, water
+  absorption via Volume Absorption) defer to Stage E once the
+  composite loop adopts a parallel Volume socket. `procedural_water`
+  exercises Blender 5.0's `Transmission Weight` socket through the
+  same cross-version guard pattern as Stage B.
 
 ---
 

@@ -415,6 +415,48 @@ def test_validate_recipe_parameters_pbr_layered_rejects_nonpositive_scale() -> N
         )
 
 
+def test_validate_recipe_parameters_procedural_snow_accepts_empty() -> None:
+    """All ``procedural_snow`` knobs are optional with sensible defaults."""
+    validate_recipe_parameters(MaterialRecipe.PROCEDURAL_SNOW, {})
+
+
+def test_validate_recipe_parameters_procedural_snow_rejects_bad_unit() -> None:
+    with pytest.raises(RecipeParameterError, match="must be in"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_SNOW,
+            {"sparkle_density": 1.5},
+        )
+
+
+def test_validate_recipe_parameters_procedural_sand_accepts_empty() -> None:
+    validate_recipe_parameters(MaterialRecipe.PROCEDURAL_SAND, {})
+
+
+def test_validate_recipe_parameters_procedural_sand_rejects_inverted_wet_band() -> None:
+    with pytest.raises(RecipeParameterError, match="low_m < high_m"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_SAND,
+            {"wet_band": {"low_m": 5.0, "high_m": 1.0, "darken": 0.5}},
+        )
+
+
+def test_validate_recipe_parameters_procedural_sand_rejects_missing_wet_band_key() -> None:
+    with pytest.raises(RecipeParameterError, match="missing required key"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_SAND,
+            {"wet_band": {"low_m": 0.0, "high_m": 1.0}},
+        )
+
+
+def test_validate_recipe_parameters_procedural_water_accepts_empty() -> None:
+    validate_recipe_parameters(MaterialRecipe.PROCEDURAL_WATER, {})
+
+
+def test_validate_recipe_parameters_procedural_water_rejects_nonpositive_ior() -> None:
+    with pytest.raises(RecipeParameterError, match="positive"):
+        validate_recipe_parameters(MaterialRecipe.PROCEDURAL_WATER, {"ior": 0.0})
+
+
 def test_resolve_plan_serialises_slope_mask_for_adapter(tmp_path: Path) -> None:
     """SlopeMask must round-trip into the layer's serialised mask dict.
 
