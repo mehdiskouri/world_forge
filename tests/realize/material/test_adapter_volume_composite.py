@@ -371,10 +371,11 @@ def test_attach_instancer_handler_no_op_for_empty_layer_list(
 def test_attach_instancer_handler_unknown_recipe_raises(
     adapter: tuple[ModuleType, FakeBpy],
 ) -> None:
-    """Stage F: registry is empty, so any populated layer is an error.
+    """Recipes outside ``_INSTANCER_BUILDERS`` raise a hard error.
 
-    Stage D wires ``procedural_grass`` into ``_INSTANCER_BUILDERS`` and
-    this stops being an error for that recipe.
+    Stage F shipped with an empty registry; Stage D wires
+    ``procedural_grass`` into it. Any *other* recipe still trips
+    the dispatch guard — registry/schema drift bug.
     """
     module, fake = adapter
     fake.data.objects.add("terrain_z2")
@@ -384,7 +385,7 @@ def test_attach_instancer_handler_unknown_recipe_raises(
                 "target_object": "terrain_z2",
                 "plan_id": "mplan_deadbeef",
                 "instancer_layers": [
-                    {"recipe": "procedural_grass", "parameters": {}},
+                    {"recipe": "not_a_real_recipe_xyz", "parameters": {}},
                 ],
             },
         )
@@ -404,3 +405,134 @@ def test_attach_instancer_handler_validates_inputs(
         module._handle_material_attach_instancer(  # noqa: SLF001
             {"target_object": "obj", "plan_id": "x"},
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 6-e Stage D: procedural_grass GN modifier builder.
+# ---------------------------------------------------------------------------
+
+
+def test_attach_instancer_grass_creates_modifier_with_node_group(
+    adapter: tuple[ModuleType, FakeBpy],
+) -> None:
+    """End-to-end Stage D: handler attaches a NODES modifier to the target.
+
+    Asserts on observable structure: a ``forge.instancer.<plan_id>.0``
+    modifier exists with a node_group, a blade mesh + per-blade
+    material got created, and the GN tree contains the canonical
+    Distribute / Instance / Realize chain.
+    """
+    module, fake = adapter
+    fake.data.objects.add("terrain_grass_a")
+    plan_id = "mplan_grass_aa"
+    result = module._handle_material_attach_instancer(  # noqa: SLF001
+        {
+            "target_object": "terrain_grass_a",
+            "plan_id": plan_id,
+            "instancer_layers": [
+                {
+                    "recipe": "procedural_grass",
+                    "parameters": {
+                        "density_per_m2": 50.0,
+                        "blade_height_m": 0.20,
+                        "blade_color": [0.2, 0.6, 0.15, 1.0],
+                        "slope_max_cos": 0.85,
+                        "rotation_jitter_deg": 90.0,
+                        "scale_jitter": 0.25,
+                        "translucency": 0.5,
+                        "seed": 42,
+                    },
+                    "instancer": {
+                        "kind": "geometry_nodes",
+                        "density_per_m2": 50.0,
+                        "seed": 42,
+                    },
+                },
+            ],
+        },
+    )
+    assert result["attached"] == 1
+    assert result["requested"] == 1
+    obj = fake.data.objects.get("terrain_grass_a")
+    assert obj is not None
+    mods = list(obj.modifiers)
+    assert len(mods) == 1
+    assert mods[0].name == f"forge.instancer.{plan_id}.0"
+    assert mods[0].type == "NODES"
+    group = mods[0].node_group
+    assert group is not None
+    assert group.name == f"forge.geom.grass.{plan_id}.0"
+    bl_idnames = [n.bl_idname for n in group.nodes]
+    assert "GeometryNodeDistributePointsOnFaces" in bl_idnames
+    assert "GeometryNodeInstanceOnPoints" in bl_idnames
+    assert "GeometryNodeRealizeInstances" in bl_idnames
+    # Blade mesh + per-blade material got created.
+    blade_mesh = fake.data.meshes.get("forge.grass_blade.42.0.2000")
+    assert blade_mesh is not None
+    blade_material = fake.data.materials.get(f"forge.material.grass.{plan_id}.0")
+    assert blade_material is not None
+
+
+def test_attach_instancer_is_idempotent(adapter: tuple[ModuleType, FakeBpy]) -> None:
+    """Re-running with the same plan_id strips and re-attaches modifiers."""
+    module, fake = adapter
+    fake.data.objects.add("terrain_grass_b")
+    payload = {
+        "target_object": "terrain_grass_b",
+        "plan_id": "mplan_grass_bb",
+        "instancer_layers": [
+            {
+                "recipe": "procedural_grass",
+                "parameters": {"seed": 1},
+                "instancer": {
+                    "kind": "geometry_nodes",
+                    "density_per_m2": 100.0,
+                    "seed": 1,
+                },
+            },
+        ],
+    }
+    module._handle_material_attach_instancer(payload)  # noqa: SLF001
+    module._handle_material_attach_instancer(payload)  # noqa: SLF001
+    obj = fake.data.objects.get("terrain_grass_b")
+    assert obj is not None
+    mods = list(obj.modifiers)
+    assert len(mods) == 1
+
+
+def test_attach_instancer_grass_height_band_adds_band_nodes(
+    adapter: tuple[ModuleType, FakeBpy],
+) -> None:
+    """Optional ``height_band`` parameter adds compare + AND nodes."""
+    module, fake = adapter
+    fake.data.objects.add("terrain_grass_c")
+    plan_id = "mplan_grass_cc"
+    module._handle_material_attach_instancer(  # noqa: SLF001
+        {
+            "target_object": "terrain_grass_c",
+            "plan_id": plan_id,
+            "instancer_layers": [
+                {
+                    "recipe": "procedural_grass",
+                    "parameters": {
+                        "seed": 0,
+                        "height_band": {"z_low": 10.0, "z_high": 250.0},
+                    },
+                    "instancer": {
+                        "kind": "geometry_nodes",
+                        "density_per_m2": 75.0,
+                        "seed": 0,
+                    },
+                },
+            ],
+        },
+    )
+    group = fake.data.node_groups.get(f"forge.geom.grass.{plan_id}.0")
+    assert group is not None
+    bl_idnames = [n.bl_idname for n in group.nodes]
+    # With a height_band we get extra Compare + boolean AND nodes
+    # beyond the single slope-only Compare.
+    compare_count = bl_idnames.count("FunctionNodeCompare")
+    assert compare_count >= 3, bl_idnames  # noqa: PLR2004 - slope + z_low + z_high
+    boolean_count = bl_idnames.count("FunctionNodeBooleanMath")
+    assert boolean_count >= 2, bl_idnames  # noqa: PLR2004 - band AND + slope-band AND

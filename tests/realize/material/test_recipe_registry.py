@@ -40,6 +40,20 @@ def adapter_recipe_keys() -> frozenset[str]:
     return frozenset(module._RECIPE_BUILDERS)  # noqa: SLF001 - test inspects adapter registry
 
 
+@pytest.fixture(scope="module")
+def adapter_instancer_keys() -> frozenset[str]:
+    """Collect ``_INSTANCER_BUILDERS`` keys from the adapter under the fake bpy.
+
+    Stage F adds the registry (empty); Stage D wires
+    ``procedural_grass`` into it. Recipes routed through the
+    instancer have no surface-builder counterpart, so they show up
+    here instead of in ``_RECIPE_BUILDERS``.
+    """
+    install_fake_bpy()
+    module = load_adapter_module()
+    return frozenset(module._INSTANCER_BUILDERS)  # noqa: SLF001 - test inspects adapter registry
+
+
 def test_validators_cover_every_recipe() -> None:
     """Every ``MaterialRecipe`` enum value must have a validator entry."""
     missing = {recipe for recipe in MaterialRecipe if recipe not in _VALIDATORS}
@@ -48,10 +62,16 @@ def test_validators_cover_every_recipe() -> None:
 
 def test_adapter_builders_cover_every_recipe(
     adapter_recipe_keys: frozenset[str],
+    adapter_instancer_keys: frozenset[str],
 ) -> None:
-    """Every ``MaterialRecipe`` enum value must have an adapter builder."""
-    missing = {recipe.value for recipe in MaterialRecipe if recipe.value not in adapter_recipe_keys}
-    assert not missing, f"recipes missing from adapter _RECIPE_BUILDERS: {sorted(missing)}"
+    """Every ``MaterialRecipe`` enum value must have a builder entry.
+
+    Surface recipes live in ``_RECIPE_BUILDERS``; instancer recipes
+    (Stage D's ``procedural_grass``) live in ``_INSTANCER_BUILDERS``.
+    """
+    known = adapter_recipe_keys | adapter_instancer_keys
+    missing = {recipe.value for recipe in MaterialRecipe if recipe.value not in known}
+    assert not missing, f"recipes missing from adapter builder registries: {sorted(missing)}"
 
 
 def test_schema_enum_lists_every_recipe() -> None:

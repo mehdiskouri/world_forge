@@ -52,16 +52,17 @@ class ResolverError(ValueError):
     """Raised when the project state cannot produce a valid material plan."""
 
 
-_INSTANCER_RECIPES: frozenset[MaterialRecipe] = frozenset()
+_INSTANCER_RECIPES: frozenset[MaterialRecipe] = frozenset(
+    {MaterialRecipe.PROCEDURAL_GRASS},
+)
 """Phase 6-e Stage F: recipes routed through the geometry-nodes instancer.
 
-Empty in Stage F (pure schema + plumbing). Stage D adds
-``MaterialRecipe.PROCEDURAL_GRASS``. When an archetype's recipe is in
-this set, :func:`_expand_application` emits the layer with a
-populated :attr:`ResolvedLayer.instancer` instead of as a surface
-contribution; the composite material handler skips the surface mix
-for those layers, and the realiser routes them through
-``material.attach_instancer``.
+Stage D adds ``MaterialRecipe.PROCEDURAL_GRASS``. When an
+archetype's recipe is in this set, :func:`_expand_application`
+emits the layer with a populated :attr:`ResolvedLayer.instancer`
+instead of as a surface contribution; the composite material
+handler skips the surface mix for those layers, and the realiser
+routes them through ``material.attach_instancer``.
 """
 
 

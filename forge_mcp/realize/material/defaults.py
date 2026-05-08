@@ -283,6 +283,76 @@ def _validate_procedural_water(parameters: Mapping[str, JsonValue]) -> None:
             _validate_positive_number(positive_key, parameters[positive_key])
 
 
+def _validate_blade_color(parameters: Mapping[str, JsonValue]) -> None:
+    if "blade_color" not in parameters:
+        return
+    color = parameters["blade_color"]
+    expected_rgba = 4
+    if not isinstance(color, list) or len(color) != expected_rgba:
+        msg = f"blade_color must be an RGBA list of 4 floats, got {color!r}"
+        raise RecipeParameterError(msg)
+
+
+def _validate_height_band(parameters: Mapping[str, JsonValue]) -> None:
+    if "height_band" not in parameters:
+        return
+    band = parameters["height_band"]
+    if not isinstance(band, dict):
+        msg = f"height_band must be a dict, got {band!r}"
+        raise RecipeParameterError(msg)
+    for key in ("z_low", "z_high"):
+        if key not in band:
+            msg = f"height_band missing required key {key!r}"
+            raise RecipeParameterError(msg)
+        value = band[key]
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            msg = f"height_band.{key} must be numeric, got {value!r}"
+            raise RecipeParameterError(msg)
+    z_low = float(band["z_low"])
+    z_high = float(band["z_high"])
+    if z_low >= z_high:
+        msg = f"height_band.z_low must be < z_high, got {z_low!r} >= {z_high!r}"
+        raise RecipeParameterError(msg)
+
+
+def _validate_procedural_grass(parameters: Mapping[str, JsonValue]) -> None:
+    """Phase 6-e Stage D: geometry-nodes instanced grass blades.
+
+    Routed through ``material.attach_instancer`` rather than the
+    surface composite. All knobs optional; ``{}`` renders the v1
+    default green meadow at 200 blades/m².
+
+    Optional parameters:
+    - ``density_per_m2`` (positive) — Distribute Points on Faces density.
+    - ``blade_height_m`` (positive) — blade triangle height.
+    - ``blade_color`` (RGBA) — base color of the per-blade material.
+    - ``slope_max_cos`` ``[0, 1]`` — only distribute where
+      ``dot(normal, +Z) >= slope_max_cos``; 1.0 means flat ground only.
+    - ``height_band`` ``{z_low, z_high}`` — optional altitude clamp.
+    - ``rotation_jitter_deg`` (positive) — per-instance Z rotation jitter.
+    - ``scale_jitter`` ``[0, 1]`` — per-instance scale jitter.
+    - ``translucency`` ``[0, 1]`` — translucent BSDF mix weight.
+    - ``seed`` (int) — Distribute Points seed.
+    """
+    _validate_blade_color(parameters)
+    _validate_height_band(parameters)
+    for unit_key in ("slope_max_cos", "scale_jitter", "translucency"):
+        if unit_key in parameters:
+            _validate_unit_interval(unit_key, parameters[unit_key])
+    for positive_key in (
+        "density_per_m2",
+        "blade_height_m",
+        "rotation_jitter_deg",
+    ):
+        if positive_key in parameters:
+            _validate_positive_number(positive_key, parameters[positive_key])
+    if "seed" in parameters:
+        seed = parameters["seed"]
+        if not isinstance(seed, int) or isinstance(seed, bool):
+            msg = f"seed must be an integer, got {seed!r}"
+            raise RecipeParameterError(msg)
+
+
 _VALIDATORS: Final[dict[MaterialRecipe, Callable[[Mapping[str, JsonValue]], None]]] = {
     MaterialRecipe.PRINCIPLED_HEIGHT_RAMP: _validate_principled_height_ramp,
     MaterialRecipe.TRIPLANAR_ROCK: _validate_triplanar_rock,
@@ -291,6 +361,7 @@ _VALIDATORS: Final[dict[MaterialRecipe, Callable[[Mapping[str, JsonValue]], None
     MaterialRecipe.PROCEDURAL_SNOW: _validate_procedural_snow,
     MaterialRecipe.PROCEDURAL_SAND: _validate_procedural_sand,
     MaterialRecipe.PROCEDURAL_WATER: _validate_procedural_water,
+    MaterialRecipe.PROCEDURAL_GRASS: _validate_procedural_grass,
 }
 
 

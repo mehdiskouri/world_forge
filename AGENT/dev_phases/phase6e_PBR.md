@@ -58,6 +58,19 @@ Stages B–G open as fresh branches off main as they ship.
   Stage D wires `MaterialRecipe.PROCEDURAL_GRASS` into both the
   resolver's `_INSTANCER_RECIPES` and the adapter's
   `_INSTANCER_BUILDERS`.
+- Stage D — **shipped** as PR #67 (`procedural_grass` GN instancer).
+  Adds the `MaterialRecipe.PROCEDURAL_GRASS` enum value, the
+  `_validate_procedural_grass` parameter validator (density,
+  blade height/colour, slope mask, rotation/scale jitter,
+  translucency, optional `height_band`), the
+  `_attach_procedural_grass_modifier` builder in
+  `scripts/blender/adapter.py` (cached blade mesh, per-blade
+  Principled+Translucent material, Geometry-Nodes group with
+  Distribute-Points-on-Faces + slope/height-band mask + Instance-on-
+  Points + random rotation/scale + Realize-Instances), and the
+  `_check_instancer_density` ceiling (caps total instanced
+  primitives at 5,000,000 per region, raises
+  `GrassDensityTooHighError` with structured fields).
 
 ---
 

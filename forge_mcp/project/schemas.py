@@ -323,6 +323,22 @@ class MaterialRecipe(StrEnum):
     crank ``wave_strength`` for choppy seas.
     """
 
+    PROCEDURAL_GRASS = "procedural_grass"
+    """Geometry-Nodes instanced grass blades (Phase 6-e Stage D).
+
+    Routed through the dedicated ``material.attach_instancer`` RPC
+    (Stage F scaffolding) rather than the surface composite. The
+    realiser builds a per-layer Geometry Nodes modifier that
+    distributes triangular blade instances over the terrain mesh
+    (Distribute Points on Faces, Poisson, slope + height-band
+    selection, Voronoi clumping), assigns each blade a translucent
+    green PBR material, and stamps everything as a
+    ``forge.instancer.<plan_id>.<index>`` modifier so re-runs are
+    idempotent. Density is capped at
+    ``density_per_m2 * surface_area_m2 <= 5_000_000`` blades to keep
+    EEVEE renders bounded.
+    """
+
 
 class MaterialArchetypeNode(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
     """One reusable material archetype.

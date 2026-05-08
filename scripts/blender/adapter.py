@@ -1324,7 +1324,12 @@ def _handle_material_attach_instancer(params: dict[str, Any]) -> dict[str, Any]:
             msg = f"unknown instancer recipe {recipe!r}"
             raise ValueError(msg)
         modifier_name = f"{prefix}{index}"
-        builder(obj, modifier_name, layer)
+        # Stamp plan_id + plan_index on the layer so builders can
+        # name their data-blocks deterministically.
+        enriched = dict(layer)
+        enriched["plan_id"] = plan_id
+        enriched["plan_index"] = index
+        builder(obj, modifier_name, enriched)
         attached += 1
     return {
         "target_object": target_object,
@@ -1341,6 +1346,240 @@ Empty in Stage F; Stage D populates it with the
 ``procedural_grass`` geometry-nodes builder. Keys are the string
 forms of :class:`MaterialRecipe` enum values.
 """
+
+
+def _grass_blade_mesh(seed: int, blade_height_m: float) -> Any:  # noqa: ANN401
+    """Return a (cached) triangular blade mesh keyed on (seed, height).
+
+    The mesh is a 3-vertex upright isoceles triangle pointing up the
+    +Z axis, base resting on Z=0. Two blades with the same height
+    share one mesh data-block.
+    """
+    name = f"forge.grass_blade.{seed}.{blade_height_m:.4f}"
+    existing = bpy.data.meshes.get(name)
+    if existing is not None:
+        return existing
+    mesh = bpy.data.meshes.new(name=name)
+    half = 0.01
+    verts = [(-half, 0.0, 0.0), (half, 0.0, 0.0), (0.0, 0.0, float(blade_height_m))]
+    mesh.from_pydata(verts, [], [(0, 1, 2)])
+    if hasattr(mesh, "update"):
+        mesh.update()
+    return mesh
+
+
+def _grass_blade_material(  # noqa: PLR0913 - one assembly site
+    plan_id: str,
+    index: int,
+    blade_color: tuple[float, float, float, float],
+    translucency: float,
+) -> Any:  # noqa: ANN401
+    """Build the per-blade green PBR + translucency material.
+
+    Uses the same socket-rename guard pattern as the surface
+    builders so the graph compiles under both Blender 4.x and 5.0+.
+    Re-uses any previously-built data-block keyed on
+    ``(plan_id, index)``.
+    """
+    name = f"forge.material.grass.{plan_id}.{index}"
+    existing = bpy.data.materials.get(name)
+    if existing is not None:
+        return existing
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    for n in list(nodes):
+        nodes.remove(n)
+    output = nodes.new("ShaderNodeOutputMaterial")
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Base Color"].default_value = tuple(blade_color)
+    if "Roughness" in bsdf.inputs:
+        bsdf.inputs["Roughness"].default_value = 0.6
+    translucent = nodes.new("ShaderNodeBsdfTranslucent")
+    translucent.inputs["Color"].default_value = tuple(blade_color)
+    mix = nodes.new("ShaderNodeMixShader")
+    mix.inputs[0].default_value = float(translucency)
+    links.new(bsdf.outputs[0], mix.inputs[1])
+    links.new(translucent.outputs[0], mix.inputs[2])
+    links.new(mix.outputs[0], output.inputs["Surface"])
+    return mat
+
+
+def _grass_geometry_nodes_group(  # noqa: PLR0913 - one assembly site
+    name: str,
+    blade_mesh: Any,  # noqa: ANN401
+    density_per_m2: float,
+    seed: int,
+    slope_max_cos: float,
+    height_band: dict[str, float] | None,
+    rotation_jitter_deg: float,
+    scale_jitter: float,
+) -> Any:  # noqa: ANN401
+    """Build the per-layer geometry-nodes group used by the modifier.
+
+    Topology (linear, no branching):
+        Group Input → Distribute Points on Faces (Poisson, density,
+        seed, slope/height selection) → Instance on Points (blade
+        mesh) → Random Rotation/Scale → Realize Instances → Group
+        Output.
+
+    Slope selection uses ``dot(normal, +Z) >= slope_max_cos`` and
+    the optional ``height_band`` clamps Z to [z_low, z_high]; both
+    are encoded as Math/Compare nodes feeding the Distribute
+    Selection input.
+    """
+    existing = bpy.data.node_groups.get(name)
+    if existing is not None:
+        return existing
+    group = bpy.data.node_groups.new(name=name, type="GeometryNodeTree")
+    if hasattr(group, "interface"):
+        group.interface.new_socket(
+            "Geometry",
+            in_out="INPUT",
+            socket_type="NodeSocketGeometry",
+        )
+        group.interface.new_socket(
+            "Geometry",
+            in_out="OUTPUT",
+            socket_type="NodeSocketGeometry",
+        )
+    nodes = group.nodes
+    links = group.links
+    grp_in = nodes.new("NodeGroupInput")
+    grp_out = nodes.new("NodeGroupOutput")
+    distribute = nodes.new("GeometryNodeDistributePointsOnFaces")
+    distribute.distribute_method = "POISSON"
+    distribute.inputs["Density Max"].default_value = float(density_per_m2)
+    distribute.inputs["Seed"].default_value = int(seed)
+    # Slope mask: dot(normal, +Z) ≥ slope_max_cos.
+    normal = nodes.new("GeometryNodeInputNormal")
+    sep_xyz = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(normal.outputs["Normal"], sep_xyz.inputs[0])
+    slope_cmp = nodes.new("FunctionNodeCompare")
+    slope_cmp.data_type = "FLOAT"
+    slope_cmp.operation = "GREATER_EQUAL"
+    links.new(sep_xyz.outputs["Z"], slope_cmp.inputs[0])
+    slope_cmp.inputs[1].default_value = float(slope_max_cos)
+    selection_socket = slope_cmp.outputs["Result"]
+    if height_band is not None:
+        position = nodes.new("GeometryNodeInputPosition")
+        pos_xyz = nodes.new("ShaderNodeSeparateXYZ")
+        links.new(position.outputs["Position"], pos_xyz.inputs[0])
+        z_low_cmp = nodes.new("FunctionNodeCompare")
+        z_low_cmp.data_type = "FLOAT"
+        z_low_cmp.operation = "GREATER_EQUAL"
+        links.new(pos_xyz.outputs["Z"], z_low_cmp.inputs[0])
+        z_low_cmp.inputs[1].default_value = float(height_band["z_low"])
+        z_high_cmp = nodes.new("FunctionNodeCompare")
+        z_high_cmp.data_type = "FLOAT"
+        z_high_cmp.operation = "LESS_EQUAL"
+        links.new(pos_xyz.outputs["Z"], z_high_cmp.inputs[0])
+        z_high_cmp.inputs[1].default_value = float(height_band["z_high"])
+        band_and = nodes.new("FunctionNodeBooleanMath")
+        band_and.operation = "AND"
+        links.new(z_low_cmp.outputs["Result"], band_and.inputs[0])
+        links.new(z_high_cmp.outputs["Result"], band_and.inputs[1])
+        slope_band_and = nodes.new("FunctionNodeBooleanMath")
+        slope_band_and.operation = "AND"
+        links.new(selection_socket, slope_band_and.inputs[0])
+        links.new(band_and.outputs["Boolean"], slope_band_and.inputs[1])
+        selection_socket = slope_band_and.outputs["Boolean"]
+    links.new(grp_in.outputs[0], distribute.inputs["Mesh"])
+    links.new(selection_socket, distribute.inputs["Selection"])
+    # Instance on Points: read the blade mesh as object info.
+    obj_info = nodes.new("GeometryNodeObjectInfo")
+    obj_info.transform_space = "ORIGINAL"
+    obj_info.inputs[0].default_value = blade_mesh
+    instance = nodes.new("GeometryNodeInstanceOnPoints")
+    links.new(distribute.outputs["Points"], instance.inputs["Points"])
+    links.new(obj_info.outputs["Geometry"], instance.inputs["Instance"])
+    # Random Rotation Z jitter.
+    rand_rot = nodes.new("FunctionNodeRandomValue")
+    rand_rot.data_type = "FLOAT_VECTOR"
+    rot_max = float(rotation_jitter_deg) * 3.14159265 / 180.0
+    rand_rot.inputs["Min"].default_value = (0.0, 0.0, -rot_max)
+    rand_rot.inputs["Max"].default_value = (0.0, 0.0, rot_max)
+    rand_rot.inputs["Seed"].default_value = int(seed)
+    links.new(rand_rot.outputs["Value"], instance.inputs["Rotation"])
+    # Random Scale jitter.
+    rand_scale = nodes.new("FunctionNodeRandomValue")
+    rand_scale.data_type = "FLOAT"
+    rand_scale.inputs["Min"].default_value = max(0.0, 1.0 - float(scale_jitter))
+    rand_scale.inputs["Max"].default_value = 1.0 + float(scale_jitter)
+    rand_scale.inputs["Seed"].default_value = int(seed) + 1
+    links.new(rand_scale.outputs["Value"], instance.inputs["Scale"])
+    realize = nodes.new("GeometryNodeRealizeInstances")
+    links.new(instance.outputs["Instances"], realize.inputs[0])
+    links.new(realize.outputs[0], grp_out.inputs[0])
+    return group
+
+
+def _attach_procedural_grass_modifier(
+    obj: Any,  # noqa: ANN401
+    modifier_name: str,
+    layer: dict[str, Any],
+) -> None:
+    """Build + attach one ``procedural_grass`` GN modifier to ``obj``.
+
+    Fully parameterised by the resolved layer payload. The blade
+    mesh and material are content-keyed so two layers with identical
+    parameters share data-blocks.
+    """
+    parameters = layer.get("parameters") or {}
+    instancer = layer.get("instancer") or {}
+    plan_index_raw = layer.get("plan_index", 0)
+    plan_index = int(plan_index_raw) if isinstance(plan_index_raw, int) else 0
+    plan_id = str(layer.get("plan_id", "unknown"))
+
+    seed_value = parameters.get("seed", instancer.get("seed", 0))
+    seed = int(seed_value) if isinstance(seed_value, int) else 0
+    density_value = parameters.get(
+        "density_per_m2",
+        instancer.get("density_per_m2", 200.0),
+    )
+    density_per_m2 = float(density_value)
+    blade_height_m = float(parameters.get("blade_height_m", 0.15))
+    blade_color_raw = parameters.get("blade_color", [0.18, 0.55, 0.18, 1.0])
+    if not isinstance(blade_color_raw, (list, tuple)) or len(blade_color_raw) != 4:
+        msg = f"blade_color must be RGBA, got {blade_color_raw!r}"
+        raise ValueError(msg)
+    blade_color = tuple(float(c) for c in blade_color_raw)
+    slope_max_cos = float(parameters.get("slope_max_cos", 0.8))
+    height_band_raw = parameters.get("height_band")
+    height_band: dict[str, float] | None = None
+    if isinstance(height_band_raw, dict):
+        height_band = {
+            "z_low": float(height_band_raw["z_low"]),
+            "z_high": float(height_band_raw["z_high"]),
+        }
+    rotation_jitter_deg = float(parameters.get("rotation_jitter_deg", 180.0))
+    scale_jitter = float(parameters.get("scale_jitter", 0.3))
+    translucency = float(parameters.get("translucency", 0.4))
+
+    blade_mesh = _grass_blade_mesh(seed, blade_height_m)
+    blade_material = _grass_blade_material(plan_id, plan_index, blade_color, translucency)
+    if hasattr(blade_mesh, "materials") and blade_material not in blade_mesh.materials:
+        blade_mesh.materials.append(blade_material)
+
+    group_name = f"forge.geom.grass.{plan_id}.{plan_index}"
+    group = _grass_geometry_nodes_group(
+        group_name,
+        blade_mesh,
+        density_per_m2,
+        seed,
+        slope_max_cos,
+        height_band,
+        rotation_jitter_deg,
+        scale_jitter,
+    )
+    modifier = obj.modifiers.new(name=modifier_name, type="NODES")
+    modifier.node_group = group
+
+
+_INSTANCER_BUILDERS = {
+    "procedural_grass": _attach_procedural_grass_modifier,
+}
 
 
 def _handle_mesh_add_displace_modifier(params: dict[str, Any]) -> dict[str, Any]:

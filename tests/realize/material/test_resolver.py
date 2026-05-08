@@ -585,3 +585,71 @@ def test_procedural_instancer_is_frozen_extra_forbid() -> None:
         inst.density_per_m2 = 9.0  # frozen
     with pytest.raises(ValidationError):
         ProceduralInstancer(density_per_m2=5.0, seed=1, bogus=2)  # type: ignore[call-arg]
+
+
+# ---------------------------------------------------------------------------
+# Phase 6-e Stage D: procedural_grass validator
+# ---------------------------------------------------------------------------
+
+
+def test_validate_recipe_parameters_grass_empty_ok() -> None:
+    """``procedural_grass`` accepts ``{}`` (every knob is optional)."""
+    validate_recipe_parameters(MaterialRecipe.PROCEDURAL_GRASS, {})
+
+
+def test_validate_recipe_parameters_grass_full_ok() -> None:
+    """All grass knobs in canonical valid ranges round-trip."""
+    validate_recipe_parameters(
+        MaterialRecipe.PROCEDURAL_GRASS,
+        {
+            "density_per_m2": 200.0,
+            "blade_height_m": 0.15,
+            "blade_color": [0.18, 0.55, 0.18, 1.0],
+            "slope_max_cos": 0.8,
+            "rotation_jitter_deg": 180.0,
+            "scale_jitter": 0.3,
+            "translucency": 0.4,
+            "seed": 7,
+            "height_band": {"z_low": 0.0, "z_high": 100.0},
+        },
+    )
+
+
+def test_validate_recipe_parameters_grass_rejects_negative_density() -> None:
+    with pytest.raises(RecipeParameterError, match="density_per_m2"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_GRASS,
+            {"density_per_m2": -1.0},
+        )
+
+
+def test_validate_recipe_parameters_grass_rejects_non_int_seed() -> None:
+    with pytest.raises(RecipeParameterError, match="seed"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_GRASS,
+            {"seed": 1.5},
+        )
+
+
+def test_validate_recipe_parameters_grass_rejects_bad_height_band() -> None:
+    with pytest.raises(RecipeParameterError, match="z_low"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_GRASS,
+            {"height_band": {"z_low": 100.0, "z_high": 10.0}},
+        )
+
+
+def test_validate_recipe_parameters_grass_rejects_bad_blade_color() -> None:
+    with pytest.raises(RecipeParameterError, match="blade_color"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_GRASS,
+            {"blade_color": [0.1, 0.2, 0.3]},
+        )
+
+
+def test_validate_recipe_parameters_grass_rejects_translucency_out_of_unit() -> None:
+    with pytest.raises(RecipeParameterError, match="translucency"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_GRASS,
+            {"translucency": 1.5},
+        )
