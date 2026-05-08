@@ -37,7 +37,10 @@
         "principled_height_ramp",
         "triplanar_rock",
         "flat_color",
-        "pbr_layered"
+        "pbr_layered",
+        "procedural_snow",
+        "procedural_sand",
+        "procedural_water"
       ],
       "title": "MaterialRecipe",
       "type": "string"

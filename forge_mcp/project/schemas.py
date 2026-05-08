@@ -291,6 +291,38 @@ class MaterialRecipe(StrEnum):
     knobs without leaving the procedural family.
     """
 
+    PROCEDURAL_SNOW = "procedural_snow"
+    """Powdery / packed snow (Phase 6-e Stage C, surface-only v1).
+
+    White Principled BSDF with subsurface tint, a Voronoi-driven sparkle
+    layer that lifts specularity at high-frequency sample points, and a
+    low-frequency Noise → Bump drift for wind-shaped surface relief.
+    Volume Scatter for true powder depth requires the Stage E parallel
+    Volume socket and lands as an opt-in extension then; v1 ships
+    surface-only so it composites correctly under the existing
+    ``MixShader`` pipeline.
+    """
+
+    PROCEDURAL_SAND = "procedural_sand"
+    """Loose / packed sand (Phase 6-e Stage C).
+
+    Warm-tan Principled BSDF with two-octave Voronoi grain modulation
+    on Base Color, Wave-node ripples driving a Bump for dune surface
+    detail, and an optional ``wet_band`` parameter that darkens the
+    base color along a low-Z region (beach water-line). Surface-only;
+    no volume contribution.
+    """
+
+    PROCEDURAL_WATER = "procedural_water"
+    """Calm to choppy water surface (Phase 6-e Stage C, surface-only v1).
+
+    Transmission-dominant Principled BSDF (IOR ≈ 1.33) with a dual
+    Voronoi/Noise wave field driving the Normal input. v1 ships
+    surface-only; Volume Absorption for depth-tinted water lands with
+    Stage E. Use a sufficiently low ``roughness`` for glassy water,
+    crank ``wave_strength`` for choppy seas.
+    """
+
 
 class MaterialArchetypeNode(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
     """One reusable material archetype.

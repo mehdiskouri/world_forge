@@ -178,11 +178,104 @@ def _validate_pbr_layered(parameters: Mapping[str, JsonValue]) -> None:
             raise RecipeParameterError(msg)
 
 
+def _validate_positive_number(name: str, value: JsonValue) -> None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or float(value) <= 0.0:
+        msg = f"{name} must be a positive number, got {value!r}"
+        raise RecipeParameterError(msg)
+
+
+def _validate_optional_rgba(parameters: Mapping[str, JsonValue]) -> None:
+    if "base_color" not in parameters:
+        return
+    base_color = parameters["base_color"]
+    expected_rgba = 4
+    if not isinstance(base_color, list) or len(base_color) != expected_rgba:
+        msg = f"base_color must be an RGBA list of 4 floats, got {base_color!r}"
+        raise RecipeParameterError(msg)
+
+
+def _validate_procedural_snow(parameters: Mapping[str, JsonValue]) -> None:
+    """Phase 6-e Stage C: powdery snow surface recipe.
+
+    All knobs optional; ``{}`` renders plausible snow.
+    Optional: ``base_color`` (RGBA), ``sparkle_density`` ``[0, 1]``,
+    ``sparkle_scale_m`` (positive), ``drift_strength`` ``[0, 1]``,
+    ``drift_scale_m`` (positive), ``subsurface_weight`` ``[0, 1]``.
+    """
+    _validate_optional_rgba(parameters)
+    for unit_key in ("sparkle_density", "drift_strength", "subsurface_weight"):
+        if unit_key in parameters:
+            _validate_unit_interval(unit_key, parameters[unit_key])
+    for positive_key in ("sparkle_scale_m", "drift_scale_m"):
+        if positive_key in parameters:
+            _validate_positive_number(positive_key, parameters[positive_key])
+
+
+def _validate_wet_band(band: JsonValue) -> None:
+    if not isinstance(band, dict):
+        msg = f"wet_band must be a dict, got {band!r}"
+        raise RecipeParameterError(msg)
+    for key in ("low_m", "high_m", "darken"):
+        if key not in band:
+            msg = f"wet_band missing required key {key!r}"
+            raise RecipeParameterError(msg)
+    low_m = band["low_m"]
+    high_m = band["high_m"]
+    if not isinstance(low_m, (int, float)) or not isinstance(high_m, (int, float)):
+        msg = f"wet_band low_m and high_m must be numbers, got {band!r}"
+        raise RecipeParameterError(msg)
+    if float(low_m) >= float(high_m):
+        msg = f"wet_band requires low_m < high_m, got [{low_m}, {high_m}]"
+        raise RecipeParameterError(msg)
+    _validate_unit_interval("wet_band.darken", band["darken"])
+
+
+def _validate_procedural_sand(parameters: Mapping[str, JsonValue]) -> None:
+    """Phase 6-e Stage C: warm-tan sand surface recipe.
+
+    All knobs optional. Optional: ``base_color`` (RGBA),
+    ``grain_amount`` ``[0, 1]``, ``grain_scale_m`` (positive),
+    ``ripple_strength`` ``[0, 1]``, ``ripple_scale_m`` (positive),
+    ``wet_band`` (``{"low_m": float, "high_m": float, "darken": [0, 1]}``
+    — when present, darkens base color along the low-Z region).
+    """
+    _validate_optional_rgba(parameters)
+    for unit_key in ("grain_amount", "ripple_strength"):
+        if unit_key in parameters:
+            _validate_unit_interval(unit_key, parameters[unit_key])
+    for positive_key in ("grain_scale_m", "ripple_scale_m"):
+        if positive_key in parameters:
+            _validate_positive_number(positive_key, parameters[positive_key])
+    if "wet_band" in parameters:
+        _validate_wet_band(parameters["wet_band"])
+
+
+def _validate_procedural_water(parameters: Mapping[str, JsonValue]) -> None:
+    """Phase 6-e Stage C: transmission-dominant water surface recipe.
+
+    All knobs optional with sensible defaults for calm water. Optional:
+    ``base_color`` (RGBA tint), ``ior`` (positive, default 1.33),
+    ``roughness`` ``[0, 1]`` (default 0.0 for glass-flat),
+    ``wave_strength`` ``[0, 1]``, ``wave_scale_m`` (positive),
+    ``transmission`` ``[0, 1]`` (default 1.0).
+    """
+    _validate_optional_rgba(parameters)
+    for unit_key in ("roughness", "wave_strength", "transmission"):
+        if unit_key in parameters:
+            _validate_unit_interval(unit_key, parameters[unit_key])
+    for positive_key in ("ior", "wave_scale_m"):
+        if positive_key in parameters:
+            _validate_positive_number(positive_key, parameters[positive_key])
+
+
 _VALIDATORS: Final[dict[MaterialRecipe, Callable[[Mapping[str, JsonValue]], None]]] = {
     MaterialRecipe.PRINCIPLED_HEIGHT_RAMP: _validate_principled_height_ramp,
     MaterialRecipe.TRIPLANAR_ROCK: _validate_triplanar_rock,
     MaterialRecipe.FLAT_COLOR: _validate_flat_color,
     MaterialRecipe.PBR_LAYERED: _validate_pbr_layered,
+    MaterialRecipe.PROCEDURAL_SNOW: _validate_procedural_snow,
+    MaterialRecipe.PROCEDURAL_SAND: _validate_procedural_sand,
+    MaterialRecipe.PROCEDURAL_WATER: _validate_procedural_water,
 }
 
 

@@ -555,11 +555,223 @@ def _build_pbr_layered(  # noqa: C901, PLR0912, PLR0915 - shader graph assembly 
     return bsdf.outputs["BSDF"]
 
 
+def _build_procedural_snow(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Phase 6-e Stage C: powdery snow surface (no volume; surface-only v1)."""
+    base_color = parameters.get("base_color") or [0.95, 0.96, 0.98, 1.0]
+    sparkle_density = float(parameters.get("sparkle_density", 0.3))
+    sparkle_scale = float(parameters.get("sparkle_scale_m", 0.05))
+    drift_strength = float(parameters.get("drift_strength", 0.15))
+    drift_scale = float(parameters.get("drift_scale_m", 4.0))
+    subsurface_weight = float(parameters.get("subsurface_weight", 0.4))
+
+    rgba_min = 4
+    r, g, b = float(base_color[0]), float(base_color[1]), float(base_color[2])
+    a = float(base_color[3]) if len(base_color) >= rgba_min else 1.0
+
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+    bsdf.inputs["Roughness"].default_value = 0.15
+    if "Subsurface Weight" in bsdf.inputs:
+        bsdf.inputs["Subsurface Weight"].default_value = subsurface_weight
+    elif "Subsurface" in bsdf.inputs:  # pragma: no cover - older Blender naming
+        bsdf.inputs["Subsurface"].default_value = subsurface_weight
+
+    geom = nodes.new("ShaderNodeNewGeometry")
+
+    if sparkle_density > 0.0:
+        sparkle_pos = nodes.new("ShaderNodeVectorMath")
+        sparkle_pos.operation = "SCALE"
+        sparkle_pos.inputs["Scale"].default_value = 1.0 / max(sparkle_scale, 1e-4)
+        voronoi = nodes.new("ShaderNodeTexVoronoi")
+        threshold = nodes.new("ShaderNodeMath")
+        threshold.operation = "GREATER_THAN"
+        threshold.inputs[1].default_value = 1.0 - sparkle_density
+        links.new(geom.outputs["Position"], sparkle_pos.inputs["Vector"])
+        links.new(sparkle_pos.outputs["Vector"], voronoi.inputs["Vector"])
+        links.new(voronoi.outputs["Distance"], threshold.inputs[0])
+        if "Specular IOR Level" in bsdf.inputs:
+            links.new(threshold.outputs["Value"], bsdf.inputs["Specular IOR Level"])
+        elif "Specular" in bsdf.inputs:  # pragma: no cover - older naming
+            links.new(threshold.outputs["Value"], bsdf.inputs["Specular"])
+
+    if drift_strength > 0.0:
+        drift_pos = nodes.new("ShaderNodeVectorMath")
+        drift_pos.operation = "SCALE"
+        drift_pos.inputs["Scale"].default_value = 1.0 / max(drift_scale, 1e-4)
+        noise = nodes.new("ShaderNodeTexNoise")
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs["Strength"].default_value = drift_strength
+        links.new(geom.outputs["Position"], drift_pos.inputs["Vector"])
+        links.new(drift_pos.outputs["Vector"], noise.inputs["Vector"])
+        links.new(noise.outputs["Fac"], bump.inputs["Height"])
+        links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return bsdf.outputs["BSDF"]
+
+
+def _build_procedural_sand(  # noqa: C901, PLR0912, PLR0915 - shader graph assembly is linear
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Phase 6-e Stage C: warm-tan sand surface with grain + ripples + wet band."""
+    base_color = parameters.get("base_color") or [0.78, 0.66, 0.45, 1.0]
+    grain_amount = float(parameters.get("grain_amount", 0.25))
+    grain_scale = float(parameters.get("grain_scale_m", 0.5))
+    ripple_strength = float(parameters.get("ripple_strength", 0.15))
+    ripple_scale = float(parameters.get("ripple_scale_m", 2.0))
+    wet_band = parameters.get("wet_band")
+
+    rgba_min = 4
+    r, g, b = float(base_color[0]), float(base_color[1]), float(base_color[2])
+    a = float(base_color[3]) if len(base_color) >= rgba_min else 1.0
+
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Roughness"].default_value = 0.85
+
+    geom = nodes.new("ShaderNodeNewGeometry")
+
+    color_socket: Any = None
+    if grain_amount > 0.0:
+        grain_pos = nodes.new("ShaderNodeVectorMath")
+        grain_pos.operation = "SCALE"
+        grain_pos.inputs["Scale"].default_value = 1.0 / max(grain_scale, 1e-4)
+        v1 = nodes.new("ShaderNodeTexVoronoi")
+        v2_pos = nodes.new("ShaderNodeVectorMath")
+        v2_pos.operation = "SCALE"
+        v2_pos.inputs["Scale"].default_value = 4.0
+        v2 = nodes.new("ShaderNodeTexVoronoi")
+        mix1 = nodes.new("ShaderNodeMixRGB")
+        mix1.inputs["Fac"].default_value = grain_amount
+        mix1.inputs["Color1"].default_value = (r, g, b, a)
+        mix2 = nodes.new("ShaderNodeMixRGB")
+        mix2.inputs["Fac"].default_value = grain_amount * 0.5
+        links.new(geom.outputs["Position"], grain_pos.inputs["Vector"])
+        links.new(grain_pos.outputs["Vector"], v1.inputs["Vector"])
+        links.new(grain_pos.outputs["Vector"], v2_pos.inputs["Vector"])
+        links.new(v2_pos.outputs["Vector"], v2.inputs["Vector"])
+        links.new(v1.outputs["Color"], mix1.inputs["Color2"])
+        links.new(mix1.outputs["Color"], mix2.inputs["Color1"])
+        links.new(v2.outputs["Color"], mix2.inputs["Color2"])
+        color_socket = mix2.outputs["Color"]
+    else:
+        bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+
+    if wet_band is not None:
+        low_m = float(wet_band["low_m"])
+        high_m = float(wet_band["high_m"])
+        darken = float(wet_band["darken"])
+        wet_sep = nodes.new("ShaderNodeSeparateXYZ")
+        wet_smooth = nodes.new("ShaderNodeMath")
+        wet_smooth.operation = "SMOOTHSTEP"
+        wet_smooth.inputs[1].default_value = high_m
+        wet_smooth.inputs[2].default_value = low_m
+        wet_invert = nodes.new("ShaderNodeMath")
+        wet_invert.operation = "SUBTRACT"
+        wet_invert.inputs[0].default_value = 1.0
+        wet_scale = nodes.new("ShaderNodeMath")
+        wet_scale.operation = "MULTIPLY"
+        wet_scale.inputs[1].default_value = darken
+        wet_mix = nodes.new("ShaderNodeMixRGB")
+        wet_mix.inputs["Color2"].default_value = (
+            r * (1.0 - darken),
+            g * (1.0 - darken),
+            b * (1.0 - darken),
+            a,
+        )
+        links.new(geom.outputs["Position"], wet_sep.inputs["Vector"])
+        links.new(wet_sep.outputs["Z"], wet_smooth.inputs[0])
+        links.new(wet_smooth.outputs["Value"], wet_invert.inputs[1])
+        links.new(wet_invert.outputs["Value"], wet_scale.inputs[0])
+        links.new(wet_scale.outputs["Value"], wet_mix.inputs["Fac"])
+        if color_socket is not None:
+            links.new(color_socket, wet_mix.inputs["Color1"])
+        else:
+            wet_mix.inputs["Color1"].default_value = (r, g, b, a)
+        color_socket = wet_mix.outputs["Color"]
+
+    if color_socket is not None:
+        links.new(color_socket, bsdf.inputs["Base Color"])
+
+    if ripple_strength > 0.0:
+        ripple_pos = nodes.new("ShaderNodeVectorMath")
+        ripple_pos.operation = "SCALE"
+        ripple_pos.inputs["Scale"].default_value = 1.0 / max(ripple_scale, 1e-4)
+        wave = nodes.new("ShaderNodeTexWave")
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs["Strength"].default_value = ripple_strength
+        links.new(geom.outputs["Position"], ripple_pos.inputs["Vector"])
+        links.new(ripple_pos.outputs["Vector"], wave.inputs["Vector"])
+        links.new(wave.outputs["Fac"], bump.inputs["Height"])
+        links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return bsdf.outputs["BSDF"]
+
+
+def _build_procedural_water(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Phase 6-e Stage C: transmission-dominant water surface (no volume; v1)."""
+    base_color = parameters.get("base_color") or [0.05, 0.20, 0.35, 1.0]
+    ior = float(parameters.get("ior", 1.33))
+    roughness = float(parameters.get("roughness", 0.0))
+    wave_strength = float(parameters.get("wave_strength", 0.2))
+    wave_scale = float(parameters.get("wave_scale_m", 1.5))
+    transmission = float(parameters.get("transmission", 1.0))
+
+    rgba_min = 4
+    r, g, b = float(base_color[0]), float(base_color[1]), float(base_color[2])
+    a = float(base_color[3]) if len(base_color) >= rgba_min else 1.0
+
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+    bsdf.inputs["Roughness"].default_value = roughness
+    bsdf.inputs["IOR"].default_value = ior
+    if "Transmission Weight" in bsdf.inputs:
+        bsdf.inputs["Transmission Weight"].default_value = transmission
+    elif "Transmission" in bsdf.inputs:  # pragma: no cover - older naming
+        bsdf.inputs["Transmission"].default_value = transmission
+
+    if wave_strength > 0.0:
+        geom = nodes.new("ShaderNodeNewGeometry")
+        wave_pos = nodes.new("ShaderNodeVectorMath")
+        wave_pos.operation = "SCALE"
+        wave_pos.inputs["Scale"].default_value = 1.0 / max(wave_scale, 1e-4)
+        v_swell = nodes.new("ShaderNodeTexVoronoi")
+        n_chop = nodes.new("ShaderNodeTexNoise")
+        chop_pos = nodes.new("ShaderNodeVectorMath")
+        chop_pos.operation = "SCALE"
+        chop_pos.inputs["Scale"].default_value = 4.0
+        add = nodes.new("ShaderNodeMath")
+        add.operation = "ADD"
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs["Strength"].default_value = wave_strength
+        links.new(geom.outputs["Position"], wave_pos.inputs["Vector"])
+        links.new(wave_pos.outputs["Vector"], v_swell.inputs["Vector"])
+        links.new(wave_pos.outputs["Vector"], chop_pos.inputs["Vector"])
+        links.new(chop_pos.outputs["Vector"], n_chop.inputs["Vector"])
+        links.new(v_swell.outputs["Distance"], add.inputs[0])
+        links.new(n_chop.outputs["Fac"], add.inputs[1])
+        links.new(add.outputs["Value"], bump.inputs["Height"])
+        links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return bsdf.outputs["BSDF"]
+
+
 _RECIPE_BUILDERS = {
     "principled_height_ramp": _build_principled_height_ramp,
     "triplanar_rock": _build_triplanar_rock,
     "flat_color": _build_flat_color,
     "pbr_layered": _build_pbr_layered,
+    "procedural_snow": _build_procedural_snow,
+    "procedural_sand": _build_procedural_sand,
+    "procedural_water": _build_procedural_water,
 }
 
 
