@@ -609,7 +609,7 @@ def _parse_render_options(
         return fail("invalid_render_options", str(exc))
 
 
-def generate_region(  # noqa: PLR0911 - one return per failure surface
+def generate_region(  # noqa: PLR0911, C901 - one return per failure surface
     region_id: str,
     *,
     render_options: dict[str, object] | None = None,
@@ -714,6 +714,18 @@ def generate_region(  # noqa: PLR0911 - one return per failure surface
             "device_unavailable",
             str(exc),
             details={"device": exc.device, "available": list(exc.available)},
+        )
+    except GrassDensityTooHighError as exc:
+        return fail(
+            "grass_density_too_high",
+            str(exc),
+            details={
+                "region_id": str(exc.region_id),
+                "requested": exc.requested,
+                "cap": exc.cap,
+                "area_m2": exc.area_m2,
+                "density_per_m2": exc.density_per_m2,
+            },
         )
     except RealizerError as exc:
         return fail("realizer_failed", str(exc))
@@ -857,6 +869,18 @@ def render_view(
             "device_unavailable",
             str(exc),
             details={"device": exc.device, "available": list(exc.available)},
+        )
+    except GrassDensityTooHighError as exc:
+        return fail(
+            "grass_density_too_high",
+            str(exc),
+            details={
+                "region_id": str(exc.region_id),
+                "requested": exc.requested,
+                "cap": exc.cap,
+                "area_m2": exc.area_m2,
+                "density_per_m2": exc.density_per_m2,
+            },
         )
     except RealizerError as exc:
         return fail("realizer_failed", str(exc))

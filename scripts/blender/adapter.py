@@ -1368,6 +1368,25 @@ def _grass_blade_mesh(seed: int, blade_height_m: float) -> Any:  # noqa: ANN401
     return mesh
 
 
+def _grass_blade_object(blade_mesh: Any) -> Any:  # noqa: ANN401
+    """Return a (cached) hidden Object wrapping ``blade_mesh``.
+
+    ``GeometryNodeObjectInfo.inputs[0]`` is a ``NodeSocketObject``,
+    so the GN graph cannot reference a Mesh data-block directly —
+    it needs an Object. We create one Object per blade mesh, stash
+    it on the orphan-protection cache (no scene linkage), and
+    re-use it on subsequent attaches.
+    """
+    name = f"forge.grass_blade_obj.{blade_mesh.name}"
+    existing = bpy.data.objects.get(name)
+    if existing is not None:
+        return existing
+    obj = bpy.data.objects.new(name=name, object_data=blade_mesh)
+    if hasattr(obj, "use_fake_user"):
+        obj.use_fake_user = True
+    return obj
+
+
 def _grass_blade_material(  # noqa: PLR0913 - one assembly site
     plan_id: str,
     index: int,
@@ -1408,7 +1427,7 @@ def _grass_blade_material(  # noqa: PLR0913 - one assembly site
 
 def _grass_geometry_nodes_group(  # noqa: PLR0913 - one assembly site
     name: str,
-    blade_mesh: Any,  # noqa: ANN401
+    blade_object: Any,  # noqa: ANN401
     density_per_m2: float,
     seed: int,
     slope_max_cos: float,
@@ -1490,7 +1509,7 @@ def _grass_geometry_nodes_group(  # noqa: PLR0913 - one assembly site
     # Instance on Points: read the blade mesh as object info.
     obj_info = nodes.new("GeometryNodeObjectInfo")
     obj_info.transform_space = "ORIGINAL"
-    obj_info.inputs[0].default_value = blade_mesh
+    obj_info.inputs[0].default_value = blade_object
     instance = nodes.new("GeometryNodeInstanceOnPoints")
     links.new(distribute.outputs["Points"], instance.inputs["Points"])
     links.new(obj_info.outputs["Geometry"], instance.inputs["Instance"])
@@ -1559,13 +1578,18 @@ def _attach_procedural_grass_modifier(
 
     blade_mesh = _grass_blade_mesh(seed, blade_height_m)
     blade_material = _grass_blade_material(plan_id, plan_index, blade_color, translucency)
-    if hasattr(blade_mesh, "materials") and blade_material not in blade_mesh.materials:
-        blade_mesh.materials.append(blade_material)
+    if hasattr(blade_mesh, "materials"):
+        # ``bpy_prop_collection.__contains__`` only accepts strings,
+        # so test by name rather than by data-block identity.
+        existing_names = {getattr(m, "name", None) for m in blade_mesh.materials}
+        if blade_material.name not in existing_names:
+            blade_mesh.materials.append(blade_material)
+    blade_object = _grass_blade_object(blade_mesh)
 
     group_name = f"forge.geom.grass.{plan_id}.{plan_index}"
     group = _grass_geometry_nodes_group(
         group_name,
-        blade_mesh,
+        blade_object,
         density_per_m2,
         seed,
         slope_max_cos,
