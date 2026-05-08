@@ -13,6 +13,7 @@ from forge_mcp.project.schemas import (
     MaterialRecipe,
     MaterialScope,
     NodeId,
+    SlopeMask,
     WorldBounds,
 )
 from forge_mcp.project.service import ProjectService
@@ -388,3 +389,54 @@ def test_validate_recipe_parameters_flat_color_requires_rgba() -> None:
 def test_validate_recipe_parameters_triplanar_requires_base_color() -> None:
     with pytest.raises(RecipeParameterError, match="missing required"):
         validate_recipe_parameters(MaterialRecipe.TRIPLANAR_ROCK, {})
+
+
+def test_resolve_plan_serialises_slope_mask_for_adapter(tmp_path: Path) -> None:
+    """SlopeMask must round-trip into the layer's serialised mask dict.
+
+    Phase 6-e Stage A fixed a bug where the adapter silently no-opped
+    ``kind == "slope"`` masks. This test guards the contract that the
+    resolver still hands the adapter a fully populated slope-mask
+    payload (``kind``, ``low``, ``high``, ``softness``) so the new
+    :func:`scripts.blender.adapter._build_slope_mask_factor` builder
+    receives the expected keys.
+    """
+    svc, region_id = _bootstrap(tmp_path)
+    parent = svc.create_material_archetype(
+        "Cliff",
+        MaterialRecipe.FLAT_COLOR,
+        {"color": [0.5, 0.5, 0.5, 1.0]},
+    )
+    child = svc.create_material_archetype(
+        "Grass",
+        MaterialRecipe.FLAT_COLOR,
+        {"color": [0.1, 0.5, 0.1, 1.0]},
+    )
+    svc.compose_material(
+        parent.node_id,
+        child.node_id,
+        attrs=MaterialCompositionAttrs(
+            mode=MaterialCompositionMode.COMPOSES,
+            mask=SlopeMask(low=0.7, high=0.95, softness=0.05),
+            weight=1.0,
+        ),
+    )
+    svc.apply_material(
+        parent.node_id,
+        NodeId(str(region_id)),
+        attrs=MaterialApplicationAttrs(scope=MaterialScope.REGION),
+    )
+    plan = resolve_plan(
+        svc.state,
+        region_id,
+        mesh_name="m",
+        elevation_min=0.0,
+        elevation_max=1.0,
+    )
+    layer_dump = plan.layers[0].model_dump(mode="json")
+    assert layer_dump["mask"] == {
+        "kind": "slope",
+        "low": 0.7,
+        "high": 0.95,
+        "softness": 0.05,
+    }
