@@ -565,11 +565,60 @@ def _build_base_mask_factor(
         links.new(sub.outputs["Value"], div.inputs[0])
         links.new(div.outputs["Value"], scale.inputs[0])
         return scale.outputs["Value"]
-    # Unknown / slope mask: fall back to a constant weight; richer mask
-    # support lands in a follow-up phase.
+    if kind == "slope":
+        return _build_slope_mask_factor(
+            nodes,
+            links,
+            float(mask.get("low", 0.0)),
+            float(mask.get("high", 1.0)),
+            float(mask.get("softness", 0.0)),
+            weight_value,
+        )
+    # Unknown mask kind: fall back to constant weight + warn so future
+    # schema additions cannot silently no-op the way the slope mask did
+    # before Phase 6-e Stage A.
+    sys.stderr.write(
+        f"forge: unknown mask kind {kind!r}; falling back to constant weight\n",
+    )
     const = nodes.new("ShaderNodeValue")
     const.outputs[0].default_value = weight_value
     return const.outputs[0]
+
+
+def _build_slope_mask_factor(  # noqa: PLR0913 - five mask-domain inputs + weight
+    nodes: Any,  # noqa: ANN401 - bpy node tree is dynamically typed
+    links: Any,  # noqa: ANN401
+    low: float,
+    high: float,
+    softness: float,
+    weight: float,
+) -> Any:  # noqa: ANN401
+    """Return a ``Fac`` socket for a :class:`SlopeMask` mix factor.
+
+    Domain matches the Pydantic model: ``low``/``high`` are
+    cosine-of-normal thresholds in ``[0, 1]`` where ``1`` is flat
+    ground and ``0`` is a vertical cliff. The factor smoothsteps from
+    ``0`` at ``low - softness`` to ``1`` at ``high + softness`` so the
+    mask transitions cleanly through the band, then scales by the
+    application's ``weight``.
+    """
+    geom = nodes.new("ShaderNodeNewGeometry")
+    sep = nodes.new("ShaderNodeSeparateXYZ")
+    abs_z = nodes.new("ShaderNodeMath")
+    abs_z.operation = "ABSOLUTE"
+    smooth = nodes.new("ShaderNodeMath")
+    smooth.operation = "SMOOTHSTEP"
+    smooth.inputs[1].default_value = max(0.0, low - softness)
+    smooth.inputs[2].default_value = min(1.0, high + softness)
+    scale = nodes.new("ShaderNodeMath")
+    scale.operation = "MULTIPLY"
+    scale.inputs[1].default_value = weight
+    scale.use_clamp = True
+    links.new(geom.outputs["Normal"], sep.inputs["Vector"])
+    links.new(sep.outputs["Z"], abs_z.inputs[0])
+    links.new(abs_z.outputs["Value"], smooth.inputs[0])
+    links.new(smooth.outputs["Value"], scale.inputs[0])
+    return scale.outputs["Value"]
 
 
 def _build_predicate_factor(
