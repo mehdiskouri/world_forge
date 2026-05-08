@@ -560,7 +560,16 @@ def _build_procedural_snow(
     links: Any,  # noqa: ANN401
     parameters: dict[str, Any],
 ) -> Any:  # noqa: ANN401
-    """Phase 6-e Stage C: powdery snow surface (no volume; surface-only v1)."""
+    """Phase 6-e Stage C/E: powdery snow surface, optional volume scatter.
+
+    Surface graph (Stage C): Principled BSDF with Subsurface Weight,
+    optional sparkle (Voronoi → ``Specular IOR Level`` threshold),
+    optional drift (Noise → Bump). When ``volume_scatter_density``
+    (Stage E, optional, > 0) is supplied the builder also emits a
+    ``ShaderNodeVolumeScatter`` and returns ``(surface, volume)``;
+    otherwise it returns just the surface socket so existing plans
+    stay byte-identical.
+    """
     base_color = parameters.get("base_color") or [0.95, 0.96, 0.98, 1.0]
     sparkle_density = float(parameters.get("sparkle_density", 0.3))
     sparkle_scale = float(parameters.get("sparkle_scale_m", 0.05))
@@ -609,6 +618,13 @@ def _build_procedural_snow(
         links.new(drift_pos.outputs["Vector"], noise.inputs["Vector"])
         links.new(noise.outputs["Fac"], bump.inputs["Height"])
         links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+    volume_density = parameters.get("volume_scatter_density")
+    if volume_density is not None and float(volume_density) > 0.0:
+        scatter = nodes.new("ShaderNodeVolumeScatter")
+        scatter.inputs["Color"].default_value = (r, g, b, a)
+        scatter.inputs["Density"].default_value = float(volume_density)
+        return bsdf.outputs["BSDF"], scatter.outputs["Volume"]
 
     return bsdf.outputs["BSDF"]
 
@@ -717,7 +733,16 @@ def _build_procedural_water(
     links: Any,  # noqa: ANN401
     parameters: dict[str, Any],
 ) -> Any:  # noqa: ANN401
-    """Phase 6-e Stage C: transmission-dominant water surface (no volume; v1)."""
+    """Phase 6-e Stage C/E: transmission-dominant water, optional absorption.
+
+    Surface graph (Stage C): Principled BSDF with IOR + Transmission
+    Weight + optional swell/chop wave field driving a Bump. When
+    ``volume_absorption_density`` (Stage E, optional, > 0) is supplied,
+    the builder also emits a ``ShaderNodeVolumeAbsorption`` (using
+    ``volume_absorption_color`` if given, else ``base_color``) and
+    returns ``(surface, volume)``; otherwise returns just the surface
+    socket so existing plans stay byte-identical.
+    """
     base_color = parameters.get("base_color") or [0.05, 0.20, 0.35, 1.0]
     ior = float(parameters.get("ior", 1.33))
     roughness = float(parameters.get("roughness", 0.0))
@@ -760,6 +785,20 @@ def _build_procedural_water(
         links.new(n_chop.outputs["Fac"], add.inputs[1])
         links.new(add.outputs["Value"], bump.inputs["Height"])
         links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+    volume_density = parameters.get("volume_absorption_density")
+    if volume_density is not None and float(volume_density) > 0.0:
+        absorb_color = parameters.get("volume_absorption_color") or base_color
+        ar, ag, ab = (
+            float(absorb_color[0]),
+            float(absorb_color[1]),
+            float(absorb_color[2]),
+        )
+        aalpha = float(absorb_color[3]) if len(absorb_color) >= rgba_min else 1.0
+        absorb = nodes.new("ShaderNodeVolumeAbsorption")
+        absorb.inputs["Color"].default_value = (ar, ag, ab, aalpha)
+        absorb.inputs["Density"].default_value = float(volume_density)
+        return bsdf.outputs["BSDF"], absorb.outputs["Volume"]
 
     return bsdf.outputs["BSDF"]
 
@@ -1104,6 +1143,28 @@ def _build_aspect_value_socket(
     return wrap.outputs["Value"]
 
 
+def _normalize_builder_result(
+    result: Any,  # noqa: ANN401
+) -> tuple[Any, Any]:
+    """Return ``(surface_socket, volume_socket_or_None)`` from a recipe result.
+
+    Phase 6-e Stage E: recipe builders may now return either a bare
+    surface socket (the legacy convention used by every Stage A/B/C
+    builder) or a ``(surface, volume)`` tuple when they contribute a
+    Volume Scatter / Volume Absorption shader to the material output.
+    The composite loop calls this helper to handle both shapes
+    transparently, so layers without volume contributions remain
+    byte-identical to pre-Stage-E output.
+    """
+    if isinstance(result, tuple):
+        tuple_arity = 2
+        if len(result) != tuple_arity:
+            msg = f"recipe builder returned tuple of length {len(result)}, expected 2"
+            raise ValueError(msg)
+        return result[0], result[1]
+    return result, None
+
+
 def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
     """Realize a :class:`CompositeMaterialPlan` into a Blender material.
 
@@ -1143,7 +1204,14 @@ def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
             nodes.remove(node)
         output = nodes.new("ShaderNodeOutputMaterial")
         # Build each layer's shader, mixing into a running composite.
-        composite = None
+        # Phase 6-e Stage E: track surface and volume in parallel so
+        # volume-emitting recipes (procedural_snow / procedural_water)
+        # can drive ``Material Output.Volume`` without disturbing the
+        # surface mix. Layers that don't emit a volume socket leave
+        # ``composite_volume`` as ``None`` and the Volume input stays
+        # unconnected — byte-identical to pre-Stage-E behaviour.
+        composite_surface = None
+        composite_volume = None
         for layer in layers:
             recipe = layer.get("recipe")
             parameters = layer.get("parameters") or {}
@@ -1151,11 +1219,13 @@ def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
             if builder is None:
                 msg = f"unknown material recipe {recipe!r}"
                 raise ValueError(msg)
-            shader_socket = builder(nodes, links, parameters)
-            if composite is None:
-                composite = shader_socket
+            surface_socket, volume_socket = _normalize_builder_result(
+                builder(nodes, links, parameters),
+            )
+            if composite_surface is None:
+                composite_surface = surface_socket
+                composite_volume = volume_socket
                 continue
-            mix = nodes.new("ShaderNodeMixShader")
             fac_socket = _build_mask_factor(
                 nodes,
                 links,
@@ -1163,12 +1233,30 @@ def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
                 layer.get("weight"),
                 layer.get("predicate_mask"),
             )
+            mix = nodes.new("ShaderNodeMixShader")
             links.new(fac_socket, mix.inputs["Fac"])
-            links.new(composite, mix.inputs[1])
-            links.new(shader_socket, mix.inputs[2])
-            composite = mix.outputs["Shader"]
-        if composite is not None:
-            links.new(composite, output.inputs["Surface"])
+            links.new(composite_surface, mix.inputs[1])
+            links.new(surface_socket, mix.inputs[2])
+            composite_surface = mix.outputs["Shader"]
+            if volume_socket is not None:
+                if composite_volume is None:
+                    # First volume contribution: no prior volume to mix
+                    # against, so the layer's volume becomes the running
+                    # composite_volume directly. This is intentional —
+                    # mixing against a missing baseline would force every
+                    # plan with a single volume layer to render volume
+                    # everywhere on the mesh, defeating mask scoping.
+                    composite_volume = volume_socket
+                else:
+                    vmix = nodes.new("ShaderNodeMixShader")
+                    links.new(fac_socket, vmix.inputs["Fac"])
+                    links.new(composite_volume, vmix.inputs[1])
+                    links.new(volume_socket, vmix.inputs[2])
+                    composite_volume = vmix.outputs["Shader"]
+        if composite_surface is not None:
+            links.new(composite_surface, output.inputs["Surface"])
+        if composite_volume is not None:
+            links.new(composite_volume, output.inputs["Volume"])
     if obj.data is not None and hasattr(obj.data, "materials"):
         if len(obj.data.materials) > 0:
             obj.data.materials[0] = mat

@@ -457,6 +457,40 @@ def test_validate_recipe_parameters_procedural_water_rejects_nonpositive_ior() -
         validate_recipe_parameters(MaterialRecipe.PROCEDURAL_WATER, {"ior": 0.0})
 
 
+def test_validate_recipe_parameters_procedural_snow_accepts_volume_density() -> None:
+    """Phase 6-e Stage E: opt-in volume_scatter_density on snow."""
+    validate_recipe_parameters(
+        MaterialRecipe.PROCEDURAL_SNOW,
+        {"volume_scatter_density": 0.4},
+    )
+
+
+def test_validate_recipe_parameters_procedural_snow_rejects_nonpositive_volume() -> None:
+    with pytest.raises(RecipeParameterError, match="positive"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_SNOW,
+            {"volume_scatter_density": 0.0},
+        )
+
+
+def test_validate_recipe_parameters_procedural_water_accepts_volume_absorption() -> None:
+    validate_recipe_parameters(
+        MaterialRecipe.PROCEDURAL_WATER,
+        {
+            "volume_absorption_density": 0.2,
+            "volume_absorption_color": [0.1, 0.4, 0.6, 1.0],
+        },
+    )
+
+
+def test_validate_recipe_parameters_procedural_water_rejects_bad_absorption_color() -> None:
+    with pytest.raises(RecipeParameterError, match="volume_absorption_color"):
+        validate_recipe_parameters(
+            MaterialRecipe.PROCEDURAL_WATER,
+            {"volume_absorption_color": [0.1, 0.2, 0.3]},
+        )
+
+
 def test_resolve_plan_serialises_slope_mask_for_adapter(tmp_path: Path) -> None:
     """SlopeMask must round-trip into the layer's serialised mask dict.
 

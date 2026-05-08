@@ -33,6 +33,17 @@ Stages B–G open as fresh branches off main as they ship.
   composite loop adopts a parallel Volume socket. `procedural_water`
   exercises Blender 5.0's `Transmission Weight` socket through the
   same cross-version guard pattern as Stage B.
+- Stage E — **shipped** as PR #65 (parallel Volume composite socket).
+  Builders may now return either a bare surface socket (legacy
+  convention, byte-identical) or a `(surface, volume)` tuple;
+  `_normalize_builder_result` unifies both shapes inside the composite
+  loop, which mixes volumes through a parallel `MixShader` chain
+  terminating at `Material Output.Volume` (only linked when at least
+  one layer contributes a volume). `procedural_snow` and
+  `procedural_water` retrofitted with optional opt-in volume knobs
+  (`volume_scatter_density`, `volume_absorption_density` +
+  `volume_absorption_color`); plans without these parameters render
+  identically to pre-Stage-E.
 
 ---
 
