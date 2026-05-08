@@ -259,6 +259,7 @@ class FakeModifier:
     def __init__(self, name: str, mod_type: str) -> None:
         self.name = name
         self.type = mod_type
+        self.node_group: FakeNodeGroup | None = None
         self._inputs: dict[str, object] = {}
 
     def __setitem__(self, key: str, value: object) -> None:
