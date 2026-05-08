@@ -280,6 +280,17 @@ class MaterialRecipe(StrEnum):
     FLAT_COLOR = "flat_color"
     """Minimal solid-color Principled BSDF; useful as a base layer."""
 
+    PBR_LAYERED = "pbr_layered"
+    """Generalised procedural Principled BSDF (Phase 6-e Stage B).
+
+    Combines a configurable base color with optional Voronoi base-color
+    variation, Noise-driven roughness variation, and a Bump-node normal
+    detail layer. All inputs are procedural — no image textures. Use
+    this for any surface (rock, grass, snow, sand, dirt, organics) that
+    needs more than the legacy ``flat_color`` / ``triplanar_rock``
+    knobs without leaving the procedural family.
+    """
+
 
 class MaterialArchetypeNode(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
     """One reusable material archetype.

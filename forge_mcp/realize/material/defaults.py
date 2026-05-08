@@ -131,10 +131,58 @@ def _validate_flat_color(parameters: Mapping[str, JsonValue]) -> None:
         raise RecipeParameterError(msg)
 
 
+def _validate_unit_interval(name: str, value: JsonValue) -> None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        msg = f"{name} must be a number in [0, 1], got {value!r}"
+        raise RecipeParameterError(msg)
+    if not 0.0 <= float(value) <= 1.0:
+        msg = f"{name} must be in [0, 1], got {value!r}"
+        raise RecipeParameterError(msg)
+
+
+def _validate_pbr_layered(parameters: Mapping[str, JsonValue]) -> None:
+    """Validate the Phase 6-e Stage B ``pbr_layered`` recipe.
+
+    Required: ``base_color`` (RGBA list of 4 floats).
+
+    Optional knobs (all default to ``0`` / off if absent):
+    ``base_color_variation`` (Voronoi mix amount, ``[0, 1]``),
+    ``roughness`` (base roughness, ``[0, 1]``),
+    ``roughness_variation`` (Noise contribution, ``[0, 1]``),
+    ``normal_detail`` (Bump strength, ``[0, 1]``),
+    ``metallic`` (``[0, 1]``),
+    ``clearcoat`` (``[0, 1]``),
+    ``triplanar_scale_m`` (positive float, world-space scale for
+    procedural inputs).
+    """
+    _require_keys(MaterialRecipe.PBR_LAYERED, parameters, ("base_color",))
+    base_color = parameters["base_color"]
+    expected_rgba = 4
+    if not isinstance(base_color, list) or len(base_color) != expected_rgba:
+        msg = f"base_color must be an RGBA list of 4 floats, got {base_color!r}"
+        raise RecipeParameterError(msg)
+    for unit_key in (
+        "base_color_variation",
+        "roughness",
+        "roughness_variation",
+        "normal_detail",
+        "metallic",
+        "clearcoat",
+    ):
+        if unit_key in parameters:
+            _validate_unit_interval(unit_key, parameters[unit_key])
+    if "triplanar_scale_m" in parameters:
+        scale = parameters["triplanar_scale_m"]
+        if not isinstance(scale, (int, float)) or isinstance(scale, bool) or float(scale) <= 0.0:
+            msg = f"triplanar_scale_m must be a positive number, got {scale!r}"
+            raise RecipeParameterError(msg)
+
+
 _VALIDATORS: Final[dict[MaterialRecipe, Callable[[Mapping[str, JsonValue]], None]]] = {
     MaterialRecipe.PRINCIPLED_HEIGHT_RAMP: _validate_principled_height_ramp,
     MaterialRecipe.TRIPLANAR_ROCK: _validate_triplanar_rock,
     MaterialRecipe.FLAT_COLOR: _validate_flat_color,
+    MaterialRecipe.PBR_LAYERED: _validate_pbr_layered,
 }
 
 

@@ -36,7 +36,8 @@
       "enum": [
         "principled_height_ramp",
         "triplanar_rock",
-        "flat_color"
+        "flat_color",
+        "pbr_layered"
       ],
       "title": "MaterialRecipe",
       "type": "string"
