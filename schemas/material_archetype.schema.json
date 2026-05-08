@@ -40,7 +40,8 @@
         "pbr_layered",
         "procedural_snow",
         "procedural_sand",
-        "procedural_water"
+        "procedural_water",
+        "procedural_grass"
       ],
       "title": "MaterialRecipe",
       "type": "string"

@@ -118,6 +118,78 @@ _PNG_MAX_BYTES: Final[dict[str, int]] = {
 
 _DEFAULT_PLAN_MESH_PREFIX: Final[str] = "terrain_"
 
+# Phase 6-e Stage D: hard ceiling on instanced primitives across all
+# instancer layers in a single region's resolved plan, summed as
+# ``density_per_m2 * surface_area_m2``. Empirical: 5e6 instanced
+# triangles renders in <10 s for a 4 km^2 region under EEVEE on a
+# mid-range GPU; above that, EEVEE memory pressure starts evicting
+# the heightmap texture and the realiser starts failing intermittently.
+_MAX_INSTANCED_PRIMITIVES: Final[float] = 5_000_000.0
+
+
+class GrassDensityTooHighError(ValueError):
+    """Raised when ``density_per_m2 * surface_area_m2`` exceeds the cap.
+
+    Carries structured fields the MCP server promotes to a typed
+    error envelope so clients can distinguish density failures from
+    other generation errors.
+    """
+
+    def __init__(
+        self,
+        *,
+        region_id: RegionId,
+        requested: float,
+        cap: float,
+        area_m2: float,
+        density_per_m2: float,
+    ) -> None:
+        self.region_id = region_id
+        self.requested = requested
+        self.cap = cap
+        self.area_m2 = area_m2
+        self.density_per_m2 = density_per_m2
+        super().__init__(
+            f"procedural_grass density * area = {requested:.0f} exceeds "
+            f"cap {cap:.0f} for region {region_id!r} "
+            f"(density_per_m2={density_per_m2}, area_m2={area_m2})",
+        )
+
+
+def _check_instancer_density(
+    instancer_layers: list[JsonValue],
+    area_m2: float,
+    *,
+    region_id: RegionId,
+) -> None:
+    """Enforce the per-region instancer-density ceiling.
+
+    Sums ``density_per_m2`` across every instancer layer (the v1
+    cap is on total primitives across the region, since every
+    layer's modifier contributes additively to render cost) and
+    raises :class:`GrassDensityTooHighError` if the product with
+    ``area_m2`` exceeds :data:`_MAX_INSTANCED_PRIMITIVES`.
+    """
+    total_density = 0.0
+    for layer in instancer_layers:
+        if not isinstance(layer, dict):
+            continue
+        instancer = layer.get("instancer")
+        if not isinstance(instancer, dict):
+            continue
+        density = instancer.get("density_per_m2")
+        if isinstance(density, (int, float)) and not isinstance(density, bool):
+            total_density += float(density)
+    requested = total_density * float(area_m2)
+    if requested > _MAX_INSTANCED_PRIMITIVES:
+        raise GrassDensityTooHighError(
+            region_id=region_id,
+            requested=requested,
+            cap=_MAX_INSTANCED_PRIMITIVES,
+            area_m2=float(area_m2),
+            density_per_m2=total_density,
+        )
+
 
 def _camera_name_for_view(region_id: RegionId, view_kind: str) -> str:
     """Return the per-region camera object name for ``view_kind``."""
@@ -379,6 +451,21 @@ def _run_realizer(  # noqa: PLR0913 - one assembly site, all named
         for layer in plan_payload.get("layers", [])
         if isinstance(layer, dict) and layer.get("instancer") is not None
     ]
+    # Phase 6-e Stage D: cap total instanced primitive count at
+    # ``_MAX_INSTANCED_PRIMITIVES`` to keep EEVEE renders bounded for
+    # the unattended ``forge.realize_region`` path.
+    region_for_density = service.state.regions.get(region_id)
+    if region_for_density is None:
+        msg = f"region {region_id!r} disappeared between resolve and realize"
+        raise LookupError(msg)
+    region_extent_for_density = RegionExtent.from_polygon_coords(
+        region_for_density.spatial_bounds.coords.coords,
+    )
+    _check_instancer_density(
+        instancer_layers_payload,
+        region_extent_for_density.area_m2,
+        region_id=region_id,
+    )
 
     realize_inputs = _build_realize_inputs(
         region_id,

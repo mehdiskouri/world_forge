@@ -247,12 +247,72 @@ class FakeObjectData:
         self.materials = FakeObjectMaterialSlots()
 
 
+class FakeModifier:
+    """Permissive Geometry-Nodes / Displace modifier stub.
+
+    Real Blender exposes per-modifier-type fields like
+    ``node_group``, ``texture``, ``strength``, etc. The fake accepts
+    arbitrary attribute writes plus a permissive subscript map for
+    GN modifier input bindings (``modifier["Input_3"] = value``).
+    """
+
+    def __init__(self, name: str, mod_type: str) -> None:
+        self.name = name
+        self.type = mod_type
+        self._inputs: dict[str, object] = {}
+
+    def __setitem__(self, key: str, value: object) -> None:
+        self._inputs[key] = value
+
+    def __getitem__(self, key: str) -> object:
+        return self._inputs[key]
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and key in self._inputs
+
+
+class FakeModifiers:
+    """Mimics ``Object.modifiers`` — ordered list with ``new`` / ``remove``."""
+
+    def __init__(self) -> None:
+        self._items: list[FakeModifier] = []
+
+    def __iter__(self) -> Iterator[FakeModifier]:
+        return iter(self._items)
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def __getitem__(self, key: int | str) -> FakeModifier:
+        if isinstance(key, int):
+            return self._items[key]
+        for mod in self._items:
+            if mod.name == key:
+                return mod
+        raise KeyError(key)
+
+    def get(self, name: str) -> FakeModifier | None:
+        for mod in self._items:
+            if mod.name == name:
+                return mod
+        return None
+
+    def new(self, name: str, type: str) -> FakeModifier:  # noqa: A002 - bpy API name
+        mod = FakeModifier(name, type)
+        self._items.append(mod)
+        return mod
+
+    def remove(self, mod: FakeModifier) -> None:
+        self._items.remove(mod)
+
+
 class FakeObject:
     """Mimics ``bpy.data.objects`` entries."""
 
     def __init__(self, name: str) -> None:
         self.name = name
         self.data = FakeObjectData()
+        self.modifiers = FakeModifiers()
 
 
 class FakeObjectDB:
@@ -271,12 +331,107 @@ class FakeObjectDB:
         return obj
 
 
+class FakeMesh:
+    """Mimics ``bpy.data.meshes`` entries — minimal verts/faces + materials."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.materials = FakeObjectMaterialSlots()
+        self._verts: list[tuple[float, float, float]] = []
+        self._edges: list[tuple[int, int]] = []
+        self._faces: list[tuple[int, ...]] = []
+
+    def from_pydata(
+        self,
+        verts: list[tuple[float, float, float]],
+        edges: list[tuple[int, int]],
+        faces: list[tuple[int, ...]],
+    ) -> None:
+        self._verts = list(verts)
+        self._edges = list(edges)
+        self._faces = list(faces)
+
+    def update(self) -> None:
+        return
+
+
+class FakeMeshDB:
+    """Mimics ``bpy.data.meshes``."""
+
+    def __init__(self) -> None:
+        self._items: dict[str, FakeMesh] = {}
+
+    def get(self, name: str) -> FakeMesh | None:
+        return self._items.get(name)
+
+    def new(self, name: str) -> FakeMesh:
+        mesh = FakeMesh(name)
+        self._items[name] = mesh
+        return mesh
+
+    def __contains__(self, name: object) -> bool:
+        return isinstance(name, str) and name in self._items
+
+
+class FakeNodeGroup:
+    """Mimics ``bpy.data.node_groups`` entries (``GeometryNodeTree``)."""
+
+    def __init__(self, name: str, group_type: str) -> None:
+        self.name = name
+        self.bl_idname = group_type
+        self.nodes = FakeNodes()
+        self.links = FakeLinks()
+        self.interface = FakeNodeGroupInterface()
+
+
+class FakeNodeGroupInterface:
+    """Mimics ``NodeTree.interface`` — Blender 4+ socket-declaration API."""
+
+    def __init__(self) -> None:
+        self.items_tree: list[object] = []
+
+    def new_socket(
+        self,
+        name: str,
+        *,
+        in_out: str = "INPUT",
+        socket_type: str = "NodeSocketGeometry",
+    ) -> object:
+        item = type(
+            "FakeInterfaceSocket",
+            (),
+            {"name": name, "in_out": in_out, "socket_type": socket_type},
+        )()
+        self.items_tree.append(item)
+        return item
+
+
+class FakeNodeGroupDB:
+    """Mimics ``bpy.data.node_groups``."""
+
+    def __init__(self) -> None:
+        self._items: dict[str, FakeNodeGroup] = {}
+
+    def get(self, name: str) -> FakeNodeGroup | None:
+        return self._items.get(name)
+
+    def new(self, name: str, type: str) -> FakeNodeGroup:  # noqa: A002 - bpy API name
+        group = FakeNodeGroup(name, type)
+        self._items[name] = group
+        return group
+
+    def __contains__(self, name: object) -> bool:
+        return isinstance(name, str) and name in self._items
+
+
 class FakeBpyData:
     """Mimics ``bpy.data``."""
 
     def __init__(self) -> None:
         self.materials = FakeMaterialDB()
         self.objects = FakeObjectDB()
+        self.meshes = FakeMeshDB()
+        self.node_groups = FakeNodeGroupDB()
 
 
 class FakeBpy:
