@@ -195,18 +195,22 @@ def _validate_optional_rgba(parameters: Mapping[str, JsonValue]) -> None:
 
 
 def _validate_procedural_snow(parameters: Mapping[str, JsonValue]) -> None:
-    """Phase 6-e Stage C: powdery snow surface recipe.
+    """Phase 6-e Stage C/E: powdery snow surface, optional volume scatter.
 
     All knobs optional; ``{}`` renders plausible snow.
-    Optional: ``base_color`` (RGBA), ``sparkle_density`` ``[0, 1]``,
-    ``sparkle_scale_m`` (positive), ``drift_strength`` ``[0, 1]``,
-    ``drift_scale_m`` (positive), ``subsurface_weight`` ``[0, 1]``.
+    Optional surface knobs: ``base_color`` (RGBA), ``sparkle_density``
+    ``[0, 1]``, ``sparkle_scale_m`` (positive), ``drift_strength``
+    ``[0, 1]``, ``drift_scale_m`` (positive), ``subsurface_weight``
+    ``[0, 1]``. Optional Stage E volume knob:
+    ``volume_scatter_density`` (positive) opts the layer into a
+    ``ShaderNodeVolumeScatter`` linked to the parallel composite
+    Volume socket.
     """
     _validate_optional_rgba(parameters)
     for unit_key in ("sparkle_density", "drift_strength", "subsurface_weight"):
         if unit_key in parameters:
             _validate_unit_interval(unit_key, parameters[unit_key])
-    for positive_key in ("sparkle_scale_m", "drift_scale_m"):
+    for positive_key in ("sparkle_scale_m", "drift_scale_m", "volume_scatter_density"):
         if positive_key in parameters:
             _validate_positive_number(positive_key, parameters[positive_key])
 
@@ -251,19 +255,30 @@ def _validate_procedural_sand(parameters: Mapping[str, JsonValue]) -> None:
 
 
 def _validate_procedural_water(parameters: Mapping[str, JsonValue]) -> None:
-    """Phase 6-e Stage C: transmission-dominant water surface recipe.
+    """Phase 6-e Stage C/E: transmission-dominant water, optional absorption.
 
-    All knobs optional with sensible defaults for calm water. Optional:
-    ``base_color`` (RGBA tint), ``ior`` (positive, default 1.33),
-    ``roughness`` ``[0, 1]`` (default 0.0 for glass-flat),
-    ``wave_strength`` ``[0, 1]``, ``wave_scale_m`` (positive),
-    ``transmission`` ``[0, 1]`` (default 1.0).
+    All knobs optional with sensible defaults for calm water. Optional
+    surface knobs: ``base_color`` (RGBA tint), ``ior`` (positive,
+    default 1.33), ``roughness`` ``[0, 1]`` (default 0.0 for
+    glass-flat), ``wave_strength`` ``[0, 1]``, ``wave_scale_m``
+    (positive), ``transmission`` ``[0, 1]`` (default 1.0). Optional
+    Stage E volume knobs: ``volume_absorption_density`` (positive)
+    opts the layer into a ``ShaderNodeVolumeAbsorption`` linked to
+    the parallel composite Volume socket;
+    ``volume_absorption_color`` (RGBA, defaults to ``base_color``)
+    tints the absorbed light.
     """
     _validate_optional_rgba(parameters)
+    if "volume_absorption_color" in parameters:
+        absorb = parameters["volume_absorption_color"]
+        expected_rgba = 4
+        if not isinstance(absorb, list) or len(absorb) != expected_rgba:
+            msg = f"volume_absorption_color must be an RGBA list of 4 floats, got {absorb!r}"
+            raise RecipeParameterError(msg)
     for unit_key in ("roughness", "wave_strength", "transmission"):
         if unit_key in parameters:
             _validate_unit_interval(unit_key, parameters[unit_key])
-    for positive_key in ("ior", "wave_scale_m"):
+    for positive_key in ("ior", "wave_scale_m", "volume_absorption_density"):
         if positive_key in parameters:
             _validate_positive_number(positive_key, parameters[positive_key])
 
