@@ -63,6 +63,7 @@ _FIXED_ADAPTER_METHODS: Final[frozenset[str]] = frozenset(
         RpcMethods.RENDER_TO_FILE,
         RpcMethods.RENDER_SET_ENGINE_DEVICE,
         RpcMethods.MATERIAL_BUILD_COMPOSITE,
+        RpcMethods.MATERIAL_ATTACH_INSTANCER,
         RpcMethods.OBJECT_FROM_DATA,
         RpcMethods.SCENE_ASSIGN_WORLD,
         RpcMethods.SCENE_DIFF,

@@ -44,6 +44,20 @@ Stages B–G open as fresh branches off main as they ship.
   (`volume_scatter_density`, `volume_absorption_density` +
   `volume_absorption_color`); plans without these parameters render
   identically to pre-Stage-E.
+- Stage F — **shipped** as PR #66 (instancer scaffolding). Adds the
+  `ProceduralInstancer` Pydantic model (frozen, `extra="forbid"`),
+  the optional `ResolvedLayer.instancer` field, an empty
+  `_INSTANCER_RECIPES` registry in the resolver, and the
+  `material.attach_instancer` adapter handler / RPC method. The
+  composite material handler skips layers carrying an `instancer`
+  field so they don't try to dispatch through `_RECIPE_BUILDERS`.
+  The `apply_terrain_material` curated sequence now always calls
+  `material.attach_instancer` after `material.build_composite`; the
+  handler is a no-op when `instancer_layers` is empty (which is
+  always the case in Stage F since the recipe registry is empty).
+  Stage D wires `MaterialRecipe.PROCEDURAL_GRASS` into both the
+  resolver's `_INSTANCER_RECIPES` and the adapter's
+  `_INSTANCER_BUILDERS`.
 
 ---
 

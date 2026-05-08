@@ -25,6 +25,7 @@ from forge_mcp.project.schemas import (
     MaterialArchetypeNode,
     MaterialCompositionAttrs,
     MaterialCompositionMode,
+    MaterialRecipe,
     NodeId,
     PredicateMask,
     RegionId,
@@ -37,6 +38,7 @@ from forge_mcp.realize.material.defaults import (
 )
 from forge_mcp.realize.material.plan import (
     CompositeMaterialPlan,
+    ProceduralInstancer,
     ResolvedLayer,
     make_plan,
 )
@@ -48,6 +50,42 @@ if TYPE_CHECKING:
 
 class ResolverError(ValueError):
     """Raised when the project state cannot produce a valid material plan."""
+
+
+_INSTANCER_RECIPES: frozenset[MaterialRecipe] = frozenset()
+"""Phase 6-e Stage F: recipes routed through the geometry-nodes instancer.
+
+Empty in Stage F (pure schema + plumbing). Stage D adds
+``MaterialRecipe.PROCEDURAL_GRASS``. When an archetype's recipe is in
+this set, :func:`_expand_application` emits the layer with a
+populated :attr:`ResolvedLayer.instancer` instead of as a surface
+contribution; the composite material handler skips the surface mix
+for those layers, and the realiser routes them through
+``material.attach_instancer``.
+"""
+
+
+def _instancer_for(
+    recipe: MaterialRecipe,
+    parameters: dict[str, JsonValue],
+) -> ProceduralInstancer | None:
+    """Return a :class:`ProceduralInstancer` when the recipe routes to one.
+
+    Pulls ``density_per_m2`` and ``seed`` from the layer parameters
+    (defaulted), so two regions with identical instancer setups
+    content-hash to the same plan id.
+    """
+    if recipe not in _INSTANCER_RECIPES:
+        return None
+    raw_density = parameters.get("density_per_m2", 200.0)
+    raw_seed = parameters.get("seed", 0)
+    if not isinstance(raw_density, (int, float)) or isinstance(raw_density, bool):
+        msg = f"{recipe!s} requires numeric density_per_m2, got {raw_density!r}"
+        raise ResolverError(msg)
+    if not isinstance(raw_seed, int) or isinstance(raw_seed, bool):
+        msg = f"{recipe!s} requires integer seed, got {raw_seed!r}"
+        raise ResolverError(msg)
+    return ProceduralInstancer(density_per_m2=float(raw_density), seed=raw_seed)
 
 
 def resolve_plan(
@@ -222,6 +260,7 @@ def _expand_application(
                 predicate_mask=predicate_mask,
                 source_application_edge_id=application_edge.edge_id,
                 source_composition_edge_id=comp_edge.edge_id,
+                instancer=_instancer_for(child_archetype.recipe, params),
             ),
         )
     primary_params = _merge_extends_chain(state, primary)
@@ -235,6 +274,7 @@ def _expand_application(
             mask=attrs.mask,
             predicate_mask=predicate_mask,
             source_application_edge_id=application_edge.edge_id,
+            instancer=_instancer_for(primary.recipe, primary_params),
         ),
     )
     return layers

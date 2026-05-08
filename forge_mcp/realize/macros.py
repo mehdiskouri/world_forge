@@ -66,6 +66,8 @@ class ApplyTerrainMaterialInputs:
 
     object_name: str
     plan: JsonValue
+    plan_id: str
+    instancer_layers: JsonValue
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +145,8 @@ class RealizeRegionInputs:
     region_id: str
     spec_id: str
     plan: JsonValue
+    plan_id: str
+    instancer_layers: JsonValue
     curve_name: str
     ortho_camera_name: str
     perspective_camera_name: str

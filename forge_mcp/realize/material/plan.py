@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from hashlib import blake2b
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,6 +20,32 @@ from forge_mcp.project.schemas import (
 )
 
 
+class ProceduralInstancer(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Phase 6-e Stage F: opt-in geometry-nodes instancer for a layer.
+
+    When a :class:`ResolvedLayer` carries a non-``None`` ``instancer``,
+    the composite material handler skips that layer's surface
+    contribution entirely; the realiser instead attaches a
+    geometry-nodes modifier to the target mesh via the new
+    ``material.attach_instancer`` RPC. The layer's ``recipe`` doubles
+    as the geometry-nodes recipe identifier (e.g.
+    ``MaterialRecipe.PROCEDURAL_GRASS`` in Stage D), and the
+    layer's ``mask`` / ``predicate_mask`` modulate distribution
+    density inside the geometry-nodes graph rather than the surface
+    shader.
+
+    ``kind`` is fixed to ``"geometry_nodes"`` in v1; the field exists
+    so future instancer kinds (particle systems, volume scattering)
+    can land without breaking the plan-id hash domain.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["geometry_nodes"] = "geometry_nodes"
+    density_per_m2: float = Field(gt=0.0)
+    seed: int = 0
+
+
 class ResolvedLayer(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
     """One flattened layer in a :class:`CompositeMaterialPlan`.
 
@@ -34,6 +60,12 @@ class ResolvedLayer(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs 
     let the adapter and the audit subagent attribute layers back to
     the hypergraph edge(s) that produced them; ``None`` marks the
     synthetic default layer.
+
+    ``instancer`` (Phase 6-e Stage F): when non-``None``, the layer
+    contributes a geometry-nodes modifier rather than a surface
+    shader. The composite handler skips the surface mix for instancer
+    layers; the realiser routes them through
+    ``material.attach_instancer`` instead.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
@@ -50,6 +82,7 @@ class ResolvedLayer(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs 
     ``None`` ``predicate_mask`` is the pre-Phase-6-c behaviour."""
     source_application_edge_id: EdgeId | None = None
     source_composition_edge_id: EdgeId | None = None
+    instancer: ProceduralInstancer | None = None
 
 
 class CompositeMaterialPlan(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
