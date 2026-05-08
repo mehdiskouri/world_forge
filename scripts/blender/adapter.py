@@ -473,10 +473,93 @@ def _build_flat_color(
     return bsdf.outputs["BSDF"]
 
 
+def _build_pbr_layered(  # noqa: C901, PLR0912, PLR0915 - shader graph assembly is linear
+    nodes: Any,  # noqa: ANN401 - bpy node tree is dynamically typed
+    links: Any,  # noqa: ANN401
+    parameters: dict[str, Any],
+) -> Any:  # noqa: ANN401
+    """Build a generalised procedural Principled BSDF (Phase 6-e Stage B).
+
+    All optional knobs default to ``0`` / off so a minimal
+    ``{"base_color": [r, g, b, a]}`` parameter dict produces a graph
+    that is *behaviourally* equivalent to ``flat_color`` (single
+    Principled BSDF with the given Base Color), only with the extra
+    Position-driven scaling node attached. See
+    :func:`forge_mcp.realize.material.defaults._validate_pbr_layered`
+    for the parameter contract.
+    """
+    base_color = parameters.get("base_color") or [0.5, 0.5, 0.5, 1.0]
+    base_color_variation = float(parameters.get("base_color_variation", 0.0))
+    roughness = float(parameters.get("roughness", 0.5))
+    roughness_variation = float(parameters.get("roughness_variation", 0.0))
+    normal_detail = float(parameters.get("normal_detail", 0.0))
+    metallic = float(parameters.get("metallic", 0.0))
+    clearcoat = float(parameters.get("clearcoat", 0.0))
+    scale = float(parameters.get("triplanar_scale_m", 1.0))
+
+    rgba_min = 4
+    r, g, b = float(base_color[0]), float(base_color[1]), float(base_color[2])
+    a = float(base_color[3]) if len(base_color) >= rgba_min else 1.0
+
+    bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Roughness"].default_value = roughness
+    bsdf.inputs["Metallic"].default_value = metallic
+    if "Coat Weight" in bsdf.inputs:
+        bsdf.inputs["Coat Weight"].default_value = clearcoat
+    elif "Clearcoat" in bsdf.inputs:  # pragma: no cover - older Blender naming
+        bsdf.inputs["Clearcoat"].default_value = clearcoat
+
+    # Procedural inputs all share the same world-space position, scaled
+    # so a single ``triplanar_scale_m`` knob controls every octave's
+    # frequency uniformly.
+    geom = nodes.new("ShaderNodeNewGeometry")
+    scaled_pos = nodes.new("ShaderNodeVectorMath")
+    scaled_pos.operation = "SCALE"
+    scaled_pos.inputs["Scale"].default_value = scale
+    links.new(geom.outputs["Position"], scaled_pos.inputs["Vector"])
+
+    # Base color: optionally mix the configured RGBA with a Voronoi
+    # color (offset by 50 % luminance toward the Voronoi color).
+    if base_color_variation > 0.0:
+        voronoi = nodes.new("ShaderNodeTexVoronoi")
+        mix = nodes.new("ShaderNodeMixRGB")
+        mix.inputs["Fac"].default_value = base_color_variation
+        mix.inputs["Color1"].default_value = (r, g, b, a)
+        links.new(scaled_pos.outputs["Vector"], voronoi.inputs["Vector"])
+        links.new(voronoi.outputs["Color"], mix.inputs["Color2"])
+        links.new(mix.outputs["Color"], bsdf.inputs["Base Color"])
+    else:
+        bsdf.inputs["Base Color"].default_value = (r, g, b, a)
+
+    # Roughness: optionally add Noise-driven variation around the base
+    # ``roughness`` value. Mix.Color1 = constant base, Color2 = noise.
+    if roughness_variation > 0.0:
+        noise = nodes.new("ShaderNodeTexNoise")
+        rmix = nodes.new("ShaderNodeMixRGB")
+        rmix.inputs["Fac"].default_value = roughness_variation
+        rmix.inputs["Color1"].default_value = (roughness, roughness, roughness, 1.0)
+        links.new(scaled_pos.outputs["Vector"], noise.inputs["Vector"])
+        links.new(noise.outputs["Fac"], rmix.inputs["Color2"])
+        links.new(rmix.outputs["Color"], bsdf.inputs["Roughness"])
+
+    # Normal detail: drive a Bump node from Noise, feed into Principled
+    # BSDF Normal input.
+    if normal_detail > 0.0:
+        nnoise = nodes.new("ShaderNodeTexNoise")
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs["Strength"].default_value = normal_detail
+        links.new(scaled_pos.outputs["Vector"], nnoise.inputs["Vector"])
+        links.new(nnoise.outputs["Fac"], bump.inputs["Height"])
+        links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+    return bsdf.outputs["BSDF"]
+
+
 _RECIPE_BUILDERS = {
     "principled_height_ramp": _build_principled_height_ramp,
     "triplanar_rock": _build_triplanar_rock,
     "flat_color": _build_flat_color,
+    "pbr_layered": _build_pbr_layered,
 }
 
 

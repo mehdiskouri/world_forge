@@ -391,6 +391,30 @@ def test_validate_recipe_parameters_triplanar_requires_base_color() -> None:
         validate_recipe_parameters(MaterialRecipe.TRIPLANAR_ROCK, {})
 
 
+def test_validate_recipe_parameters_pbr_layered_minimal_ok() -> None:
+    """``pbr_layered`` accepts just ``base_color`` (all knobs optional)."""
+    validate_recipe_parameters(
+        MaterialRecipe.PBR_LAYERED,
+        {"base_color": [0.5, 0.5, 0.5, 1.0]},
+    )
+
+
+def test_validate_recipe_parameters_pbr_layered_rejects_out_of_range_unit() -> None:
+    with pytest.raises(RecipeParameterError, match="must be in"):
+        validate_recipe_parameters(
+            MaterialRecipe.PBR_LAYERED,
+            {"base_color": [0.5, 0.5, 0.5, 1.0], "roughness": 1.5},
+        )
+
+
+def test_validate_recipe_parameters_pbr_layered_rejects_nonpositive_scale() -> None:
+    with pytest.raises(RecipeParameterError, match="positive"):
+        validate_recipe_parameters(
+            MaterialRecipe.PBR_LAYERED,
+            {"base_color": [0.5, 0.5, 0.5, 1.0], "triplanar_scale_m": 0.0},
+        )
+
+
 def test_resolve_plan_serialises_slope_mask_for_adapter(tmp_path: Path) -> None:
     """SlopeMask must round-trip into the layer's serialised mask dict.
 

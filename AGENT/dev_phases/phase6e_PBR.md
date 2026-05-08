@@ -19,6 +19,14 @@ stage**, each landed after `make integration` validates the change against
 real Blender. Branch `feat/procedural_materials` carries Stage A only;
 Stages B–G open as fresh branches off main as they ship.
 
+**Status:**
+- Stage A — **shipped** as PR #62 (slope-mask hotfix; merged 2026-05-08).
+- Stage B — **shipped** as PR #63 (additive `pbr_layered` recipe + bpy
+  test stub infrastructure). Re-scoped to additive (no legacy wrapper
+  retrofit) since the byte-identical IDAT gate is unnecessary risk for
+  a recipe that doesn't replace anything. Legacy `flat_color` /
+  `triplanar_rock` builders remain unchanged.
+
 ---
 
 ## Stage A — Slope-mask hotfix (foundation)
