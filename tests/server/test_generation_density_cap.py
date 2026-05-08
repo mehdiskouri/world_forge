@@ -7,7 +7,6 @@ primitive ceiling is enforced before any heavy realize work runs.
 from __future__ import annotations
 
 import pytest
-
 from forge_mcp.project.schemas import RegionId
 from forge_mcp.server.tools.generation import (
     GrassDensityTooHighError,
