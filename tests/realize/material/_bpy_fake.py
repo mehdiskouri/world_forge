@@ -310,10 +310,11 @@ class FakeModifiers:
 class FakeObject:
     """Mimics ``bpy.data.objects`` entries."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, object_data: object | None = None) -> None:
         self.name = name
-        self.data = FakeObjectData()
+        self.data = object_data if object_data is not None else FakeObjectData()
         self.modifiers = FakeModifiers()
+        self.use_fake_user = False
 
 
 class FakeObjectDB:
@@ -328,6 +329,12 @@ class FakeObjectDB:
     def add(self, name: str) -> FakeObject:
         """Test helper — pre-register an object the adapter can look up."""
         obj = FakeObject(name)
+        self._items[name] = obj
+        return obj
+
+    def new(self, name: str, object_data: object | None = None) -> FakeObject:
+        """Mirror ``bpy.data.objects.new(name, object_data)``."""
+        obj = FakeObject(name, object_data=object_data)
         self._items[name] = obj
         return obj
 

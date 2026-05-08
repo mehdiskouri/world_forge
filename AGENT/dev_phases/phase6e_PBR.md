@@ -71,6 +71,21 @@ Stages B–G open as fresh branches off main as they ship.
   `_check_instancer_density` ceiling (caps total instanced
   primitives at 5,000,000 per region, raises
   `GrassDensityTooHighError` with structured fields).
+- Stage G.1 — **shipped** as PR #68 (`procedural_grass` integration
+  test + `grass_density_too_high` envelope + recipes table). Adds
+  `tests/integration/test_procedural_grass_recipe.py` (Blender-gated
+  smoke that opens the rendered `.blend`, verifies the
+  `forge.instancer.<plan_id>.0` modifier and `forge.geom.grass.*`
+  node group exist on the terrain), wires
+  `GrassDensityTooHighError` into both `generate_region` and
+  `render_view` envelopes (typed code `grass_density_too_high`),
+  fixes two real-Blender adapter bugs caught by the new integration
+  test (`bpy_prop_collection.__contains__` only accepts strings;
+  `GeometryNodeObjectInfo.inputs[0]` is a `NodeSocketObject`, not a
+  Mesh — added `_grass_blade_object` helper), and extends
+  `docs/realization.md` with the **Procedural recipes** section
+  enumerating all 7 v1 recipes with their parameter tables.
+  Walkthrough doc deferred to Stage G.2.
 
 ---
 

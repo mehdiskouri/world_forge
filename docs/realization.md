@@ -261,6 +261,44 @@ Blender). End-to-end behaviour is exercised in
 walked through in
 [``docs/p6c_subregions_walkthrough.md``](p6c_subregions_walkthrough.md).
 
+### Procedural recipes
+
+Phase 6-e expands the recipe registry from 3 surface recipes to **7
+recipes total** (6 surface + 1 instancer). Every recipe is a
+``MaterialRecipe`` enum value validated by
+``forge_mcp/realize/material/defaults.py::_VALIDATORS`` before the
+plan ever leaves the server, and built by either
+``scripts/blender/adapter.py::_RECIPE_BUILDERS`` (surface shaders)
+or ``_INSTANCER_BUILDERS`` (geometry-nodes modifiers).
+
+| Recipe | Channel | Key parameters |
+| --- | --- | --- |
+| ``flat_color`` | surface | ``color`` (RGBA) |
+| ``triplanar_rock`` | surface | ``base_color`` (RGBA) [+ optional ``noise_scale``, ``crack_strength``, ``roughness_low``, ``roughness_high``] |
+| ``principled_height_ramp`` | surface | ``color_ramp_stops`` (list of ``{position, color}``), ``slope_threshold``, ``elevation_min``, ``elevation_max`` |
+| ``pbr_layered`` | surface | ``base_color`` (RGBA) [+ optional unit-interval ``roughness``, ``metallic``, ``specular``, ``clearcoat``, ``clearcoat_roughness``, ``ior``, ``normal_strength``] |
+| ``procedural_snow`` | surface | optional ``base_color``, ``sparkle_strength``, ``sparkle_scale``, ``volume_scatter_density``, ``volume_absorption_density``, ``volume_absorption_color`` |
+| ``procedural_sand`` | surface | optional ``base_color``, ``noise_scale``, ``ripple_strength`` |
+| ``procedural_water`` | surface | optional ``base_color``, ``ior``, ``roughness``, ``volume_scatter_density``, ``volume_absorption_density``, ``volume_absorption_color`` |
+| ``procedural_grass`` | **instancer** (geometry nodes) | optional ``density_per_m2``, ``blade_height_m``, ``blade_color`` (RGBA), ``slope_max_cos`` (unit), ``rotation_jitter_deg``, ``scale_jitter`` (unit), ``translucency`` (unit), ``seed`` (int), ``height_band`` (``{z_low, z_high}``) |
+
+Surface recipes mix consecutive layers via ``ShaderNodeMixShader``
+driven by each layer's ``MaskSpec``. Volume-bearing recipes
+(``procedural_snow``, ``procedural_water``) additionally feed a
+parallel volume mix chain terminating at ``Material Output.Volume``
+(Phase 6-e Stage E).
+
+Instancer recipes are dispatched separately: the resolver tags each
+``ResolvedLayer`` with a ``ProceduralInstancer`` payload, the
+composite material handler skips those layers, and a follow-up
+``material.attach_instancer`` step builds a per-region
+``forge.geom.<recipe>.<plan_id>.<index>`` Geometry-Nodes group on
+the terrain object. The realizer enforces a per-region cap of
+**5,000,000 instanced primitives** (sum of
+``density_per_m2 * area_m2`` across all instancer layers); requests
+beyond the cap raise ``GrassDensityTooHighError`` (typed envelope
+``grass_density_too_high``).
+
 ## On-disk layout
 
 ```
