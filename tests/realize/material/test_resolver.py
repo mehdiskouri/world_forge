@@ -27,8 +27,9 @@ from forge_mcp.realize.material import (
     validate_recipe_parameters,
 )
 from forge_mcp.realize.material.defaults import RecipeParameterError
-from forge_mcp.realize.material.plan import ResolvedLayer
+from forge_mcp.realize.material.plan import ProceduralInstancer, ResolvedLayer
 from forge_mcp.realize.material.resolver import ResolverError
+from pydantic import ValidationError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -540,3 +541,47 @@ def test_resolve_plan_serialises_slope_mask_for_adapter(tmp_path: Path) -> None:
         "high": 0.95,
         "softness": 0.05,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 6-e Stage F: ProceduralInstancer plumbing
+# ---------------------------------------------------------------------------
+
+
+def test_resolved_layer_default_instancer_is_none(tmp_path: Path) -> None:
+    """All current recipes leave ``ResolvedLayer.instancer`` unset.
+
+    Stage F adds the field but the registry of instancer-routed
+    recipes is empty until Stage D wires ``PROCEDURAL_GRASS``.
+    """
+    svc, region_id = _bootstrap(tmp_path)
+    plan = resolve_plan(
+        svc.state,
+        region_id,
+        mesh_name="m",
+        elevation_min=0.0,
+        elevation_max=1.0,
+    )
+    assert plan.layers, "expected at least one resolved layer"
+    for layer in plan.layers:
+        assert layer.instancer is None
+        dumped = layer.model_dump(mode="json")
+        assert dumped["instancer"] is None
+
+
+def test_procedural_instancer_validates_density() -> None:
+    """``ProceduralInstancer.density_per_m2`` must be strictly positive."""
+    ProceduralInstancer(density_per_m2=10.0, seed=7)
+    with pytest.raises(ValueError, match="density_per_m2"):
+        ProceduralInstancer(density_per_m2=0.0, seed=0)
+    with pytest.raises(ValueError, match="density_per_m2"):
+        ProceduralInstancer(density_per_m2=-1.0, seed=0)
+
+
+def test_procedural_instancer_is_frozen_extra_forbid() -> None:
+    """Stage F: instancer model is hashable + rejects extra keys."""
+    inst = ProceduralInstancer(density_per_m2=5.0, seed=1)
+    with pytest.raises(ValidationError):
+        inst.density_per_m2 = 9.0  # frozen
+    with pytest.raises(ValidationError):
+        ProceduralInstancer(density_per_m2=5.0, seed=1, bogus=2)  # type: ignore[call-arg]

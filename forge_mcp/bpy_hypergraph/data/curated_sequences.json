@@ -97,10 +97,12 @@
     {
       "name": "apply_terrain_material",
       "version": "v1",
-      "description": "Build the composite material from a resolved CompositeMaterialPlan and bind it to the target mesh. The plan carries an ordered list of resolved layers; the adapter's recipe registry instantiates each archetype's shader graph and composites them via MixShader nodes driven by per-layer mask specs. The plan_id is the deterministic content hash; two regions resolving to the same plan share one Blender material data-block.",
+      "description": "Build the composite material from a resolved CompositeMaterialPlan and bind it to the target mesh. The plan carries an ordered list of resolved layers; the adapter's recipe registry instantiates each archetype's shader graph and composites them via MixShader nodes driven by per-layer mask specs. The plan_id is the deterministic content hash; two regions resolving to the same plan share one Blender material data-block. After the surface material is bound, the dedicated material.attach_instancer step picks up any instancer-routed layers (Phase 6-e Stage F: list is always empty until Stage D wires PROCEDURAL_GRASS).",
       "inputs_schema": {
         "object_name": "str",
-        "plan": "CompositeMaterialPlan"
+        "plan": "CompositeMaterialPlan",
+        "plan_id": "str",
+        "instancer_layers": "list"
       },
       "outputs_schema": {"material_name": "str", "plan_id": "str"},
       "steps": [
@@ -111,6 +113,14 @@
             "plan": "${plan}"
           },
           "expects": {"scene_diff": {"materials": {"delta": 1}}}
+        },
+        {
+          "call": "material.attach_instancer",
+          "params": {
+            "target_object": "${object_name}",
+            "plan_id": "${plan_id}",
+            "instancer_layers": "${instancer_layers}"
+          }
         }
       ]
     },
@@ -393,6 +403,8 @@
         "region_id": "str",
         "spec_id": "str",
         "plan": "CompositeMaterialPlan",
+        "plan_id": "str",
+        "instancer_layers": "list",
         "curve_name": "str",
         "ortho_camera_name": "str",
         "perspective_camera_name": "str",

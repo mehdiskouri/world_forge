@@ -185,6 +185,7 @@ def test_rpc_methods_static_constants_match_adapter_surface() -> None:
     assert RpcMethods.IMAGE_FROM_FILE == "image.from_file"
     assert RpcMethods.RENDER_TO_FILE == "render.to_file"
     assert RpcMethods.MATERIAL_BUILD_COMPOSITE == "material.build_composite"
+    assert RpcMethods.MATERIAL_ATTACH_INSTANCER == "material.attach_instancer"
     assert RpcMethods.SCENE_DIFF == "scene.diff"
 
 

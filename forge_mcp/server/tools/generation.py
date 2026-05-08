@@ -280,6 +280,8 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     displace_strength: float,
     framing: SceneFraming,
     plan: JsonValue,
+    plan_id: str,
+    instancer_layers: JsonValue,
 ) -> RealizeRegionInputs:
     """Assemble the per-region :class:`RealizeRegionInputs` payload."""
     rid_str = str(region_id)
@@ -291,6 +293,8 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
         region_id=rid_str,
         spec_id=sid_str,
         plan=plan,
+        plan_id=plan_id,
+        instancer_layers=instancer_layers,
         curve_name=f"stream_{rid_str}",
         ortho_camera_name=f"cam_ortho_{rid_str}",
         perspective_camera_name=f"cam_persp_{rid_str}",
@@ -360,6 +364,21 @@ def _run_realizer(  # noqa: PLR0913 - one assembly site, all named
         elevation_max=elevation_max,
     )
     plan_payload = composite_plan.model_dump(mode="json")
+    raw_plan_id = plan_payload.get("plan_id")
+    if not isinstance(raw_plan_id, str):
+        msg = f"resolved plan missing string plan_id, got {raw_plan_id!r}"
+        raise TypeError(msg)
+    plan_id_payload: str = raw_plan_id
+    # Phase 6-e Stage F: split out instancer-bearing layers so the
+    # composite material build skips them and the dedicated
+    # ``material.attach_instancer`` step picks them up. Stage F's
+    # resolver registry is empty, so this list is always empty until
+    # Stage D wires PROCEDURAL_GRASS into the registry.
+    instancer_layers_payload: list[JsonValue] = [
+        layer
+        for layer in plan_payload.get("layers", [])
+        if isinstance(layer, dict) and layer.get("instancer") is not None
+    ]
 
     realize_inputs = _build_realize_inputs(
         region_id,
@@ -371,6 +390,8 @@ def _run_realizer(  # noqa: PLR0913 - one assembly site, all named
         displace_strength,
         framing,
         plan_payload,
+        plan_id_payload,
+        instancer_layers_payload,
     )
 
     plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs, ResolvedRender]] = []

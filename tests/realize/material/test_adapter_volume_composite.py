@@ -296,3 +296,111 @@ def test_procedural_water_no_volume_density_returns_socket(
     )
     assert not isinstance(result, tuple)
     assert not nodes.of_type("ShaderNodeVolumeAbsorption")
+
+
+# ---------------------------------------------------------------------------
+# Phase 6-e Stage F: instancer-bearing layers are skipped + handler stub.
+# ---------------------------------------------------------------------------
+
+
+def test_composite_skips_instancer_bearing_layers(
+    adapter: tuple[ModuleType, FakeBpy],
+) -> None:
+    """Layers carrying ``instancer`` must not flow through ``_RECIPE_BUILDERS``.
+
+    The composite material handler is a surface/volume mixer; instancer
+    layers are routed through ``material.attach_instancer`` instead.
+    Critically, the layer's ``recipe`` may not even be a known surface
+    recipe (Stage D's ``procedural_grass`` is instancer-only), so the
+    handler must skip *before* dispatching.
+    """
+    module, fake = adapter
+    fake.data.objects.add("terrain_y")
+    plan = {
+        "plan_id": "stage_f_unit_skip_instancer",
+        "layers": [
+            {
+                "recipe": "flat_color",
+                "parameters": {"color": [0.5, 0.5, 0.5, 1.0]},
+            },
+            {
+                # An instancer-only recipe — not in _RECIPE_BUILDERS.
+                # The skip must happen before dispatch lookup.
+                "recipe": "procedural_grass_placeholder_unknown",
+                "parameters": {},
+                "instancer": {
+                    "kind": "geometry_nodes",
+                    "density_per_m2": 200.0,
+                    "seed": 0,
+                },
+            },
+        ],
+    }
+    result = module._handle_material_build_composite(  # noqa: SLF001
+        {"target_object": "terrain_y", "plan": plan},
+    )
+    output = _output_node(result["material_name"], fake)
+    mat = fake.data.materials.get(result["material_name"])
+    assert mat is not None
+    # Only the flat_color surface contributes; volume stays unconnected.
+    assert len(mat.node_tree.links.for_input(output, "Surface")) == 1
+    assert len(mat.node_tree.links.for_input(output, "Volume")) == 0
+
+
+def test_attach_instancer_handler_no_op_for_empty_layer_list(
+    adapter: tuple[ModuleType, FakeBpy],
+) -> None:
+    """Stage F: handler returns ``attached=0`` when no instancer layers given."""
+    module, fake = adapter
+    fake.data.objects.add("terrain_z")
+    result = module._handle_material_attach_instancer(  # noqa: SLF001
+        {
+            "target_object": "terrain_z",
+            "plan_id": "mplan_deadbeef",
+            "instancer_layers": [],
+        },
+    )
+    assert result == {
+        "target_object": "terrain_z",
+        "plan_id": "mplan_deadbeef",
+        "requested": 0,
+        "attached": 0,
+    }
+
+
+def test_attach_instancer_handler_unknown_recipe_raises(
+    adapter: tuple[ModuleType, FakeBpy],
+) -> None:
+    """Stage F: registry is empty, so any populated layer is an error.
+
+    Stage D wires ``procedural_grass`` into ``_INSTANCER_BUILDERS`` and
+    this stops being an error for that recipe.
+    """
+    module, fake = adapter
+    fake.data.objects.add("terrain_z2")
+    with pytest.raises(ValueError, match="unknown instancer recipe"):
+        module._handle_material_attach_instancer(  # noqa: SLF001
+            {
+                "target_object": "terrain_z2",
+                "plan_id": "mplan_deadbeef",
+                "instancer_layers": [
+                    {"recipe": "procedural_grass", "parameters": {}},
+                ],
+            },
+        )
+
+
+def test_attach_instancer_handler_validates_inputs(
+    adapter: tuple[ModuleType, FakeBpy],
+) -> None:
+    module, _ = adapter
+    with pytest.raises(ValueError, match="target_object"):
+        module._handle_material_attach_instancer({"plan_id": "x", "instancer_layers": []})  # noqa: SLF001
+    with pytest.raises(ValueError, match="plan_id"):
+        module._handle_material_attach_instancer(  # noqa: SLF001
+            {"target_object": "obj", "instancer_layers": []},
+        )
+    with pytest.raises(ValueError, match="instancer_layers"):
+        module._handle_material_attach_instancer(  # noqa: SLF001
+            {"target_object": "obj", "plan_id": "x"},
+        )

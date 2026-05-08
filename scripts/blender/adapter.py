@@ -1213,6 +1213,13 @@ def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
         composite_surface = None
         composite_volume = None
         for layer in layers:
+            # Phase 6-e Stage F: layers carrying an instancer field
+            # contribute a geometry-nodes modifier rather than a
+            # surface shader; skip them in the composite material
+            # build (the realiser routes them through
+            # ``material.attach_instancer`` in a separate RPC).
+            if layer.get("instancer") is not None:
+                continue
             recipe = layer.get("recipe")
             parameters = layer.get("parameters") or {}
             builder = _RECIPE_BUILDERS.get(recipe)
@@ -1263,6 +1270,77 @@ def _handle_material_build_composite(params: dict[str, Any]) -> dict[str, Any]:
         else:
             obj.data.materials.append(mat)
     return {"material_name": mat.name, "plan_id": plan_id}
+
+
+def _handle_material_attach_instancer(params: dict[str, Any]) -> dict[str, Any]:
+    """Attach geometry-nodes instancer modifiers for a plan's instancer layers.
+
+    Phase 6-e Stage F: pure plumbing. Validates inputs and returns a
+    structured envelope reporting how many instancer layers were
+    requested and how many modifiers were attached. The handler is
+    idempotent — re-running with the same ``plan_id`` removes any
+    prior ``forge.instancer.<plan_id>.*`` modifiers before
+    re-attaching.
+
+    Stage F dispatches to **no recipes** (empty registry); the actual
+    attach step is a no-op that records ``attached=0``. Stage D
+    populates ``_INSTANCER_BUILDERS`` with the geometry-nodes
+    grass builder.
+    """
+    target_object = params.get("target_object")
+    plan_id = params.get("plan_id")
+    instancer_layers = params.get("instancer_layers")
+    if not isinstance(target_object, str):
+        msg = "material.attach_instancer requires string 'target_object'"
+        raise ValueError(msg)
+    if not isinstance(plan_id, str):
+        msg = "material.attach_instancer requires string 'plan_id'"
+        raise ValueError(msg)
+    if not isinstance(instancer_layers, list):
+        msg = "material.attach_instancer requires list 'instancer_layers'"
+        raise ValueError(msg)
+    obj = bpy.data.objects.get(target_object)
+    if obj is None:
+        msg = f"no object named {target_object!r}"
+        raise KeyError(msg)
+    # Idempotency: strip any prior modifiers we own before attaching.
+    prefix = f"forge.instancer.{plan_id}."
+    if hasattr(obj, "modifiers"):
+        existing = list(obj.modifiers)
+        for mod in existing:
+            if getattr(mod, "name", "").startswith(prefix):
+                obj.modifiers.remove(mod)
+    attached = 0
+    for index, layer in enumerate(instancer_layers):
+        if not isinstance(layer, dict):
+            msg = f"instancer_layers[{index}] must be a dict, got {layer!r}"
+            raise ValueError(msg)
+        recipe = layer.get("recipe")
+        builder = _INSTANCER_BUILDERS.get(recipe)
+        if builder is None:
+            # Unknown instancer recipe is a hard error — the resolver
+            # only routes layers whose recipe is in _INSTANCER_RECIPES,
+            # so reaching here means schema/registry drift.
+            msg = f"unknown instancer recipe {recipe!r}"
+            raise ValueError(msg)
+        modifier_name = f"{prefix}{index}"
+        builder(obj, modifier_name, layer)
+        attached += 1
+    return {
+        "target_object": target_object,
+        "plan_id": plan_id,
+        "requested": len(instancer_layers),
+        "attached": attached,
+    }
+
+
+_INSTANCER_BUILDERS: dict[str, Any] = {}
+"""Phase 6-e Stage F: instancer recipe → modifier builder dispatch.
+
+Empty in Stage F; Stage D populates it with the
+``procedural_grass`` geometry-nodes builder. Keys are the string
+forms of :class:`MaterialRecipe` enum values.
+"""
 
 
 def _handle_mesh_add_displace_modifier(params: dict[str, Any]) -> dict[str, Any]:
@@ -1383,6 +1461,8 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_render_set_engine_device(params)
     if method == "material.build_composite":
         return _handle_material_build_composite(params)
+    if method == "material.attach_instancer":
+        return _handle_material_attach_instancer(params)
     if method == "object.from_data":
         return _handle_object_from_data(params)
     if method == "scene.assign_world":
