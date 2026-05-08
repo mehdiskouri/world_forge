@@ -86,6 +86,14 @@ Stages B–G open as fresh branches off main as they ship.
   `docs/realization.md` with the **Procedural recipes** section
   enumerating all 7 v1 recipes with their parameter tables.
   Walkthrough doc deferred to Stage G.2.
+- Stage G.2 — **shipped** as PR #69 (Phase 6-e walkthrough). Adds
+  `docs/p6e_procedural_materials_walkthrough.md` — the prompt-by-
+  prompt manual gate that exercises all 4 new surface recipes
+  (`pbr_layered`, `procedural_snow`, `procedural_sand`,
+  `procedural_water`) plus the `procedural_grass` GN instancer in a
+  single 4 km region, then trips both new failure modes
+  (`recipe_parameter_error` and `grass_density_too_high`). With G.2
+  shipped, **Phase 6-e is complete**.
 
 ---
 
