@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
+import numpy as np
+
 from forge_mcp.generate import boundary_conform, erosion, macro_shape, noise, stream
 from forge_mcp.generate.deterministic import make_rng
 from forge_mcp.generate.heightmap import Heightmap
@@ -22,6 +24,10 @@ from forge_mcp.project.schemas import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from numpy.typing import NDArray
+
     from forge_mcp.generate.boundary_conform import EdgeSide
     from forge_mcp.generate.stream import StreamGeometry
     from forge_mcp.project.schemas import (
@@ -69,6 +75,135 @@ class BoundaryConditions:
     def empty(cls) -> BoundaryConditions:
         """Return the no-op :class:`BoundaryConditions` instance."""
         return cls()
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureLockPatch:
+    """One feature-lock patch ready to blend into a regenerated heightmap.
+
+    ``bbox_world`` matches the lock's
+    :attr:`forge_mcp.project.schemas.FeatureLockPayload.bbox_world` —
+    an axis-aligned ``(x0, y0, x1, y1)`` rectangle in the same frame
+    as :attr:`forge_mcp.generate.heightmap.Heightmap.origin`. ``data``
+    is the raw float32 patch loaded from
+    ``locks/feature/<lock_id>.npy``; the caller resolves and loads
+    the file (terrain stays IO-free).
+    """
+
+    bbox_world: tuple[float, float, float, float]
+    data: NDArray[np.float32]
+
+
+class FeatureLockPatchError(Exception):
+    """Base class for feature-lock-blend failures (Phase 7 Stage C)."""
+
+
+class FeatureLockPatchMissingError(FeatureLockPatchError):
+    """Raised when a feature lock's captured ``.npy`` patch is missing on disk."""
+
+
+class FeatureLockOutOfBoundsError(FeatureLockPatchError):
+    """Raised when ``bbox_world`` does not intersect the heightmap frame."""
+
+
+_FEATHER_PIXELS: int = 4
+
+
+def _cosine_feather_weights(
+    shape: tuple[int, int],
+    feather: int = _FEATHER_PIXELS,
+) -> NDArray[np.float32]:
+    """Return per-pixel weights tapering from 0 at the edge to 1 in the interior.
+
+    Uses a half-cosine ramp (``0.5 * (1 - cos(pi * t))``) over the
+    outer ``feather`` pixels of each side. The ramp degenerates to a
+    full taper across the whole patch when the patch is smaller than
+    ``2 * feather`` so very small locks still blend smoothly.
+    """
+    height, width = shape
+    rows = np.ones(height, dtype=np.float32)
+    cols = np.ones(width, dtype=np.float32)
+    row_band = min(feather, height // 2)
+    col_band = min(feather, width // 2)
+    for i in range(row_band):
+        t = (i + 0.5) / max(row_band, 1)
+        w = np.float32(0.5 * (1.0 - np.cos(np.pi * t)))
+        rows[i] = w
+        rows[height - 1 - i] = w
+    for j in range(col_band):
+        t = (j + 0.5) / max(col_band, 1)
+        w = np.float32(0.5 * (1.0 - np.cos(np.pi * t)))
+        cols[j] = w
+        cols[width - 1 - j] = w
+    return rows[:, None] * cols[None, :]
+
+
+def _apply_feature_lock_patches(
+    heightmap: Heightmap,
+    patches: Sequence[FeatureLockPatch],
+) -> Heightmap:
+    """Blend each ``FeatureLockPatch`` into ``heightmap`` with a cosine feather.
+
+    The patch's ``bbox_world`` is converted to pixel indices using the
+    heightmap's :attr:`origin` and :attr:`resolution_meters_per_pixel`,
+    matching the same coordinate convention
+    :meth:`forge_mcp.project.service.ProjectService._capture_feature_patch`
+    used to slice the patch. Out-of-frame bboxes raise
+    :class:`FeatureLockOutOfBoundsError`; dimension mismatches between
+    the captured patch and the destination window are absorbed by
+    cropping the patch.
+    """
+    if not patches:
+        return heightmap
+    data = heightmap.data.astype(np.float32, copy=True)
+    height, width = data.shape
+    ox, oy = heightmap.origin
+    res = heightmap.resolution_meters_per_pixel
+    for patch in patches:
+        x0, y0, x1, y1 = patch.bbox_world
+        col0 = int(np.floor((x0 - ox) / res))
+        col1 = int(np.ceil((x1 - ox) / res))
+        row0 = int(np.floor((y0 - oy) / res))
+        row1 = int(np.ceil((y1 - oy) / res))
+        col0_c = max(0, min(width, col0))
+        col1_c = max(0, min(width, col1))
+        row0_c = max(0, min(height, row0))
+        row1_c = max(0, min(height, row1))
+        if col1_c <= col0_c or row1_c <= row0_c:
+            msg = (
+                f"feature-lock bbox {patch.bbox_world!r} does not intersect "
+                f"the regenerated heightmap (origin={heightmap.origin!r}, "
+                f"resolution={res!r}, shape={heightmap.shape!r})"
+            )
+            raise FeatureLockOutOfBoundsError(msg)
+        ph_total, pw_total = patch.data.shape
+        po_row0 = max(0, min(ph_total, row0_c - row0))
+        po_row1 = max(0, min(ph_total, po_row0 + (row1_c - row0_c)))
+        po_col0 = max(0, min(pw_total, col0_c - col0))
+        po_col1 = max(0, min(pw_total, po_col0 + (col1_c - col0_c)))
+        sub_patch = patch.data[po_row0:po_row1, po_col0:po_col1].astype(
+            np.float32,
+            copy=False,
+        )
+        eff_h = min(row1_c - row0_c, sub_patch.shape[0])
+        eff_w = min(col1_c - col0_c, sub_patch.shape[1])
+        if eff_h <= 0 or eff_w <= 0:
+            msg = f"feature-lock patch is empty after clipping for bbox {patch.bbox_world!r}"
+            raise FeatureLockOutOfBoundsError(msg)
+        sub_patch = sub_patch[:eff_h, :eff_w]
+        existing = data[row0_c : row0_c + eff_h, col0_c : col0_c + eff_w]
+        weights = _cosine_feather_weights((eff_h, eff_w))
+        blended = weights * sub_patch + (1.0 - weights) * existing
+        data[row0_c : row0_c + eff_h, col0_c : col0_c + eff_w] = blended.astype(
+            data.dtype,
+            copy=False,
+        )
+    return Heightmap(
+        data=data,
+        resolution_meters_per_pixel=heightmap.resolution_meters_per_pixel,
+        origin=heightmap.origin,
+        elevation_band=heightmap.elevation_band,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +314,7 @@ def run(
     seed: int,
     shape: tuple[int, int] | None = None,
     boundary_conditions: BoundaryConditions | None = None,
+    feature_locks: Sequence[FeatureLockPatch] = (),
 ) -> TerrainGenerationResult:
     """Materialise ``spec`` into a heightmap and optional stream geometry.
 
@@ -193,6 +329,13 @@ def run(
     samples after the elevation-band remap and before erosion, so the
     erosion passes reshape blended terrain rather than overwriting the
     contract.
+
+    When ``feature_locks`` is non-empty (Phase 7 Stage C), each patch
+    is blended back into the heightmap *after* erosion / boundary
+    conform and *before* feature injection, with a 4-pixel cosine
+    feather. The orchestrator stays IO-free; the caller is responsible
+    for loading each patch's ``.npy`` payload into a
+    :class:`FeatureLockPatch`.
     """
     axis = spec.body.axes["terrain"]
     grid_shape = shape if shape is not None else _shape_from_spec(axis)
@@ -239,6 +382,10 @@ def run(
         heightmap, generator_name = _apply_post_pass(heightmap, pass_spec, seed=seed)
         generators_used.append(generator_name)
 
+    if feature_locks:
+        heightmap = _apply_feature_lock_patches(heightmap, feature_locks)
+        generators_used.append("locks.feature_blend")
+
     stream_geometry: StreamGeometry | None = None
     for injector in axis.feature_injectors:
         heightmap, geometry, generator_name = _apply_feature_injector(
@@ -257,4 +404,11 @@ def run(
     )
 
 
-__all__ = ["TerrainGenerationResult", "run"]
+__all__ = [
+    "FeatureLockOutOfBoundsError",
+    "FeatureLockPatch",
+    "FeatureLockPatchError",
+    "FeatureLockPatchMissingError",
+    "TerrainGenerationResult",
+    "run",
+]

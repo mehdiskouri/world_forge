@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from hashlib import blake2b
 from typing import TYPE_CHECKING, Final
 
+import numpy as np
 from pydantic import ValidationError
 
 from forge_mcp.analyze.terrain_analysis import TerrainAnalysis, analyze
@@ -44,7 +45,13 @@ from forge_mcp.descriptor.region_extent import RegionExtent
 from forge_mcp.generate import terrain as terrain_generator
 from forge_mcp.generate.heightmap import Heightmap, load_npy, save_npy, save_png16
 from forge_mcp.generate.stream import StreamGeometry
-from forge_mcp.project.schemas import RegionId, SpecId, SpecRecord
+from forge_mcp.project.schemas import (
+    FeatureLockPayload,
+    LockKind,
+    RegionId,
+    SpecId,
+    SpecRecord,
+)
 from forge_mcp.project.service import (
     NoOpenProjectError,
     UnknownRegionError,
@@ -294,6 +301,54 @@ def _collect_boundary_conditions(
     assert isinstance(region, RegionNode)  # noqa: S101 - narrow for mypy strict
     boundaries = participating_boundaries(region_id, service.state.boundaries.values())
     return build_boundary_conditions(region, boundaries)
+
+
+def _find_region_lock(
+    service: ProjectService,
+    region_id: RegionId,
+) -> object | None:
+    """Return the first :attr:`LockKind.REGION` lock on ``region_id`` or ``None``.
+
+    Phase 7 Stage C. Used by :func:`generate_region` to short-circuit
+    regeneration: existing realization artefacts are kept untouched
+    and a ``region_lock_skipped`` history event is emitted.
+    """
+    locks = service.state.lock_store.find_by_region_and_kind(region_id, LockKind.REGION)
+    return locks[0] if locks else None
+
+
+def _load_feature_lock_patches(
+    service: ProjectService,
+    region_id: RegionId,
+) -> tuple[terrain_generator.FeatureLockPatch, ...]:
+    """Load every feature-lock patch on ``region_id`` from disk.
+
+    Phase 7 Stage C. The orchestrator stays IO-free, so the tool layer
+    resolves each :attr:`LockKind.FEATURE` lock's
+    :attr:`FeatureLockPayload.captured_path`, loads the ``.npy`` body,
+    and packages them into :class:`FeatureLockPatch` instances. Missing
+    patch files raise :class:`FeatureLockPatchMissingError`.
+    """
+    records = service.state.lock_store.find_by_region_and_kind(region_id, LockKind.FEATURE)
+    out: list[terrain_generator.FeatureLockPatch] = []
+    for record in records:
+        payload = record.typed_payload()
+        if not isinstance(payload, FeatureLockPayload):  # pragma: no cover - schema guard
+            continue
+        patch_path = service.state.paths.feature_lock_patch_path(record.lock_id)
+        if not patch_path.exists():
+            msg = (
+                f"feature-lock patch {patch_path!s} for lock {record.lock_id!r} is missing on disk"
+            )
+            raise terrain_generator.FeatureLockPatchMissingError(msg)
+        data = np.load(patch_path, allow_pickle=False).astype(np.float32, copy=False)
+        out.append(
+            terrain_generator.FeatureLockPatch(
+                bbox_world=payload.bbox_world,
+                data=data,
+            ),
+        )
+    return tuple(out)
 
 
 def _refresh_participating_contracts(
@@ -625,7 +680,7 @@ def _parse_render_options(
         return fail("invalid_render_options", str(exc))
 
 
-def generate_region(  # noqa: PLR0911, C901 - one return per failure surface
+def generate_region(  # noqa: PLR0911, PLR0912, PLR0915, C901 - one return per failure surface
     region_id: str,
     *,
     render_options: dict[str, object] | None = None,
@@ -656,6 +711,27 @@ def generate_region(  # noqa: PLR0911, C901 - one return per failure surface
         )
 
     service = get_service()
+
+    # Phase 7 Stage C: a `LockKind.REGION` lock short-circuits regen.
+    # Existing realization artefacts on disk are kept untouched; the
+    # tool returns a structured envelope and a `region_lock_skipped`
+    # history event records which lock fired.
+    region_lock = _find_region_lock(service, rid)
+    if region_lock is not None:
+        from forge_mcp.project.schemas import LockRecord  # noqa: PLC0415 - local narrow
+
+        assert isinstance(region_lock, LockRecord)  # noqa: S101 - narrow for mypy strict
+        service.record_region_lock_skipped(rid, region_lock.lock_id)
+        return fail(
+            "region_lock_skipped",
+            f"region {region_id!r} carries region lock "
+            f"{str(region_lock.lock_id)!r}; regeneration skipped",
+            details={
+                "region_id": region_id,
+                "lock_id": str(region_lock.lock_id),
+            },
+        )
+
     metadata = service.state.metadata
     region_extent = RegionExtent.from_polygon_coords(region.spatial_bounds.coords.coords)
     try:
@@ -680,11 +756,19 @@ def generate_region(  # noqa: PLR0911, C901 - one return per failure surface
         )
 
     try:
+        feature_patches = _load_feature_lock_patches(service, rid)
+    except terrain_generator.FeatureLockPatchMissingError as exc:
+        return fail("feature_lock_patch_missing", str(exc))
+
+    try:
         result = terrain_generator.run(
             spec,
             seed=region.seed,
             boundary_conditions=_collect_boundary_conditions(service, region, rid),
+            feature_locks=feature_patches,
         )
+    except terrain_generator.FeatureLockOutOfBoundsError as exc:
+        return fail("feature_lock_out_of_bounds", str(exc))
     except (ValueError, RuntimeError) as exc:  # pragma: no cover - generator preconditions
         return fail("generation_failed", str(exc))
 
