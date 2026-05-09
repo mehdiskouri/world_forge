@@ -95,6 +95,15 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         "forge.list_sub_regions",
         "forge.get_sub_region",
         "forge.preview_sub_region_coverage",
+        # Environments surface (Phase 6-f Stage F)
+        "forge.create_environment",
+        "forge.update_environment",
+        "forge.delete_environment",
+        "forge.list_environments",
+        "forge.get_environment",
+        "forge.bind_environment",
+        "forge.unbind_environment",
+        "forge.resolve_environment",
     },
 )
 

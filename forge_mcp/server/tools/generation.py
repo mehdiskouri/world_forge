@@ -52,6 +52,7 @@ from forge_mcp.project.service import (
     _now,
 )
 from forge_mcp.realize.engine import RealizerError
+from forge_mcp.realize.environment import resolve_environment
 from forge_mcp.realize.heightmap_mesh import (
     SceneFraming,
     mesh_from_heightmap,
@@ -354,6 +355,8 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
     plan: JsonValue,
     plan_id: str,
     instancer_layers: JsonValue,
+    environment_plan: JsonValue,
+    environment_plan_id: str,
 ) -> RealizeRegionInputs:
     """Assemble the per-region :class:`RealizeRegionInputs` payload."""
     rid_str = str(region_id)
@@ -379,6 +382,8 @@ def _build_realize_inputs(  # noqa: PLR0913 - one assembly site, all named
         world_name=f"world_{rid_str}",
         sun_location=list(framing.sun_location),
         sun_rotation_euler=list(framing.sun_rotation_euler),
+        environment_plan=environment_plan,
+        environment_plan_id=environment_plan_id,
         blend_filepath=str(blend_filepath),
         heightmap_image_filepath=str(heightmap_image_filepath),
         displace_strength=displace_strength,
@@ -467,6 +472,15 @@ def _run_realizer(  # noqa: PLR0913 - one assembly site, all named
         region_id=region_id,
     )
 
+    # Phase 6-f Stage F: resolve the bound environment (region -> world
+    # root -> hard-coded default) and fold its plan_id into the
+    # realizer inputs so the composite ``realize_region`` macro can
+    # build the world shader graph + cached SUN lamp via
+    # ``world.build_environment``.
+    resolved_environment = resolve_environment(service.state, region_id=region_id)
+    environment_plan_payload = resolved_environment.model_dump(mode="json")
+    environment_plan_id_payload = str(resolved_environment.plan_id)
+
     realize_inputs = _build_realize_inputs(
         region_id,
         spec_id,
@@ -479,6 +493,8 @@ def _run_realizer(  # noqa: PLR0913 - one assembly site, all named
         plan_payload,
         plan_id_payload,
         instancer_layers_payload,
+        environment_plan_payload,
+        environment_plan_id_payload,
     )
 
     plan: list[tuple[str, str, Path, Path, Path, RenderPreviewInputs, ResolvedRender]] = []
