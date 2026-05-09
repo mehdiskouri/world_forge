@@ -174,6 +174,8 @@ class RealizeRegionInputs:
     world_name: str
     sun_location: Sequence[float]
     sun_rotation_euler: Sequence[float]
+    environment_plan: JsonValue
+    environment_plan_id: str
     blend_filepath: str
     heightmap_image_filepath: str
     displace_strength: float

@@ -536,3 +536,49 @@ def test_list_render_devices_force_refresh_invokes_engine(
     monkeypatch.setattr(fake, "refresh_render_devices", refresh)
     _ok(list_render_devices(force_refresh=True))
     assert refreshed == [True]
+
+
+def test_generate_region_threads_environment_plan_into_realize_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Phase 6-f Stage F: the realizer receives the resolved env plan."""
+    rid = _bootstrap(tmp_path)
+    captured: list[RealizeRegionInputs] = []
+
+    def capturing_realize(
+        engine: RealizerEngine,
+        inputs: RealizeRegionInputs,
+    ) -> RealizationResult:
+        captured.append(inputs)
+        Path(inputs.blend_filepath).write_bytes(b"BLEND-TMP")
+        cast("_FakeEngine", engine).macros_called.append("realize_region")
+        return RealizationResult(
+            macro="realize_region",
+            trace=(
+                RealizationTraceStep(
+                    sequence_name="realize_region",
+                    step_index=0,
+                    call="seq:save_blend",
+                    duration_ms=1.0,
+                    scene_diff_before=None,
+                    scene_diff_after=None,
+                    result=None,
+                ),
+            ),
+            final_result={"blend_filepath": inputs.blend_filepath},
+            total_duration_ms=2.0,
+            sequence_id="a" * 20,
+        )
+
+    _install_fake_factory(monkeypatch, on_realize=capturing_realize)
+    _ok(generate_region(rid))
+    assert len(captured) == 1
+    inputs = captured[0]
+    # Default (unbound) environment must still produce a valid plan
+    # whose id is stable across runs (content-addressed).
+    assert inputs.environment_plan_id.startswith("eplan_")
+    plan = cast("dict[str, object]", inputs.environment_plan)
+    assert plan["recipe"] == "clear"
+    assert plan["plan_id"] == inputs.environment_plan_id
+    assert plan["scope_label"] == "default"

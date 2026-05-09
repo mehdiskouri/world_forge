@@ -526,7 +526,7 @@
     {
       "name": "realize_region",
       "version": "v1",
-      "description": "Composite v1 macro: empty scene \u2192 terrain mesh \u2192 composite material \u2192 optional stream \u2192 cameras \u2192 lighting \u2192 save .blend. Render is driven separately by render_preview because both ortho and perspective views need to flow through the same realised scene.",
+      "description": "Composite v1 macro: empty scene \u2192 terrain mesh \u2192 composite material \u2192 optional stream \u2192 cameras \u2192 environment (world shader graph + sun lamp via the resolved environment plan; Phase 6-f Stage F replaces the constant add_basic_lighting step) \u2192 save .blend. Render is driven separately by render_preview because both ortho and perspective views need to flow through the same realised scene.",
       "inputs_schema": {
         "object_name": "str",
         "vertices": "list[list[float]]",
@@ -548,6 +548,8 @@
         "world_name": "str",
         "sun_location": "list[float]",
         "sun_rotation_euler": "list[float]",
+        "environment_plan": "ResolvedEnvironment",
+        "environment_plan_id": "str",
         "blend_filepath": "str",
         "heightmap_image_filepath": "str",
         "displace_strength": "float",
@@ -580,8 +582,11 @@
           "params": {}
         },
         {
-          "call": "seq:add_basic_lighting",
-          "params": {}
+          "call": "seq:apply_environment",
+          "params": {
+            "plan": "${environment_plan}",
+            "plan_id": "${environment_plan_id}"
+          }
         },
         {
           "call": "seq:save_blend",

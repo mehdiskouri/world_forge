@@ -24,6 +24,7 @@ from forge_mcp.realize import (
 )
 from forge_mcp.server.tools import audit as audit_tools
 from forge_mcp.server.tools import canvas as canvas_tools
+from forge_mcp.server.tools import environments as environment_tools
 from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
@@ -363,6 +364,60 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "targets the region)."
         ),
     )(material_tools.resolve_material)
+
+    # --- Environments (Phase 6-f Stage F) ---------------------------------
+    server.tool(
+        name="forge.create_environment",
+        title="Create an environment archetype",
+        description=(
+            "Persist a new environment node (recipe + parameters: sun, "
+            "sky, fog, ambient, time-of-day, season, latitude/longitude). "
+            "The node is unbound on creation; call `forge.bind_environment` "
+            "to attach it to the world root or a region."
+        ),
+    )(environment_tools.create_environment)
+    server.tool(
+        name="forge.update_environment",
+        title="Update an environment",
+        description="Apply a partial update to an existing environment node.",
+    )(environment_tools.update_environment)
+    server.tool(
+        name="forge.delete_environment",
+        title="Delete an environment",
+        description="Refuses if any scope (world root or region) still binds the environment.",
+    )(environment_tools.delete_environment)
+    server.tool(
+        name="forge.list_environments",
+        title="List environments",
+        description="Return a deterministic summary of every environment node.",
+    )(environment_tools.list_environments)
+    server.tool(
+        name="forge.get_environment",
+        title="Get one environment",
+        description="Return the full environment record for `environment_id`.",
+    )(environment_tools.get_environment)
+    server.tool(
+        name="forge.bind_environment",
+        title="Bind an environment to a scope",
+        description=(
+            "Bind `environment_id` to `scope_node_id` (world root or a "
+            "region). Replaces any existing binding on the scope."
+        ),
+    )(environment_tools.bind_environment)
+    server.tool(
+        name="forge.unbind_environment",
+        title="Clear an environment binding",
+        description="No-op when the scope already has no binding.",
+    )(environment_tools.unbind_environment)
+    server.tool(
+        name="forge.resolve_environment",
+        title="Resolve the environment plan for a region",
+        description=(
+            "Walk region -> world root -> hard-coded default and return "
+            "the flat ResolvedEnvironment payload (with computed sun "
+            "position) that the adapter consumes."
+        ),
+    )(environment_tools.resolve_environment_tool)
 
     # --- Sub-regions (Phase 6-c Phase E) ----------------------------------
     server.tool(
