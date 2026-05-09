@@ -248,7 +248,11 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
         title="Reroll a region seed",
         description=(
             "Replace `region.seed` with the supplied value, or with a "
-            "deterministic blake2b derivation when omitted."
+            "deterministic blake2b derivation when omitted. Pass "
+            "`regenerate=True` to immediately re-run `forge.generate_region` "
+            "with the new seed; the Stage C lock-aware path is reused so "
+            "feature locks blend back, region locks short-circuit, and "
+            "property locks raise `lock_violation` on drift."
         ),
     )(generation_tools.reroll_seed)
     server.tool(
