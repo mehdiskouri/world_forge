@@ -256,12 +256,28 @@ def test_history_with_no_open_project_returns_structured_error() -> None:
     assert _err(history_tool())["code"] == "no_open_project"
 
 
-def test_undo_returns_not_implemented_envelope() -> None:
-    error = _err(undo_tool())
-    assert error["code"] == "not_implemented"
-    details = error["details"]
-    assert isinstance(details, dict)
-    assert details["available_in_phase"] == 7  # noqa: PLR2004 - documented Phase-7 marker
+def test_undo_with_no_open_project_returns_structured_error() -> None:
+    assert _err(undo_tool())["code"] == "no_open_project"
+
+
+def test_undo_at_baseline_returns_cannot_undo(tmp_path: Path) -> None:
+    _bootstrap(tmp_path)
+    assert _err(undo_tool())["code"] == "cannot_undo"
+
+
+def test_undo_after_create_region_succeeds(tmp_path: Path) -> None:
+    _bootstrap(tmp_path)
+    region = _ok(create_region("Alpha", _SQUARE_A))
+    payload = _ok(undo_tool())
+    assert payload["undone"] is True
+    event = cast("dict[str, object]", payload["event"])
+    assert event["kind"] == "undo"
+    listing = _ok(list_regions())
+    region_ids = [
+        cast("dict[str, object]", item)["node_id"]
+        for item in cast("list[object]", listing["regions"])
+    ]
+    assert region["node_id"] not in region_ids
 
 
 def test_list_locks_with_no_open_project_returns_structured_error() -> None:

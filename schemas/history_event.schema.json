@@ -40,7 +40,8 @@
         "environment_unbound",
         "lock_created",
         "lock_removed",
-        "region_lock_skipped"
+        "region_lock_skipped",
+        "undo"
       ],
       "title": "HistoryEventKind",
       "type": "string"
