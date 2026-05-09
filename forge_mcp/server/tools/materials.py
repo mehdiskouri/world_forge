@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from forge_mcp.project.lock_enforcement import LockViolationError
 from forge_mcp.project.schemas import (
     LAYER_MATERIAL_APPLICATION,
     MaterialApplicationAttrs,
@@ -37,7 +38,7 @@ from forge_mcp.realize.material import resolve_plan
 from forge_mcp.realize.material.defaults import RecipeParameterError
 from forge_mcp.realize.material.resolver import ResolverError
 from forge_mcp.server.tools import get_service
-from forge_mcp.server.tools._responses import fail, ok
+from forge_mcp.server.tools._responses import fail, lock_violation_envelope, ok
 
 if TYPE_CHECKING:
     from forge_mcp._types import JsonValue
@@ -178,6 +179,8 @@ def update_material_archetype(
         return fail("no_open_project", str(exc))
     except UnknownArchetypeError as exc:
         return fail("unknown_archetype", str(exc))
+    except LockViolationError as exc:
+        return lock_violation_envelope(exc)
     return ok(archetype.model_dump(mode="json"))
 
 

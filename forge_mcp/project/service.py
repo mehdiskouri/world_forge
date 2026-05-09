@@ -41,7 +41,9 @@ from forge_mcp._types import JsonValue  # noqa: TC001 - runtime needed for Mappi
 from forge_mcp.descriptor.schema import SCHEMA_VERSION as DESCRIPTOR_SCHEMA_VERSION
 from forge_mcp.descriptor.schema import StructuredDescriptor
 from forge_mcp.generate.heightmap import load_npy as _load_heightmap_npy
+from forge_mcp.project.errors import ProjectError as _ProjectErrorBase
 from forge_mcp.project.history import HistoryLog
+from forge_mcp.project.lock_enforcement import check_property_locks
 from forge_mcp.project.locks import (
     DuplicateLockError,
     LockNotFoundError,
@@ -376,8 +378,13 @@ class ProjectState:
 # ---------------------------------------------------------------------------
 
 
-class ProjectError(Exception):
-    """Base class for project-layer errors raised by :class:`ProjectService`."""
+# ``ProjectError`` is canonically defined in ``forge_mcp.project.errors``
+# so cross-cutting helpers (e.g. ``forge_mcp.project.lock_enforcement``)
+# can inherit from it without importing this module. It is re-exported
+# here under its historical name so existing
+# ``from forge_mcp.project.service import ProjectError`` callers keep
+# working unchanged.
+ProjectError = _ProjectErrorBase
 
 
 class ProjectAlreadyExistsError(ProjectError):
@@ -908,6 +915,12 @@ class ProjectService:
             clear_descriptor=clear_descriptor,
         )
         new_region: RegionNode = existing.model_copy(update=update)
+        check_property_locks(
+            state,
+            NodeId(str(region_id)),
+            existing.model_dump(mode="json"),
+            new_region.model_dump(mode="json"),
+        )
         state.regions[region_id] = new_region
         write_json(state.paths.region_path(region_id), new_region)
 
@@ -1217,6 +1230,12 @@ class ProjectService:
         if notes is not None:
             update["notes"] = notes
         new_sub_region: SubRegionNode = existing.model_copy(update=update)
+        check_property_locks(
+            state,
+            NodeId(str(sub_region_id)),
+            existing.model_dump(mode="json"),
+            new_sub_region.model_dump(mode="json"),
+        )
         state.sub_regions[sub_region_id] = new_sub_region
         write_json(state.paths.sub_region_path(sub_region_id), new_sub_region)
         self._append_history(
@@ -1358,6 +1377,12 @@ class ProjectService:
         if notes is not None:
             update["notes"] = notes
         new_env: EnvironmentNode = existing.model_copy(update=update)
+        check_property_locks(
+            state,
+            NodeId(str(environment_id)),
+            existing.model_dump(mode="json"),
+            new_env.model_dump(mode="json"),
+        )
         state.environments[environment_id] = new_env
         write_json(state.paths.environment_path(environment_id), new_env)
         self._append_history(
@@ -1416,6 +1441,12 @@ class ProjectService:
             new_root: WorldRootNode = state.world_root.model_copy(
                 update={"environment_id": environment_id},
             )
+            check_property_locks(
+                state,
+                state.world_root.node_id,
+                state.world_root.model_dump(mode="json"),
+                new_root.model_dump(mode="json"),
+            )
             state.world_root = new_root
             write_json(state.paths.world_node_path, new_root)
         elif RegionId(scope_str) in state.regions:
@@ -1423,6 +1454,12 @@ class ProjectService:
             region = state.regions[region_id]
             new_region: RegionNode = region.model_copy(
                 update={"environment_id": environment_id, "modified_at": now},
+            )
+            check_property_locks(
+                state,
+                NodeId(str(region_id)),
+                region.model_dump(mode="json"),
+                new_region.model_dump(mode="json"),
             )
             state.regions[region_id] = new_region
             write_json(state.paths.region_path(region_id), new_region)
@@ -1452,6 +1489,12 @@ class ProjectService:
             new_root: WorldRootNode = state.world_root.model_copy(
                 update={"environment_id": None},
             )
+            check_property_locks(
+                state,
+                state.world_root.node_id,
+                state.world_root.model_dump(mode="json"),
+                new_root.model_dump(mode="json"),
+            )
             state.world_root = new_root
             write_json(state.paths.world_node_path, new_root)
         elif RegionId(scope_str) in state.regions:
@@ -1461,6 +1504,12 @@ class ProjectService:
                 return
             new_region: RegionNode = region.model_copy(
                 update={"environment_id": None, "modified_at": now},
+            )
+            check_property_locks(
+                state,
+                NodeId(str(region_id)),
+                region.model_dump(mode="json"),
+                new_region.model_dump(mode="json"),
             )
             state.regions[region_id] = new_region
             write_json(state.paths.region_path(region_id), new_region)
@@ -1814,6 +1863,12 @@ class ProjectService:
         if notes is not None:
             update["notes"] = notes
         new_archetype: MaterialArchetypeNode = existing.model_copy(update=update)
+        check_property_locks(
+            state,
+            NodeId(str(archetype_id)),
+            existing.model_dump(mode="json"),
+            new_archetype.model_dump(mode="json"),
+        )
         state.archetypes[archetype_id] = new_archetype
         write_json(self._archetype_path(state.paths, archetype_id), new_archetype)
         self._append_history(
