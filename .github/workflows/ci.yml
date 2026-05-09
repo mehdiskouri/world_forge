@@ -58,6 +58,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      - name: Install Playwright Chromium (canvas e2e)
+        # Phase 7 Stage F follow-up: tests/canvas/test_connection_map_e2e.py
+        # boots a real CanvasServer and drives a headless Chromium against
+        # the d3-force connection map. The test self-skips if Chromium is
+        # missing, but CI must not skip — we install the browser binaries.
+        run: uv run playwright install --with-deps chromium
+
       - name: Pre-commit (ruff, ruff-format, hooks, mypy)
         run: uv run pre-commit run --all-files --show-diff-on-failure
 
