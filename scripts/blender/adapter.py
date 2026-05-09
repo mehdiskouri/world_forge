@@ -36,6 +36,10 @@ realizer is Phase 4):
   (Phase 4 camera / lamp creation path)
 * ``scene.assign_world``            — assign a named
   ``bpy.data.worlds`` entry to ``bpy.context.scene.world`` (Phase 4)
+* ``world.build_environment``       — realize a ResolvedEnvironment
+  (Phase 6-f) into a content-addressed ``forge.world.<plan_id>``
+  shader graph + ``forge.sun.<plan_id>`` SUN lamp; idempotent on
+  ``plan_id``
 * ``scene.diff``                    — return per-collection counts
   for postcondition checks (Phase 4 engine)
 
@@ -50,6 +54,7 @@ invalid params, ``-32000`` Blender execution error.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import traceback
@@ -1668,6 +1673,207 @@ def _handle_object_from_data(params: dict[str, Any]) -> dict[str, Any]:
     return {"object_name": obj.name, "data_name": data_block.name}
 
 
+def _sun_rotation_euler(sun_vector: tuple[float, float, float]) -> tuple[float, float, float]:
+    """Return the Euler XYZ rotation that aims a SUN lamp's -Z toward -sun_vector.
+
+    ``sun_vector`` points FROM the surface TO the sun in the
+    Blender-native frame (X=East, Y=North, Z=Up). A SUN lamp emits
+    along its local -Z axis, so the lamp must be rotated such that
+    local +Z aligns with ``sun_vector`` (light then travels in the
+    -sun_vector direction, away from the sun).
+
+    The returned tuple is ``(rx, 0.0, rz)`` where ``rx`` is the tilt
+    about the East axis (negative as elevation increases above the
+    horizon) and ``rz`` is the azimuth measured clockwise from North
+    looking down. Numerically stable for the equator/polar edge cases
+    that ``compute_sun_direction`` can produce.
+    """
+    vx, vy, vz = (float(c) for c in sun_vector)
+    horizontal = math.hypot(vx, vy)
+    elevation_rad = math.atan2(vz, horizontal) if horizontal > 0.0 else math.copysign(math.pi / 2.0, vz)
+    azimuth_rad = math.atan2(vx, vy) if horizontal > 0.0 else 0.0
+    rx = -(math.pi / 2.0 - elevation_rad)
+    return (rx, 0.0, azimuth_rad)
+
+
+def _ensure_world_nodes(world: Any) -> tuple[Any, Any]:  # noqa: ANN401 - bpy world is dynamic
+    """Enable nodes on ``world`` and return ``(nodes, links)``, wiped clean."""
+    world.use_nodes = True
+    nodes = world.node_tree.nodes
+    links = world.node_tree.links
+    for node in list(nodes):
+        nodes.remove(node)
+    return nodes, links
+
+
+def _build_world_clear(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    plan: dict[str, Any],
+) -> tuple[Any, Any | None]:
+    """Sky gradient (zenith->horizon) wired into a Background shader."""
+    return _build_world_gradient(nodes, links, plan)
+
+
+def _build_world_overcast(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    plan: dict[str, Any],
+) -> tuple[Any, Any | None]:
+    return _build_world_gradient(nodes, links, plan)
+
+
+def _build_world_sunset(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    plan: dict[str, Any],
+) -> tuple[Any, Any | None]:
+    return _build_world_gradient(nodes, links, plan)
+
+
+def _build_world_night(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    plan: dict[str, Any],
+) -> tuple[Any, Any | None]:
+    return _build_world_gradient(nodes, links, plan)
+
+
+def _build_world_gradient(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    plan: dict[str, Any],
+) -> tuple[Any, Any | None]:
+    """Sky-gradient world: TexCoord.Z -> ColorRamp(zenith,horizon) -> Background.
+
+    Returns ``(surface_socket, volume_socket)`` where ``volume_socket``
+    is the volume-scatter shader for fog when ``fog_density > 0``,
+    else ``None``.
+    """
+    zenith = tuple(plan.get("sky_zenith_color") or (0.05, 0.15, 0.4, 1.0))
+    horizon = tuple(plan.get("sky_horizon_color") or (0.7, 0.8, 0.9, 1.0))
+    ambient_strength = float(plan.get("ambient_strength", 1.0))
+    tex_coord = nodes.new("ShaderNodeTexCoord")
+    sep = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(tex_coord.outputs["Generated"], sep.inputs["Vector"])
+    ramp = nodes.new("ShaderNodeValToRGB")
+    # Stop 0 (z=0, horizon) and stop 1 (z=1, zenith)
+    ramp.color_ramp.elements[0].position = 0.0
+    ramp.color_ramp.elements[0].color = horizon
+    top = ramp.color_ramp.elements.new(1.0)
+    top.color = zenith
+    links.new(sep.outputs["Z"], ramp.inputs["Fac"])
+    background = nodes.new("ShaderNodeBackground")
+    links.new(ramp.outputs["Color"], background.inputs["Color"])
+    background.inputs["Strength"].default_value = ambient_strength
+    return background.outputs["Background"], _build_world_volume(nodes, links, plan)
+
+
+def _build_world_procedural_sky(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401
+    plan: dict[str, Any],
+) -> tuple[Any, Any | None]:
+    """Nishita ``ShaderNodeTexSky`` driven by the resolved sun vector."""
+    sun_vector = tuple(plan.get("sun_vector") or (0.0, 0.0, 1.0))
+    ambient_strength = float(plan.get("ambient_strength", 1.0))
+    sky = nodes.new("ShaderNodeTexSky")
+    sky.sky_type = "NISHITA"
+    sky.sun_direction = sun_vector
+    background = nodes.new("ShaderNodeBackground")
+    links.new(sky.outputs["Color"], background.inputs["Color"])
+    background.inputs["Strength"].default_value = ambient_strength
+    return background.outputs["Background"], _build_world_volume(nodes, links, plan)
+
+
+def _build_world_volume(
+    nodes: Any,  # noqa: ANN401
+    links: Any,  # noqa: ANN401  # links arg kept for symmetry / future use
+    plan: dict[str, Any],
+) -> Any | None:  # noqa: ANN401
+    """Optional volume-scatter shader for fog. Returns ``None`` when fog_density==0."""
+    del links  # symmetry with surface builders
+    fog_density = float(plan.get("fog_density", 0.0))
+    if fog_density <= 0.0:
+        return None
+    fog_color = tuple(plan.get("fog_color") or (0.7, 0.8, 0.9, 1.0))
+    scatter = nodes.new("ShaderNodeVolumeScatter")
+    scatter.inputs["Color"].default_value = fog_color
+    scatter.inputs["Density"].default_value = fog_density
+    return scatter.outputs["Volume"]
+
+
+_ENVIRONMENT_BUILDERS: dict[str, Any] = {
+    "clear": _build_world_clear,
+    "overcast": _build_world_overcast,
+    "sunset": _build_world_sunset,
+    "night": _build_world_night,
+    "procedural_sky": _build_world_procedural_sky,
+}
+
+
+def _handle_world_build_environment(params: dict[str, Any]) -> dict[str, Any]:
+    """Realize a :class:`ResolvedEnvironment` into a Blender world + SUN lamp.
+
+    Phase 6-f Stage E. Idempotent on ``plan_id``: the world is named
+    ``forge.world.<plan_id>`` and the SUN lamp ``forge.sun.<plan_id>``,
+    so two regions resolving to byte-equal environments share a single
+    Blender world data-block (and a single shader compile). On reuse
+    the handler binds the existing world to ``bpy.context.scene.world``
+    without rebuilding the node graph.
+    """
+    plan = params.get("plan")
+    plan_id = params.get("plan_id")
+    if not isinstance(plan, dict):
+        msg = "world.build_environment requires 'plan' object"
+        raise ValueError(msg)
+    if not isinstance(plan_id, str) or not plan_id.startswith("eplan_"):
+        msg = "world.build_environment requires string 'plan_id' of form eplan_<hex>"
+        raise ValueError(msg)
+    recipe = plan.get("recipe")
+    builder = _ENVIRONMENT_BUILDERS.get(recipe) if isinstance(recipe, str) else None
+    if builder is None:
+        msg = f"unknown environment recipe {recipe!r}"
+        raise ValueError(msg)
+    world_name = f"forge.world.{plan_id}"
+    sun_name = f"forge.sun.{plan_id}"
+    existing_world = bpy.data.worlds.get(world_name)
+    if existing_world is not None:
+        world = existing_world
+    else:
+        world = bpy.data.worlds.new(name=world_name)
+        nodes, links = _ensure_world_nodes(world)
+        surface_socket, volume_socket = builder(nodes, links, plan)
+        output = nodes.new("ShaderNodeOutputWorld")
+        links.new(surface_socket, output.inputs["Surface"])
+        if volume_socket is not None:
+            links.new(volume_socket, output.inputs["Volume"])
+    bpy.context.scene.world = world
+    sun_obj = bpy.data.objects.get(sun_name)
+    if sun_obj is None:
+        sun_data = bpy.data.lights.get(sun_name)
+        if sun_data is None:
+            sun_data = bpy.data.lights.new(name=sun_name, type="SUN")
+        sun_obj = bpy.data.objects.new(name=sun_name, object_data=sun_data)
+        bpy.context.scene.collection.objects.link(sun_obj)
+    sun_color = tuple(plan.get("sun_color") or (1.0, 1.0, 1.0, 1.0))
+    sun_intensity = float(plan.get("sun_intensity_w_m2", 0.0))
+    sun_vector = tuple(plan.get("sun_vector") or (0.0, 0.0, 1.0))
+    if len(sun_vector) != 3:  # noqa: PLR2004 - 3D vector
+        msg = "plan.sun_vector must be a 3-tuple"
+        raise ValueError(msg)
+    sun_obj.data.color = sun_color[:3]
+    sun_obj.data.energy = sun_intensity
+    sun_obj.rotation_euler = _sun_rotation_euler(
+        (float(sun_vector[0]), float(sun_vector[1]), float(sun_vector[2])),
+    )
+    return {
+        "world_name": world.name,
+        "sun_name": sun_obj.name,
+        "plan_id": plan_id,
+    }
+
+
 def _handle_scene_assign_world(params: dict[str, Any]) -> dict[str, Any]:
     name = params.get("name")
     if not isinstance(name, str):
@@ -1730,6 +1936,8 @@ def _dispatch(method: str, params: dict[str, Any]) -> dict[str, Any]:
         return _handle_object_from_data(params)
     if method == "scene.assign_world":
         return _handle_scene_assign_world(params)
+    if method == "world.build_environment":
+        return _handle_world_build_environment(params)
     if method == "scene.diff":
         return _handle_scene_diff(params)
     msg = f"unknown method: {method!r}"
