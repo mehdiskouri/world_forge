@@ -21,6 +21,7 @@ _EXPECTED_SEQUENCE_NAMES: Final[tuple[str, ...]] = (
     "carve_stream",
     "set_camera_overview",
     "add_basic_lighting",
+    "apply_environment",
     "render_preview",
     "save_blend",
     "realize_region",
@@ -86,6 +87,7 @@ def test_calls_validate_against_hypergraph_when_provided() -> None:
         "scene.diff",
         "object.from_data",
         "scene.assign_world",
+        "world.build_environment",
     }
     for seq in bundle.sequences:
         for step in seq.steps:
