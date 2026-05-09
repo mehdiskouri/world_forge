@@ -40,12 +40,15 @@ import json
 import socket
 import threading
 from dataclasses import dataclass, field
+from importlib import resources
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Final
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from forge_mcp.descriptor.schema import StructuredDescriptor
@@ -58,7 +61,6 @@ from forge_mcp.project.service import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from forge_mcp.project.service import ProjectService
 
@@ -76,9 +78,36 @@ _PLACEHOLDER_HTML: Final[str] = (
     '<!doctype html><html><head><meta charset="utf-8">'
     "<title>Forge canvas</title></head><body>"
     "<h1>Forge canvas</h1>"
-    "<p>Bundle not yet built. Run <code>make canvas-build</code>.</p>"
+    "<p>Bundle not yet built. Run <code>npm run build --prefix forge_mcp/canvas_page</code>.</p>"
     "</body></html>"
 )
+
+
+def _bundled_dist_dir() -> Path | None:
+    """Return the bundled ``canvas_page/dist`` directory or ``None``.
+
+    Phase 7 Stage F ships the Vite bundle inside the wheel via
+    ``[tool.hatch.build.targets.wheel.force-include]``. Local dev
+    rebuilds with ``npm run build --prefix forge_mcp/canvas_page``;
+    when the bundle is missing the canvas server falls back to the
+    placeholder HTML above so the developer sees a clear error.
+    """
+    try:
+        root = resources.files("forge_mcp").joinpath("canvas_page", "dist")
+    except (ModuleNotFoundError, FileNotFoundError):  # pragma: no cover - install bug
+        return None
+    # ``importlib.resources`` returns a Traversable; cast to a real
+    # path only when the entry exists on disk (the wheel layout always
+    # gives us a real filesystem path).
+    try:
+        path = Path(str(root))
+    except TypeError:  # pragma: no cover - non-filesystem traversable
+        return None
+    if not path.is_dir():
+        return None
+    if not (path / "index.html").is_file():
+        return None
+    return path
 
 
 class CanvasServerError(Exception):
@@ -342,7 +371,7 @@ class CanvasServer:
         self._register_routes(app)
         return app
 
-    def _register_routes(self, app: FastAPI) -> None:
+    def _register_routes(self, app: FastAPI) -> None:  # noqa: C901 - one route per branch
         @app.get("/healthz")
         def _healthz() -> dict[str, object]:
             return {
@@ -351,9 +380,26 @@ class CanvasServer:
                 "connected_clients": self.connected_clients,
             }
 
-        @app.get("/", response_class=HTMLResponse)
-        def _index() -> str:
-            return _PLACEHOLDER_HTML
+        dist_dir = _bundled_dist_dir()
+        if dist_dir is not None:
+            index_html = dist_dir / "index.html"
+
+            @app.get("/", response_class=HTMLResponse)
+            def _index_bundle() -> FileResponse:
+                # Serve the Vite-built ``index.html``; the rest of the
+                # bundle is exposed by the static mount below.
+                return FileResponse(index_html, media_type="text/html")
+
+            app.mount(
+                "/assets",
+                StaticFiles(directory=str(dist_dir / "assets")),
+                name="canvas-assets",
+            )
+        else:
+
+            @app.get("/", response_class=HTMLResponse)
+            def _index_placeholder() -> str:
+                return _PLACEHOLDER_HTML
 
         @app.get("/api/state")
         def _state() -> dict[str, object]:

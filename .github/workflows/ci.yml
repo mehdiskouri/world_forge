@@ -32,6 +32,29 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      - name: Set up Node 22 LTS
+        # Phase 7 Stage F — the popup canvas + connection-map frontend
+        # is a Vite + TS bundle under ``forge_mcp/canvas_page/``.
+        # ``npm ci`` + ``npm run build`` must run before the canvas
+        # server tests so the bundled ``dist/`` directory exists.
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: forge_mcp/canvas_page/package-lock.json
+
+      - name: Install canvas-page dependencies
+        run: npm ci --prefix forge_mcp/canvas_page
+
+      - name: Build canvas-page bundle
+        run: npm run build --prefix forge_mcp/canvas_page
+
+      - name: Test canvas-page bundle (Vitest)
+        run: npm run test --prefix forge_mcp/canvas_page
+
+      - name: Type-check canvas-page bundle (tsc --noEmit)
+        run: npm run typecheck --prefix forge_mcp/canvas_page
+
       - name: Pre-commit (ruff, ruff-format, hooks, mypy)
         run: uv run pre-commit run --all-files --show-diff-on-failure
 

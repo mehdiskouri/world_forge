@@ -1,0 +1,27 @@
+{
+  "name": "forge-canvas-page",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Forge popup canvas + connection-map frontend (Phase 7 Stage F).",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "@types/d3-force": "3.0.10",
+    "jsdom": "25.0.1",
+    "typescript": "5.7.3",
+    "vite": "6.0.7",
+    "vitest": "2.1.8"
+  },
+  "dependencies": {
+    "d3-force": "3.0.0",
+    "konva": "9.3.18"
+  }
+}
