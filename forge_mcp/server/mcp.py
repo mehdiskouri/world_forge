@@ -185,7 +185,15 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
     server.tool(
         name="forge.undo",
         title="Undo the last event",
-        description="Phase-7 surface; in Phase 2 returns a `not_implemented` error.",
+        description=(
+            "Pop the most recent snapshot off the bounded undo ring "
+            "(50 deep, mirrored under `<project>/.undo`) and restore "
+            "the prior in-memory + on-disk state. Heightmaps and "
+            "Blender realizations are not snapshotted; rerun "
+            "`forge.generate_region` if a generation needs to be "
+            "reproduced. Returns `cannot_undo` when the ring is at "
+            "its baseline floor."
+        ),
     )(history_tools.undo)
 
     # --- Locks (read-only in Phase 2) -------------------------------------

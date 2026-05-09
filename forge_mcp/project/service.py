@@ -94,6 +94,7 @@ from forge_mcp.project.schemas import (
     WorldBounds,
     WorldRootNode,
 )
+from forge_mcp.project.undo import StateSnapshot, UndoStack
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -129,6 +130,38 @@ _WORLD_ROOT_NAME: Final[str] = "World"
 _DEFAULT_LAYERS: Final[tuple[str, ...]] = DEFAULT_REGISTERED_LAYERS
 
 _GITIGNORE_BODY: Final[str] = "realizations/\n"
+
+
+# Phase 7 Stage E: a snapshot is pushed onto the undo ring after each
+# event whose ``kind`` is in this set. Lifecycle events
+# (create/open/save/close), realization side effects (generate, reroll,
+# region-lock skip), and audit recording are intentionally excluded so
+# the agent-facing notion of "undo" matches PRD §F-10.5 (one undoable
+# action per user-issued mutation tool).
+_UNDOABLE_HISTORY_KINDS: Final[frozenset[HistoryEventKind]] = frozenset(
+    {
+        HistoryEventKind.CREATE_REGION,
+        HistoryEventKind.UPDATE_REGION,
+        HistoryEventKind.DELETE_REGION,
+        HistoryEventKind.SUB_REGION_CREATED,
+        HistoryEventKind.SUB_REGION_UPDATED,
+        HistoryEventKind.SUB_REGION_DELETED,
+        HistoryEventKind.ENVIRONMENT_CREATED,
+        HistoryEventKind.ENVIRONMENT_UPDATED,
+        HistoryEventKind.ENVIRONMENT_DELETED,
+        HistoryEventKind.ENVIRONMENT_BOUND,
+        HistoryEventKind.ENVIRONMENT_UNBOUND,
+        HistoryEventKind.MATERIAL_ARCHETYPE_CREATED,
+        HistoryEventKind.MATERIAL_ARCHETYPE_UPDATED,
+        HistoryEventKind.MATERIAL_ARCHETYPE_DELETED,
+        HistoryEventKind.MATERIAL_APPLIED,
+        HistoryEventKind.MATERIAL_UNAPPLIED,
+        HistoryEventKind.MATERIAL_COMPOSED,
+        HistoryEventKind.MATERIAL_UNCOMPOSED,
+        HistoryEventKind.LOCK_CREATED,
+        HistoryEventKind.LOCK_REMOVED,
+    },
+)
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +241,11 @@ class ProjectPaths:
     def history_dir(self) -> Path:
         """One ``<event_id>_<kind>.json`` per appended history event."""
         return self.root / "history"
+
+    @property
+    def undo_dir(self) -> Path:
+        """``.undo`` -- one ``<NNNN>.json`` per pre-mutation snapshot (Phase 7)."""
+        return self.root / ".undo"
 
     @property
     def realizations_dir(self) -> Path:
@@ -321,6 +359,7 @@ class ProjectPaths:
             self.locks_dir,
             self.feature_locks_dir,
             self.history_dir,
+            self.undo_dir,
             self.realizations_dir,
             self.heightmaps_dir,
             self.blender_dir,
@@ -355,11 +394,13 @@ class ProjectState:
     """Cached world-root record (Phase 6-f). Lazily filled by ``open_project``."""
     history: HistoryLog = field(init=False)
     lock_store: LockStore = field(init=False)
+    undo_stack: UndoStack = field(init=False)
 
     def __post_init__(self) -> None:
         """Bind sub-stores to the resolved paths."""
         self.history = HistoryLog(self.paths.history_dir, count=0)
         self.lock_store = LockStore(self.paths.locks_path)
+        self.undo_stack = UndoStack(self.paths.undo_dir)
 
     # --- Compatibility shims for callers that still read the flat fields ---
     @property
@@ -405,6 +446,10 @@ class ProjectVersionError(ProjectError):
 
 class NoOpenProjectError(ProjectError):
     """Raised when an operation is attempted with no project currently open."""
+
+
+class CannotUndoError(ProjectError):
+    """Raised by :meth:`ProjectService.undo` when the undo ring is empty."""
 
 
 # ---------------------------------------------------------------------------
@@ -454,6 +499,117 @@ class ProjectService:
         for callback in list(self._subscribers):
             with suppress(Exception):
                 callback(event)
+
+    # ------------------------------------------------------------------
+    # Undo (Phase 7 Stage E)
+    # ------------------------------------------------------------------
+    def _take_snapshot(self) -> StateSnapshot:
+        """Build a :class:`StateSnapshot` from the current in-memory state."""
+        state = self.state
+        return StateSnapshot(
+            metadata=state.metadata,
+            world_root=state.world_root,
+            regions=dict(state.regions),
+            sub_regions=dict(state.sub_regions),
+            archetypes=dict(state.archetypes),
+            environments=dict(state.environments),
+            boundaries=dict(state.boundaries),
+            edges={layer: list(edges) for layer, edges in state.edges.items()},
+            lock_records=state.lock_store.records,
+        )
+
+    def _capture_undo(self) -> None:
+        """Push a post-mutation snapshot onto the undo ring."""
+        if self._state is None:
+            return
+        self._state.undo_stack.push(self._take_snapshot())
+
+    def _restore_snapshot(self, snapshot: StateSnapshot) -> None:  # noqa: C901 - one branch per snapshot field
+        """Replace in-memory state with ``snapshot`` and re-sync on-disk files."""
+        state = self.state
+
+        # Compute file-deletion sets BEFORE clobbering the in-memory dicts.
+        removed_regions = set(state.regions) - set(snapshot.regions)
+        removed_sub_regions = set(state.sub_regions) - set(snapshot.sub_regions)
+        removed_archetypes = set(state.archetypes) - set(snapshot.archetypes)
+        removed_environments = set(state.environments) - set(snapshot.environments)
+        removed_boundaries = set(state.boundaries) - set(snapshot.boundaries)
+
+        for rid in removed_regions:
+            self._unlink_if_exists(state.paths.region_path(rid))
+        for srid in removed_sub_regions:
+            self._unlink_if_exists(state.paths.sub_region_path(srid))
+        for aid in removed_archetypes:
+            self._unlink_if_exists(self._archetype_path(state.paths, aid))
+        for eid in removed_environments:
+            self._unlink_if_exists(state.paths.environment_path(eid))
+        for bid in removed_boundaries:
+            self._unlink_if_exists(state.paths.boundary_path(bid))
+
+        state.metadata = snapshot.metadata
+        state.world_root = snapshot.world_root
+        state.regions = dict(snapshot.regions)
+        state.sub_regions = dict(snapshot.sub_regions)
+        state.archetypes = dict(snapshot.archetypes)
+        state.environments = dict(snapshot.environments)
+        state.boundaries = dict(snapshot.boundaries)
+        state.edges = {layer: list(edges) for layer, edges in snapshot.edges.items()}
+        state.lock_store = LockStore(state.paths.locks_path, initial=snapshot.lock_records)
+
+        write_json(state.paths.metadata_path, snapshot.metadata)
+        if snapshot.world_root is not None:
+            write_json(state.paths.world_node_path, snapshot.world_root)
+        for region in snapshot.regions.values():
+            write_json(state.paths.region_path(region.node_id), region)
+        for sub_region in snapshot.sub_regions.values():
+            write_json(state.paths.sub_region_path(sub_region.node_id), sub_region)
+        for archetype in snapshot.archetypes.values():
+            write_json(self._archetype_path(state.paths, archetype.node_id), archetype)
+        for environment in snapshot.environments.values():
+            write_json(state.paths.environment_path(environment.node_id), environment)
+        for boundary in snapshot.boundaries.values():
+            write_json(state.paths.boundary_path(boundary.boundary_id), boundary)
+        for layer, edges in snapshot.edges.items():
+            write_json(
+                state.paths.edge_layer_path(layer),
+                EdgeLayerFile(layer=layer, edges=tuple(edges)),
+            )
+        write_json(state.paths.locks_path, LockStoreFile(locks=snapshot.lock_records))
+
+    @staticmethod
+    def _unlink_if_exists(path: Path) -> None:
+        if path.exists():
+            with suppress(OSError):  # pragma: no cover - races/permissions
+                path.unlink()
+
+    def undo(self) -> HistoryEvent:
+        """Discard the latest mutation and restore the prior state snapshot.
+
+        Snapshots are pushed *after* every undoable mutation; the very
+        first snapshot is the project baseline (pushed at create/open
+        time), so a fresh project with no mutations cannot undo. When
+        ``len(undo_stack) <= 1`` the only retained snapshot represents
+        the current floor and :class:`CannotUndoError` is raised.
+        """
+        state = self.state
+        if len(state.undo_stack) <= 1:
+            msg = "no mutation to undo (the undo ring is at the baseline floor)"
+            raise CannotUndoError(msg)
+        # Pop the snapshot that captured the *current* (post-mutation)
+        # state and restore the new top, which is the state immediately
+        # before that mutation. ``pop`` already deletes the on-disk file.
+        state.undo_stack.pop()
+        prior = state.undo_stack.peek()
+        if prior is None:  # pragma: no cover - guarded by the >1 check above
+            msg = "undo ring lost its baseline mid-restore"
+            raise CannotUndoError(msg)
+        self._restore_snapshot(prior)
+        event = self._append_history(
+            HistoryEventKind.UNDO,
+            payload={"remaining": max(len(state.undo_stack) - 1, 0)},
+        )
+        self._notify("undo")
+        return event
 
     # ------------------------------------------------------------------
     # Accessors
@@ -534,6 +690,9 @@ class ProjectService:
             world_root=world_root,
         )
         self._state = state
+        # Phase 7 Stage E: baseline snapshot acts as the undo floor; every
+        # subsequent undoable mutation pushes its post-state on top.
+        self._capture_undo()
         self._append_history(
             HistoryEventKind.CREATE_PROJECT,
             payload={"project_id": str(metadata.project_id), "name": metadata.name},
@@ -588,7 +747,14 @@ class ProjectService:
             msg = f"failed to load locks.json: {exc}"
             raise ProjectFormatError(msg) from exc
         state.history = HistoryLog(paths.history_dir, count=self._count_history(paths))
+        state.undo_stack = UndoStack.load(paths.undo_dir)
         self._state = state
+
+        # Phase 7 Stage E: re-establish the baseline floor on reopen so
+        # ``forge.undo`` keeps a meaningful pre-load snapshot even when
+        # the on-disk ring was clipped between sessions.
+        if len(state.undo_stack) == 0:
+            self._capture_undo()
 
         self._append_history(
             HistoryEventKind.OPEN_PROJECT,
@@ -648,14 +814,23 @@ class ProjectService:
         payload: Mapping[str, object] | None = None,
         now: datetime | None = None,
     ) -> HistoryEvent:
-        """Atomically append one history event to the open project."""
+        """Atomically append one history event to the open project.
+
+        Phase 7 Stage E: every event whose ``kind`` is in
+        :data:`_UNDOABLE_HISTORY_KINDS` triggers a post-mutation snapshot
+        push onto the undo ring; later ``forge.undo`` calls pop this
+        snapshot and restore the prior top.
+        """
         state = self.state
-        return state.history.append(
+        event = state.history.append(
             kind,
             at=now if now is not None else _now(),
             actor=HistoryActor.AGENT,
             payload=payload,
         )
+        if kind in _UNDOABLE_HISTORY_KINDS:
+            self._capture_undo()
+        return event
 
     @staticmethod
     def _load_regions(paths: ProjectPaths) -> dict[RegionId, RegionNode]:

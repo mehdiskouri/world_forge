@@ -10,8 +10,6 @@ from forge_mcp.project.history import (
     HistoryError,
     HistoryGapError,
     HistoryLog,
-    HistoryUndoNotImplementedError,
-    undo,
 )
 from forge_mcp.project.schemas import HistoryActor, HistoryEventKind
 
@@ -89,8 +87,3 @@ def test_iter_events_rejects_corrupt_payload(tmp_path: Path) -> None:
 def test_iter_events_on_missing_directory_yields_nothing(tmp_path: Path) -> None:
     log = HistoryLog(tmp_path / "does-not-exist", count=0)
     assert list(log.iter_events()) == []
-
-
-def test_undo_stub_raises_not_implemented() -> None:
-    with pytest.raises(HistoryUndoNotImplementedError, match="Phase 7"):
-        undo()
