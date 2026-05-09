@@ -136,11 +136,7 @@ def _build_plan(node: EnvironmentNode, scope_label: str) -> ResolvedEnvironment:
         "longitude_deg": params.longitude_deg,
     }
     plan_id = compute_environment_plan_id(payload)
-    source_id = (
-        None
-        if scope_label == "default"
-        else str(node.node_id)
-    )
+    source_id = None if scope_label == "default" else str(node.node_id)
     return ResolvedEnvironment(
         plan_id=plan_id,
         recipe=node.recipe,
