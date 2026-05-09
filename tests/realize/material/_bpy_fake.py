@@ -315,6 +315,7 @@ class FakeObject:
         self.data = object_data if object_data is not None else FakeObjectData()
         self.modifiers = FakeModifiers()
         self.use_fake_user = False
+        self.rotation_euler: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 class FakeObjectDB:
@@ -337,6 +338,9 @@ class FakeObjectDB:
         obj = FakeObject(name, object_data=object_data)
         self._items[name] = obj
         return obj
+
+    def __contains__(self, name: object) -> bool:
+        return isinstance(name, str) and name in self._items
 
 
 class FakeMesh:
@@ -440,13 +444,109 @@ class FakeBpyData:
         self.objects = FakeObjectDB()
         self.meshes = FakeMeshDB()
         self.node_groups = FakeNodeGroupDB()
+        self.worlds = FakeWorldDB()
+        self.lights = FakeLightDB()
+
+
+class FakeWorld:
+    """Mimics ``bpy.data.worlds`` entries."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.use_nodes = False
+        self.node_tree = FakeNodeTree()
+
+
+class FakeWorldDB:
+    """Mimics ``bpy.data.worlds``."""
+
+    def __init__(self) -> None:
+        self._items: dict[str, FakeWorld] = {}
+
+    def get(self, name: str) -> FakeWorld | None:
+        return self._items.get(name)
+
+    def new(self, name: str) -> FakeWorld:
+        world = FakeWorld(name)
+        self._items[name] = world
+        return world
+
+    def __contains__(self, name: object) -> bool:
+        return isinstance(name, str) and name in self._items
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+
+class FakeLight:
+    """Mimics ``bpy.data.lights`` entries (SUN/POINT/AREA share the surface)."""
+
+    def __init__(self, name: str, light_type: str) -> None:
+        self.name = name
+        self.type = light_type
+        self.color: tuple[float, float, float] = (1.0, 1.0, 1.0)
+        self.energy: float = 0.0
+
+
+class FakeLightDB:
+    """Mimics ``bpy.data.lights``."""
+
+    def __init__(self) -> None:
+        self._items: dict[str, FakeLight] = {}
+
+    def get(self, name: str) -> FakeLight | None:
+        return self._items.get(name)
+
+    def new(self, name: str, type: str) -> FakeLight:  # noqa: A002 - bpy API name
+        light = FakeLight(name, type)
+        self._items[name] = light
+        return light
+
+    def __contains__(self, name: object) -> bool:
+        return isinstance(name, str) and name in self._items
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+
+class FakeSceneCollection:
+    """Mimics ``bpy.context.scene.collection``."""
+
+    def __init__(self) -> None:
+        self.objects = FakeSceneObjectsLink()
+
+
+class FakeSceneObjectsLink:
+    """Mimics ``Scene.collection.objects`` — only ``link()`` is exercised."""
+
+    def __init__(self) -> None:
+        self.linked: list[FakeObject] = []
+
+    def link(self, obj: FakeObject) -> None:
+        self.linked.append(obj)
+
+
+class FakeScene:
+    """Mimics ``bpy.context.scene`` — minimal world + collection."""
+
+    def __init__(self) -> None:
+        self.world: FakeWorld | None = None
+        self.collection = FakeSceneCollection()
+
+
+class FakeContext:
+    """Mimics ``bpy.context``."""
+
+    def __init__(self) -> None:
+        self.scene = FakeScene()
 
 
 class FakeBpy:
-    """Top-level fake module exposing ``bpy.data``."""
+    """Top-level fake module exposing ``bpy.data`` and ``bpy.context``."""
 
     def __init__(self) -> None:
         self.data = FakeBpyData()
+        self.context = FakeContext()
 
 
 def install_fake_bpy() -> FakeBpy:
