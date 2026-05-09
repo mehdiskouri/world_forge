@@ -86,6 +86,13 @@ precedence: region override beats world default beats hard-coded
 fallback. See :class:`EnvironmentNode`.
 """
 
+EnvironmentPlanId = NewType("EnvironmentPlanId", str)
+"""Content-addressed environment plan id, ``eplan_<10-hex>`` (Phase 6-f Stage C).
+
+Hash domain covers recipe + all resolved parameters + computed solar
+position so two scopes with the same effective environment share a
+single ``forge.world.<plan_id>`` Blender world."""
+
 
 # ---------------------------------------------------------------------------
 # Geometric primitives
@@ -1467,6 +1474,7 @@ __all__ = [
     "EnvironmentNode",
     "EnvironmentNodeId",
     "EnvironmentParameters",
+    "EnvironmentPlanId",
     "EnvironmentRecipe",
     "FeatureInjector",
     "GenerationMetadata",
