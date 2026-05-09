@@ -11,16 +11,32 @@
       "steps": [
         {
           "call": "bpy.ops.wm.read_factory_settings",
-          "params": {"use_empty": true},
+          "params": {
+            "use_empty": true
+          },
           "expects": {
             "scene_diff": {
-              "objects": {"eq": 0},
-              "meshes": {"eq": 0},
-              "materials": {"eq": 0},
-              "images": {"eq": 0},
-              "lights": {"eq": 0},
-              "cameras": {"eq": 0},
-              "curves": {"eq": 0}
+              "objects": {
+                "eq": 0
+              },
+              "meshes": {
+                "eq": 0
+              },
+              "materials": {
+                "eq": 0
+              },
+              "images": {
+                "eq": 0
+              },
+              "lights": {
+                "eq": 0
+              },
+              "cameras": {
+                "eq": 0
+              },
+              "curves": {
+                "eq": 0
+              }
             }
           }
         }
@@ -42,7 +58,9 @@
         "displace_modifier_name": "str",
         "displace_texture_name": "str"
       },
-      "outputs_schema": {"object_name": "str"},
+      "outputs_schema": {
+        "object_name": "str"
+      },
       "steps": [
         {
           "call": "mesh.from_pydata",
@@ -52,7 +70,16 @@
             "edges": [],
             "faces": "${faces}"
           },
-          "expects": {"scene_diff": {"objects": {"delta": 1}, "meshes": {"delta": 1}}}
+          "expects": {
+            "scene_diff": {
+              "objects": {
+                "delta": 1
+              },
+              "meshes": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "set_idprop",
@@ -104,7 +131,10 @@
         "plan_id": "str",
         "instancer_layers": "list"
       },
-      "outputs_schema": {"material_name": "str", "plan_id": "str"},
+      "outputs_schema": {
+        "material_name": "str",
+        "plan_id": "str"
+      },
       "steps": [
         {
           "call": "material.build_composite",
@@ -112,7 +142,13 @@
             "target_object": "${object_name}",
             "plan": "${plan}"
           },
-          "expects": {"scene_diff": {"materials": {"delta": 1}}}
+          "expects": {
+            "scene_diff": {
+              "materials": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "material.attach_instancer",
@@ -132,12 +168,23 @@
         "curve_name": "str",
         "region_id": "str"
       },
-      "outputs_schema": {"curve_name": "str"},
+      "outputs_schema": {
+        "curve_name": "str"
+      },
       "steps": [
         {
           "call": "bpy.data.curves.new",
-          "params": {"name": "${curve_name}", "type": "CURVE"},
-          "expects": {"scene_diff": {"curves": {"delta": 1}}}
+          "params": {
+            "name": "${curve_name}",
+            "type": "CURVE"
+          },
+          "expects": {
+            "scene_diff": {
+              "curves": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "set_idprop",
@@ -179,8 +226,16 @@
       "steps": [
         {
           "call": "bpy.data.cameras.new",
-          "params": {"name": "${ortho_camera_name}"},
-          "expects": {"scene_diff": {"cameras": {"delta": 1}}}
+          "params": {
+            "name": "${ortho_camera_name}"
+          },
+          "expects": {
+            "scene_diff": {
+              "cameras": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "object.from_data",
@@ -189,7 +244,13 @@
             "data_collection": "cameras",
             "data_name": "${ortho_camera_name}"
           },
-          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+          "expects": {
+            "scene_diff": {
+              "objects": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "set_property",
@@ -238,8 +299,16 @@
         },
         {
           "call": "bpy.data.cameras.new",
-          "params": {"name": "${perspective_camera_name}"},
-          "expects": {"scene_diff": {"cameras": {"delta": 1}}}
+          "params": {
+            "name": "${perspective_camera_name}"
+          },
+          "expects": {
+            "scene_diff": {
+              "cameras": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "object.from_data",
@@ -248,7 +317,13 @@
             "data_collection": "cameras",
             "data_name": "${perspective_camera_name}"
           },
-          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+          "expects": {
+            "scene_diff": {
+              "objects": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "set_property",
@@ -293,8 +368,17 @@
       "steps": [
         {
           "call": "bpy.data.lights.new",
-          "params": {"name": "${sun_name}", "type": "SUN"},
-          "expects": {"scene_diff": {"lights": {"delta": 1}}}
+          "params": {
+            "name": "${sun_name}",
+            "type": "SUN"
+          },
+          "expects": {
+            "scene_diff": {
+              "lights": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "object.from_data",
@@ -303,7 +387,13 @@
             "data_collection": "lights",
             "data_name": "${sun_name}"
           },
-          "expects": {"scene_diff": {"objects": {"delta": 1}}}
+          "expects": {
+            "scene_diff": {
+              "objects": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "set_property",
@@ -325,12 +415,45 @@
         },
         {
           "call": "bpy.data.worlds.new",
-          "params": {"name": "${world_name}"},
-          "expects": {"scene_diff": {"worlds": {"delta": 1}}}
+          "params": {
+            "name": "${world_name}"
+          },
+          "expects": {
+            "scene_diff": {
+              "worlds": {
+                "delta": 1
+              }
+            }
+          }
         },
         {
           "call": "scene.assign_world",
-          "params": {"name": "${world_name}"}
+          "params": {
+            "name": "${world_name}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "apply_environment",
+      "version": "v1",
+      "description": "Phase 6-f Stage D: build the world shader graph + cached SUN lamp from a ResolvedEnvironment payload. Single RPC call (world.build_environment) is idempotent on plan_id; a second call with the same plan reuses the existing forge.world.<plan_id> + forge.sun.<plan_id> data-blocks. The adapter ensures both data-blocks exist (creating them on first sight), updates the world background + optional volume + optional sky-texture nodes from the resolved parameters, points the SUN lamp at the resolved sun_vector, and rebinds them to the active scene via scene.assign_world.",
+      "inputs_schema": {
+        "plan": "ResolvedEnvironment",
+        "plan_id": "str"
+      },
+      "outputs_schema": {
+        "world_name": "str",
+        "sun_name": "str",
+        "plan_id": "str"
+      },
+      "steps": [
+        {
+          "call": "world.build_environment",
+          "params": {
+            "plan": "${plan}",
+            "plan_id": "${plan_id}"
+          }
         }
       ]
     },
@@ -375,7 +498,9 @@
             "color_depth": "8",
             "compression": "${compression}"
           },
-          "expects": {"png_max_bytes": "${png_max_bytes}"}
+          "expects": {
+            "png_max_bytes": "${png_max_bytes}"
+          }
         }
       ]
     },
@@ -383,19 +508,25 @@
       "name": "save_blend",
       "version": "v1",
       "description": "Save the current main file via bpy.ops.wm.save_as_mainfile. Engine writes through a .blend.tmp + os.replace at the host side for atomicity (the actual rename is host-side, not in this sequence).",
-      "inputs_schema": {"filepath": "str"},
-      "outputs_schema": {"filepath": "str"},
+      "inputs_schema": {
+        "filepath": "str"
+      },
+      "outputs_schema": {
+        "filepath": "str"
+      },
       "steps": [
         {
           "call": "bpy.ops.wm.save_as_mainfile",
-          "params": {"filepath": "${filepath}"}
+          "params": {
+            "filepath": "${filepath}"
+          }
         }
       ]
     },
     {
       "name": "realize_region",
       "version": "v1",
-      "description": "Composite v1 macro: empty scene → terrain mesh → composite material → optional stream → cameras → lighting → save .blend. Render is driven separately by render_preview because both ortho and perspective views need to flow through the same realised scene.",
+      "description": "Composite v1 macro: empty scene \u2192 terrain mesh \u2192 composite material \u2192 optional stream \u2192 cameras \u2192 lighting \u2192 save .blend. Render is driven separately by render_preview because both ortho and perspective views need to flow through the same realised scene.",
       "inputs_schema": {
         "object_name": "str",
         "vertices": "list[list[float]]",
@@ -424,15 +555,40 @@
         "displace_modifier_name": "str",
         "displace_texture_name": "str"
       },
-      "outputs_schema": {"blend_filepath": "str"},
+      "outputs_schema": {
+        "blend_filepath": "str"
+      },
       "steps": [
-        {"call": "seq:reset_scene", "params": {}},
-        {"call": "seq:create_terrain_from_heightmap", "params": {}},
-        {"call": "seq:apply_terrain_material", "params": {}},
-        {"call": "seq:carve_stream", "params": {}},
-        {"call": "seq:set_camera_overview", "params": {}},
-        {"call": "seq:add_basic_lighting", "params": {}},
-        {"call": "seq:save_blend", "params": {"filepath": "${blend_filepath}"}}
+        {
+          "call": "seq:reset_scene",
+          "params": {}
+        },
+        {
+          "call": "seq:create_terrain_from_heightmap",
+          "params": {}
+        },
+        {
+          "call": "seq:apply_terrain_material",
+          "params": {}
+        },
+        {
+          "call": "seq:carve_stream",
+          "params": {}
+        },
+        {
+          "call": "seq:set_camera_overview",
+          "params": {}
+        },
+        {
+          "call": "seq:add_basic_lighting",
+          "params": {}
+        },
+        {
+          "call": "seq:save_blend",
+          "params": {
+            "filepath": "${blend_filepath}"
+          }
+        }
       ]
     }
   ]

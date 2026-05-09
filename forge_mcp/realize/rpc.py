@@ -157,6 +157,12 @@ class RpcMethods:
     OBJECT_FROM_DATA: Final[str] = "object.from_data"
     SCENE_ASSIGN_WORLD: Final[str] = "scene.assign_world"
     SCENE_DIFF: Final[str] = "scene.diff"
+    WORLD_BUILD_ENVIRONMENT: Final[str] = "world.build_environment"
+    """Phase 6-f Stage D: build a ``forge.world.<plan_id>`` shader graph
+    plus a cached ``forge.sun.<plan_id>`` SUN lamp from a
+    :class:`~forge_mcp.realize.environment.plan.ResolvedEnvironment`
+    payload. Idempotent on ``plan_id`` so a second call with the same
+    plan reuses the existing world + lamp."""
 
     @staticmethod
     def bpy_ops(group: str, name: str) -> str:

@@ -18,7 +18,7 @@ from forge_mcp.realize.engine import RealizerEngine, RealizerStepError
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from forge_mcp.realize.rpc import RpcClient
+    from forge_mcp.realize.rpc import JsonValue, RpcClient
 
 
 class _ScriptedClient:
@@ -70,6 +70,7 @@ def test_macro_names_match_curated_bundle() -> None:
         macros.MACRO_CARVE_STREAM,
         macros.MACRO_SET_CAMERA_OVERVIEW,
         macros.MACRO_ADD_BASIC_LIGHTING,
+        macros.MACRO_APPLY_ENVIRONMENT,
         macros.MACRO_RENDER_PREVIEW,
         macros.MACRO_SAVE_BLEND,
         macros.MACRO_REALIZE_REGION,
@@ -200,3 +201,34 @@ def test_render_preview_facade_propagates_when_retry_also_oversize() -> None:
     src = Path(macros.__file__).read_text(encoding="utf-8")
     forbidden = [ln for ln in src.splitlines() if "import bpy" in ln or "from bpy" in ln]
     assert not forbidden, f"forge_mcp/realize/macros.py must not import bpy: {forbidden!r}"
+
+
+def test_apply_environment_facade_invokes_world_build_environment() -> None:
+    """Phase 6-f Stage D: apply_environment fires a single world.build_environment call."""
+    bundle = _trivial_bundle(
+        macros.MACRO_APPLY_ENVIRONMENT,
+        SequenceStep(
+            call="world.build_environment",
+            params={"plan": "${plan}", "plan_id": "${plan_id}"},
+        ),
+    )
+    plan_payload: dict[str, object] = {"recipe": "clear", "sun_intensity_w_m2": 1000.0}
+    engine = _engine(
+        bundle,
+        [{"world_name": "forge.world.eplan_abc", "sun_name": "forge.sun.eplan_abc"}],
+    )
+    result = macros.apply_environment(
+        engine,
+        macros.ApplyEnvironmentInputs(
+            plan=cast("JsonValue", plan_payload),
+            plan_id="eplan_abc",
+        ),
+    )
+    assert result.macro == macros.MACRO_APPLY_ENVIRONMENT
+    fake = cast("_ScriptedClient", engine._client)  # noqa: SLF001
+    assert fake.calls == [
+        (
+            "world.build_environment",
+            {"plan": plan_payload, "plan_id": "eplan_abc"},
+        ),
+    ]

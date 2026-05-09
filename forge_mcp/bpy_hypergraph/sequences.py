@@ -67,6 +67,7 @@ _FIXED_ADAPTER_METHODS: Final[frozenset[str]] = frozenset(
         RpcMethods.OBJECT_FROM_DATA,
         RpcMethods.SCENE_ASSIGN_WORLD,
         RpcMethods.SCENE_DIFF,
+        RpcMethods.WORLD_BUILD_ENVIRONMENT,
     },
 )
 

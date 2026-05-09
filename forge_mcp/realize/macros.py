@@ -114,6 +114,21 @@ class AddBasicLightingInputs:
 
 
 @dataclass(frozen=True, slots=True)
+class ApplyEnvironmentInputs:
+    """Inputs for the Phase 6-f Stage D ``apply_environment`` macro.
+
+    Carries the *resolved* :class:`ResolvedEnvironment` payload and
+    its content-addressed ``plan_id``. The adapter side keys both the
+    world data-block and SUN lamp on ``plan_id`` so two scopes that
+    resolve to the same effective environment share a single
+    ``forge.world.<plan_id>`` + ``forge.sun.<plan_id>`` pair.
+    """
+
+    plan: JsonValue
+    plan_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class RenderPreviewInputs:
     """Inputs for the ``render_preview`` macro."""
 
@@ -176,6 +191,7 @@ MACRO_APPLY_TERRAIN_MATERIAL: str = "apply_terrain_material"
 MACRO_CARVE_STREAM: str = "carve_stream"
 MACRO_SET_CAMERA_OVERVIEW: str = "set_camera_overview"
 MACRO_ADD_BASIC_LIGHTING: str = "add_basic_lighting"
+MACRO_APPLY_ENVIRONMENT: str = "apply_environment"
 MACRO_RENDER_PREVIEW: str = "render_preview"
 MACRO_SAVE_BLEND: str = "save_blend"
 MACRO_REALIZE_REGION: str = "realize_region"
@@ -235,6 +251,20 @@ def add_basic_lighting(
 ) -> RealizationResult:
     """Run the ``add_basic_lighting`` curated macro."""
     return engine.execute_macro(MACRO_ADD_BASIC_LIGHTING, _to_inputs(inputs))
+
+
+def apply_environment(
+    engine: RealizerEngine,
+    inputs: ApplyEnvironmentInputs,
+) -> RealizationResult:
+    """Run the Phase 6-f Stage D ``apply_environment`` curated macro.
+
+    Single-step wrapper around the ``world.build_environment`` RPC that
+    builds (or reuses) the ``forge.world.<plan_id>`` shader graph plus
+    the ``forge.sun.<plan_id>`` SUN lamp from a content-addressed
+    :class:`~forge_mcp.realize.environment.plan.ResolvedEnvironment`.
+    """
+    return engine.execute_macro(MACRO_APPLY_ENVIRONMENT, _to_inputs(inputs))
 
 
 def render_preview(
