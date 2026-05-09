@@ -73,7 +73,17 @@ SubRegionId = NewType("SubRegionId", str)
 Phase 6-c addition. A sub-region is a predicate-typed child of a
 :class:`RegionNode` whose spatial extent is defined by evaluating its
 :class:`SubRegionPredicate` against the parent region's heightmap at
-realize time — *not* by a stored polygon.
+realize time -- *not* by a stored polygon.
+"""
+
+EnvironmentNodeId = NewType("EnvironmentNodeId", str)
+"""Environment node id, ``env_<slug>`` plus optional ``_NN`` collision suffix.
+
+Phase 6-f addition. An environment node bundles sky/sun/fog/ambient
+parameters and is bound to either the world root (default for every
+region) or a specific :class:`RegionNode` (override). Resolver
+precedence: region override beats world default beats hard-coded
+fallback. See :class:`EnvironmentNode`.
 """
 
 
@@ -222,6 +232,13 @@ class WorldRootNode(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs 
     kind: Literal["world_root"] = "world_root"
     name: str
     created_at: datetime
+    environment_id: EnvironmentNodeId | None = None
+    """World-default :class:`EnvironmentNode` binding (Phase 6-f).
+
+    ``None`` means "no project-wide default; resolver falls back to
+    the hard-coded :data:`forge_mcp.realize.environment.defaults.DEFAULT_ENVIRONMENT_PARAMETERS`".
+    Mutated only via :meth:`forge_mcp.project.service.ProjectService.bind_environment`.
+    """
 
 
 class RegionTier(StrEnum):
@@ -254,6 +271,13 @@ class RegionNode(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs lea
     modified_at: datetime
     structured_descriptor: StructuredDescriptor | None = None
     """Phase-2 addition (F-7.3): persisted on ``create_region`` / ``update_region``."""
+    environment_id: EnvironmentNodeId | None = None
+    """Per-region :class:`EnvironmentNode` override (Phase 6-f).
+
+    When non-``None``, this region uses the bound environment instead
+    of the world default. ``None`` falls back to the world root's
+    binding (and then to the hard-coded default).
+    """
 
 
 class MaterialRecipe(StrEnum):
@@ -372,6 +396,177 @@ class MaterialArchetypeNode(BaseModel):  # type: ignore[explicit-any]  # pydanti
     def _check_name(cls, value: str) -> str:
         if not value.strip():
             msg = "material archetype name must be non-empty"
+            raise ValueError(msg)
+        return value
+
+
+# ---------------------------------------------------------------------------
+# Environment node (Phase 6-f)
+# ---------------------------------------------------------------------------
+# An environment captures world-level lighting + atmospheric state: sun
+# (derived from latitude/longitude/datetime in ``forge_mcp.environment.sun``),
+# sky (recipe-driven gradient or procedural Nishita), volumetric fog,
+# ambient strength, plus advisory time-of-day / season metadata. It is
+# bound to either the world root (default for every region) or a
+# specific :class:`RegionNode` (override). Unlike materials, an
+# environment does not edge into a target node -- the binding is a
+# ``environment_id`` pointer on the scope record itself, because
+# (region, environment) is strictly 1:1 in v1.
+
+_LATITUDE_DEG_MAX: Final[float] = 90.0
+_LONGITUDE_DEG_MAX: Final[float] = 180.0
+
+
+class EnvironmentRecipe(StrEnum):
+    """Names of the v1 environment recipes implemented by the Blender adapter.
+
+    Each recipe is a small Python builder in
+    ``scripts/blender/adapter.py`` that constructs the world-shader node
+    tree (background, optional volume, optional sky-texture) plus a
+    cached SUN lamp from the resolved environment payload. Adding a new
+    recipe requires (1) adding the enum value here, (2) adding a
+    parameter validator to
+    :func:`forge_mcp.realize.environment.defaults.validate_environment_parameters`,
+    and (3) adding a builder to the adapter's environment registry.
+
+    HDRI / equirectangular image-based lighting is intentionally out of
+    scope for v1; it lands in a follow-up that adds a project-managed
+    asset registry.
+    """
+
+    CLEAR = "clear"
+    """Daytime clear sky: bright sun, blue zenith fading to pale horizon."""
+
+    OVERCAST = "overcast"
+    """Diffuse cloud cover: dim sun (mostly ambient), grey desaturated sky."""
+
+    SUNSET = "sunset"
+    """Low-angle warm sun, orange/red horizon banding."""
+
+    NIGHT = "night"
+    """Moonlit dim sun, deep-blue zenith, low ambient."""
+
+    PROCEDURAL_SKY = "procedural_sky"
+    """Cycles ``ShaderNodeTexSky`` (Nishita) driven by the resolved sun direction.
+
+    Use this for physically-plausible sky color that matches the
+    derived solar position; the per-recipe color/intensity knobs become
+    advisory and the Nishita model is authoritative.
+    """
+
+
+class Season(StrEnum):
+    """Advisory season tag. Carried through to the adapter as metadata."""
+
+    SPRING = "spring"
+    SUMMER = "summer"
+    AUTUMN = "autumn"
+    WINTER = "winter"
+
+
+_RGBA_LENGTH: Final[int] = 4
+_RGBA_BOUND: Final[float] = 1.0
+
+
+def _check_rgba(value: tuple[float, ...], *, name: str) -> tuple[float, float, float, float]:
+    """Validate ``value`` is RGBA (4 floats in ``[0, 1]``) and return it as a 4-tuple."""
+    if len(value) != _RGBA_LENGTH:
+        msg = f"{name} must have 4 components (RGBA), got {len(value)}"
+        raise ValueError(msg)
+    for component in value:
+        if not 0.0 <= component <= _RGBA_BOUND:
+            msg = f"{name} components must be in [0, 1], got {value}"
+            raise ValueError(msg)
+    return (value[0], value[1], value[2], value[3])
+
+
+class EnvironmentParameters(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Recipe-agnostic environment knobs (Phase 6-f).
+
+    All fields are optional with conservative defaults so a freshly
+    created environment renders deterministically. Recipe-specific
+    validators (see
+    :func:`forge_mcp.realize.environment.defaults.validate_environment_parameters`)
+    enforce additional invariants (e.g. ``procedural_sky`` ignores
+    ``sky_zenith_color``).
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    sun_color: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)
+    """RGBA sun lamp color; alpha is unused but kept for shape uniformity."""
+    sun_intensity_w_m2: float = Field(default=1000.0, ge=0.0, le=2000.0)
+    """SUN lamp energy in W/m^2; Cycles default for noon clear sky is ~1000."""
+    sky_zenith_color: tuple[float, float, float, float] = (0.10, 0.30, 0.65, 1.0)
+    """RGBA sky color at zenith; ignored by ``procedural_sky``."""
+    sky_horizon_color: tuple[float, float, float, float] = (0.55, 0.70, 0.85, 1.0)
+    """RGBA sky color at horizon; ignored by ``procedural_sky``."""
+    ambient_color: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)
+    """RGBA tint applied to world background strength."""
+    ambient_strength: float = Field(default=1.0, ge=0.0, le=10.0)
+    """World background multiplier; 1.0 is baseline."""
+    fog_color: tuple[float, float, float, float] = (0.80, 0.85, 0.90, 1.0)
+    """RGBA volumetric fog color."""
+    fog_density: float = Field(default=0.0, ge=0.0, le=1.0)
+    """Volume scatter density per meter; 0.0 disables the volume socket."""
+    fog_height_falloff_m: float = Field(default=200.0, gt=0.0)
+    """Height (meters) over which fog density attenuates to e^-1."""
+    season: Season = Season.SUMMER
+    """Advisory season tag (no shader effect in v1; carried as IDProp)."""
+    datetime_utc: datetime
+    """UTC timestamp driving solar position; must carry ``tzinfo``."""
+    latitude_deg: float = Field(ge=-_LATITUDE_DEG_MAX, le=_LATITUDE_DEG_MAX)
+    """Geographic latitude in degrees, north-positive."""
+    longitude_deg: float = Field(ge=-_LONGITUDE_DEG_MAX, le=_LONGITUDE_DEG_MAX)
+    """Geographic longitude in degrees, east-positive."""
+
+    @field_validator(
+        "sun_color",
+        "sky_zenith_color",
+        "sky_horizon_color",
+        "ambient_color",
+        "fog_color",
+    )
+    @classmethod
+    def _check_rgba(cls, value: tuple[float, ...]) -> tuple[float, float, float, float]:
+        return _check_rgba(value, name="color")
+
+    @field_validator("datetime_utc")
+    @classmethod
+    def _check_utc(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            msg = "datetime_utc must carry tzinfo (UTC); naive datetimes are rejected"
+            raise ValueError(msg)
+        return value
+
+
+class EnvironmentNode(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """One environment binding (Phase 6-f).
+
+    Lives in the same node table as regions, archetypes, and sub-regions
+    so the hypergraph can hold every kind in one place. Bound to a
+    scope (world root or region) by setting ``environment_id`` on the
+    scope record; the environment node itself does not name its scope
+    -- the binding direction is single-source-of-truth on the scope.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    node_id: EnvironmentNodeId
+    kind: Literal["environment"] = "environment"
+    name: str
+    recipe: EnvironmentRecipe
+    parameters: EnvironmentParameters
+    tags: tuple[str, ...] = ()
+    notes: str = ""
+    created_at: datetime
+    modified_at: datetime
+
+    @field_validator("name")
+    @classmethod
+    def _check_name(cls, value: str) -> str:
+        if not value.strip():
+            msg = "environment name must be non-empty"
             raise ValueError(msg)
         return value
 
@@ -1173,6 +1368,11 @@ class HistoryEventKind(StrEnum):
     SUB_REGION_CREATED = "sub_region_created"
     SUB_REGION_UPDATED = "sub_region_updated"
     SUB_REGION_DELETED = "sub_region_deleted"
+    ENVIRONMENT_CREATED = "environment_created"
+    ENVIRONMENT_UPDATED = "environment_updated"
+    ENVIRONMENT_DELETED = "environment_deleted"
+    ENVIRONMENT_BOUND = "environment_bound"
+    ENVIRONMENT_UNBOUND = "environment_unbound"
 
 
 class HistoryEvent(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
@@ -1264,6 +1464,10 @@ __all__ = [
     "EdgeId",
     "EdgeLayerFile",
     "ElevationContinuityContract",
+    "EnvironmentNode",
+    "EnvironmentNodeId",
+    "EnvironmentParameters",
+    "EnvironmentRecipe",
     "FeatureInjector",
     "GenerationMetadata",
     "HeightRampMask",
@@ -1293,6 +1497,7 @@ __all__ = [
     "RegionId",
     "RegionNode",
     "RegionTier",
+    "Season",
     "SlopeMask",
     "SpatialBounds",
     "SpecBody",

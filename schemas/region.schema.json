@@ -241,6 +241,18 @@
       "title": "Created At",
       "type": "string"
     },
+    "environment_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Environment Id"
+    },
     "kind": {
       "const": "region",
       "default": "region",

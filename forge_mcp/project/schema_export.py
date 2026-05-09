@@ -26,6 +26,7 @@ from forge_mcp.project.schemas import (
     BoundaryRecord,
     Edge,
     EdgeLayerFile,
+    EnvironmentNode,
     HistoryEvent,
     LockRecord,
     LockStoreFile,
@@ -92,6 +93,7 @@ def iter_published_schemas() -> Iterator[tuple[str, dict[str, object]]]:
         "material_composition_attrs",
         "ForgeMaterialCompositionAttrs",
     )
+    yield _pydantic_schema(EnvironmentNode, "environment", "ForgeEnvironment")
     yield _pydantic_schema(Edge, "edge", "ForgeEdge")
     yield _pydantic_schema(EdgeLayerFile, "edge_layer", "ForgeEdgeLayerFile")
     yield _pydantic_schema(BoundaryRecord, "boundary", "ForgeBoundary")

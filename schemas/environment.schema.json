@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "EnvironmentParameters": {
+      "additionalProperties": false,
+      "description": "Recipe-agnostic environment knobs (Phase 6-f).\n\nAll fields are optional with conservative defaults so a freshly\ncreated environment renders deterministically. Recipe-specific\nvalidators (see\n:func:`forge_mcp.realize.environment.defaults.validate_environment_parameters`)\nenforce additional invariants (e.g. ``procedural_sky`` ignores\n``sky_zenith_color``).",
+      "properties": {
+        "ambient_color": {
+          "default": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Ambient Color",
+          "type": "array"
+        },
+        "ambient_strength": {
+          "default": 1.0,
+          "maximum": 10.0,
+          "minimum": 0.0,
+          "title": "Ambient Strength",
+          "type": "number"
+        },
+        "datetime_utc": {
+          "format": "date-time",
+          "title": "Datetime Utc",
+          "type": "string"
+        },
+        "fog_color": {
+          "default": [
+            0.8,
+            0.85,
+            0.9,
+            1.0
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Fog Color",
+          "type": "array"
+        },
+        "fog_density": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Fog Density",
+          "type": "number"
+        },
+        "fog_height_falloff_m": {
+          "default": 200.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Fog Height Falloff M",
+          "type": "number"
+        },
+        "latitude_deg": {
+          "maximum": 90.0,
+          "minimum": -90.0,
+          "title": "Latitude Deg",
+          "type": "number"
+        },
+        "longitude_deg": {
+          "maximum": 180.0,
+          "minimum": -180.0,
+          "title": "Longitude Deg",
+          "type": "number"
+        },
+        "season": {
+          "$ref": "#/$defs/Season",
+          "default": "summer"
+        },
+        "sky_horizon_color": {
+          "default": [
+            0.55,
+            0.7,
+            0.85,
+            1.0
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Sky Horizon Color",
+          "type": "array"
+        },
+        "sky_zenith_color": {
+          "default": [
+            0.1,
+            0.3,
+            0.65,
+            1.0
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Sky Zenith Color",
+          "type": "array"
+        },
+        "sun_color": {
+          "default": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Sun Color",
+          "type": "array"
+        },
+        "sun_intensity_w_m2": {
+          "default": 1000.0,
+          "maximum": 2000.0,
+          "minimum": 0.0,
+          "title": "Sun Intensity W M2",
+          "type": "number"
+        }
+      },
+      "required": [
+        "datetime_utc",
+        "latitude_deg",
+        "longitude_deg"
+      ],
+      "title": "EnvironmentParameters",
+      "type": "object"
+    },
+    "EnvironmentRecipe": {
+      "description": "Names of the v1 environment recipes implemented by the Blender adapter.\n\nEach recipe is a small Python builder in\n``scripts/blender/adapter.py`` that constructs the world-shader node\ntree (background, optional volume, optional sky-texture) plus a\ncached SUN lamp from the resolved environment payload. Adding a new\nrecipe requires (1) adding the enum value here, (2) adding a\nparameter validator to\n:func:`forge_mcp.realize.environment.defaults.validate_environment_parameters`,\nand (3) adding a builder to the adapter's environment registry.\n\nHDRI / equirectangular image-based lighting is intentionally out of\nscope for v1; it lands in a follow-up that adds a project-managed\nasset registry.",
+      "enum": [
+        "clear",
+        "overcast",
+        "sunset",
+        "night",
+        "procedural_sky"
+      ],
+      "title": "EnvironmentRecipe",
+      "type": "string"
+    },
+    "Season": {
+      "description": "Advisory season tag. Carried through to the adapter as metadata.",
+      "enum": [
+        "spring",
+        "summer",
+        "autumn",
+        "winter"
+      ],
+      "title": "Season",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One environment binding (Phase 6-f).\n\nLives in the same node table as regions, archetypes, and sub-regions\nso the hypergraph can hold every kind in one place. Bound to a\nscope (world root or region) by setting ``environment_id`` on the\nscope record; the environment node itself does not name its scope\n-- the binding direction is single-source-of-truth on the scope.",
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "kind": {
+      "const": "environment",
+      "default": "environment",
+      "title": "Kind",
+      "type": "string"
+    },
+    "modified_at": {
+      "format": "date-time",
+      "title": "Modified At",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    },
+    "notes": {
+      "default": "",
+      "title": "Notes",
+      "type": "string"
+    },
+    "parameters": {
+      "$ref": "#/$defs/EnvironmentParameters"
+    },
+    "recipe": {
+      "$ref": "#/$defs/EnvironmentRecipe"
+    },
+    "tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "node_id",
+    "name",
+    "recipe",
+    "parameters",
+    "created_at",
+    "modified_at"
+  ],
+  "title": "ForgeEnvironment",
+  "type": "object"
+}

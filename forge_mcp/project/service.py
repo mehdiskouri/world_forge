@@ -48,6 +48,10 @@ from forge_mcp.project.schemas import (
     Edge,
     EdgeId,
     EdgeLayerFile,
+    EnvironmentNode,
+    EnvironmentNodeId,
+    EnvironmentParameters,
+    EnvironmentRecipe,
     HistoryActor,
     HistoryEvent,
     HistoryEventId,
@@ -210,6 +214,15 @@ class ProjectPaths:
         """Path of the per-sub-region JSON for ``sub_region_id``."""
         return self.sub_regions_dir / f"{sub_region_id}.json"
 
+    @property
+    def environments_dir(self) -> Path:
+        """One ``<environment_id>.json`` per :class:`EnvironmentNode` (Phase 6-f)."""
+        return self.root / "environments"
+
+    def environment_path(self, environment_id: EnvironmentNodeId) -> Path:
+        """Path of the per-environment JSON for ``environment_id``."""
+        return self.environments_dir / f"{environment_id}.json"
+
     def edge_layer_path(self, layer: str) -> Path:
         """Path of the per-layer edge JSON for ``layer``."""
         return self.edges_dir / f"{layer}.json"
@@ -285,6 +298,7 @@ class ProjectPaths:
             self.heightmaps_dir,
             self.blender_dir,
             self.audits_dir,
+            self.environments_dir,
         )
 
 
@@ -307,8 +321,11 @@ class ProjectState:
     regions: dict[RegionId, RegionNode] = field(default_factory=dict)
     archetypes: dict[MaterialArchetypeId, MaterialArchetypeNode] = field(default_factory=dict)
     sub_regions: dict[SubRegionId, SubRegionNode] = field(default_factory=dict)
+    environments: dict[EnvironmentNodeId, EnvironmentNode] = field(default_factory=dict)
     boundaries: dict[BoundaryId, BoundaryRecord] = field(default_factory=dict)
     edges: dict[str, list[Edge]] = field(default_factory=dict)
+    world_root: WorldRootNode | None = None
+    """Cached world-root record (Phase 6-f). Lazily filled by ``open_project``."""
     history: HistoryLog = field(init=False)
     lock_store: LockStore = field(init=False)
 
@@ -482,6 +499,7 @@ class ProjectService:
             paths=paths,
             metadata=metadata,
             edges=edges_state,
+            world_root=world_root,
         )
         self._state = state
         self._append_history(
@@ -525,9 +543,11 @@ class ProjectService:
         # checkouts; ``_load_sub_regions`` returns ``{}`` when missing.
 
         state = ProjectState(paths=paths, metadata=metadata)
+        state.world_root = self._load_world_root(paths, metadata)
         state.regions = self._load_regions(paths)
         state.archetypes = self._load_archetypes(paths)
         state.sub_regions = self._load_sub_regions(paths)
+        state.environments = self._load_environments(paths)
         state.edges = self._load_edges(paths, metadata.registered_layers)
         state.boundaries = self._load_boundaries(paths)
         try:
@@ -666,6 +686,53 @@ class ProjectService:
                 raise ProjectFormatError(msg) from exc
             sub_regions[sub_region.node_id] = sub_region
         return sub_regions
+
+    @staticmethod
+    def _load_environments(
+        paths: ProjectPaths,
+    ) -> dict[EnvironmentNodeId, EnvironmentNode]:
+        """Load every persisted :class:`EnvironmentNode` from ``environments/``.
+
+        Returns an empty dict when ``environments/`` does not exist
+        (older projects pre-Phase 6-f).
+        """
+        environments: dict[EnvironmentNodeId, EnvironmentNode] = {}
+        if not paths.environments_dir.is_dir():
+            return environments
+        for path in sorted(paths.environments_dir.glob("*.json")):
+            try:
+                env = EnvironmentNode.model_validate_json(
+                    path.read_text(encoding="utf-8"),
+                )
+            except (OSError, ValidationError) as exc:
+                msg = f"failed to load environment {path.name}: {exc}"
+                raise ProjectFormatError(msg) from exc
+            environments[env.node_id] = env
+        return environments
+
+    @staticmethod
+    def _load_world_root(paths: ProjectPaths, metadata: ProjectMetadata) -> WorldRootNode:
+        """Load the persisted :class:`WorldRootNode`, or reconstruct from metadata.
+
+        Older projects (pre-Phase 6-f) may have a ``nodes/world.json``
+        without ``environment_id``; Pydantic accepts the missing field
+        because it defaults to ``None``. When the file is absent
+        entirely (very old checkouts) the record is reconstructed from
+        :class:`ProjectMetadata` so existing tests round-trip without a
+        bootstrap migration.
+        """
+        path = paths.world_node_path
+        if path.exists():
+            try:
+                return WorldRootNode.model_validate_json(path.read_text(encoding="utf-8"))
+            except (OSError, ValidationError) as exc:
+                msg = f"failed to load world root: {exc}"
+                raise ProjectFormatError(msg) from exc
+        return WorldRootNode(
+            node_id=metadata.world_node_id,
+            name="World",
+            created_at=metadata.created_at,
+        )
 
     @staticmethod
     def _load_edges(
@@ -1197,6 +1264,192 @@ class ProjectService:
         self._notify("delete_sub_region")
 
     # ------------------------------------------------------------------
+    # Environment CRUD + binding (Phase 6-f)
+    # ------------------------------------------------------------------
+    def create_environment(
+        self,
+        name: str,
+        recipe: EnvironmentRecipe,
+        parameters: EnvironmentParameters,
+        *,
+        tags: tuple[str, ...] = (),
+        notes: str = "",
+    ) -> EnvironmentNode:
+        """Create and persist a new :class:`EnvironmentNode`.
+
+        The node is *unbound* on creation; call
+        :meth:`bind_environment` to attach it to the world root or a
+        region.
+        """
+        state = self.state
+        now = _now()
+        env_id = self._allocate_environment_id(name)
+        env = EnvironmentNode(
+            node_id=env_id,
+            name=name,
+            recipe=recipe,
+            parameters=parameters,
+            tags=tags,
+            notes=notes,
+            created_at=now,
+            modified_at=now,
+        )
+        state.environments[env_id] = env
+        write_json(state.paths.environment_path(env_id), env)
+        self._append_history(
+            HistoryEventKind.ENVIRONMENT_CREATED,
+            payload={"environment_id": str(env_id), "recipe": recipe.value, "name": name},
+            now=now,
+        )
+        self._notify("create_environment")
+        return env
+
+    def update_environment(  # noqa: PLR0913 - flat kwargs mirror create_environment shape
+        self,
+        environment_id: EnvironmentNodeId,
+        *,
+        name: str | None = None,
+        recipe: EnvironmentRecipe | None = None,
+        parameters: EnvironmentParameters | None = None,
+        tags: tuple[str, ...] | None = None,
+        notes: str | None = None,
+    ) -> EnvironmentNode:
+        """Apply a partial update to an existing :class:`EnvironmentNode`."""
+        state = self.state
+        existing = state.environments.get(environment_id)
+        if existing is None:
+            msg = f"unknown environment {environment_id!r}"
+            raise UnknownEnvironmentError(msg)
+        now = _now()
+        update: dict[str, object] = {"modified_at": now}
+        if name is not None:
+            update["name"] = name
+        if recipe is not None:
+            update["recipe"] = recipe
+        if parameters is not None:
+            update["parameters"] = parameters
+        if tags is not None:
+            update["tags"] = tags
+        if notes is not None:
+            update["notes"] = notes
+        new_env: EnvironmentNode = existing.model_copy(update=update)
+        state.environments[environment_id] = new_env
+        write_json(state.paths.environment_path(environment_id), new_env)
+        self._append_history(
+            HistoryEventKind.ENVIRONMENT_UPDATED,
+            payload={"environment_id": str(environment_id)},
+            now=now,
+        )
+        self._notify("update_environment")
+        return new_env
+
+    def delete_environment(self, environment_id: EnvironmentNodeId) -> None:
+        """Delete an environment iff no scope (world or region) binds it."""
+        state = self.state
+        if environment_id not in state.environments:
+            msg = f"unknown environment {environment_id!r}"
+            raise UnknownEnvironmentError(msg)
+        if state.world_root is not None and state.world_root.environment_id == environment_id:
+            msg = f"environment {environment_id!r} is still bound to the world root; unbind first"
+            raise EnvironmentInUseError(msg)
+        for region in state.regions.values():
+            if region.environment_id == environment_id:
+                msg = (
+                    f"environment {environment_id!r} is still bound to region "
+                    f"{region.node_id!r}; unbind first"
+                )
+                raise EnvironmentInUseError(msg)
+        del state.environments[environment_id]
+        path = state.paths.environment_path(environment_id)
+        with suppress(FileNotFoundError):
+            path.unlink()
+        self._append_history(
+            HistoryEventKind.ENVIRONMENT_DELETED,
+            payload={"environment_id": str(environment_id)},
+        )
+        self._notify("delete_environment")
+
+    def bind_environment(
+        self,
+        scope_node_id: NodeId,
+        environment_id: EnvironmentNodeId,
+    ) -> None:
+        """Bind ``environment_id`` to ``scope_node_id`` (world root or a region).
+
+        Replaces any existing binding on the scope. The environment must
+        already exist (call :meth:`create_environment` first); the
+        scope must resolve to either the world-root node id or a known
+        region id, otherwise :class:`UnknownScopeError` is raised.
+        """
+        state = self.state
+        if environment_id not in state.environments:
+            msg = f"unknown environment {environment_id!r}"
+            raise UnknownEnvironmentError(msg)
+        scope_str = str(scope_node_id)
+        now = _now()
+        if state.world_root is not None and scope_str == str(state.world_root.node_id):
+            new_root: WorldRootNode = state.world_root.model_copy(
+                update={"environment_id": environment_id},
+            )
+            state.world_root = new_root
+            write_json(state.paths.world_node_path, new_root)
+        elif RegionId(scope_str) in state.regions:
+            region_id = RegionId(scope_str)
+            region = state.regions[region_id]
+            new_region: RegionNode = region.model_copy(
+                update={"environment_id": environment_id, "modified_at": now},
+            )
+            state.regions[region_id] = new_region
+            write_json(state.paths.region_path(region_id), new_region)
+        else:
+            msg = f"scope {scope_node_id!r} is neither the world root nor a known region"
+            raise UnknownScopeError(msg)
+        self._append_history(
+            HistoryEventKind.ENVIRONMENT_BOUND,
+            payload={"scope_node_id": scope_str, "environment_id": str(environment_id)},
+            now=now,
+        )
+        self._notify("bind_environment")
+
+    def unbind_environment(self, scope_node_id: NodeId) -> None:
+        """Clear the environment binding on ``scope_node_id``.
+
+        No-op when the scope already has no binding. Raises
+        :class:`UnknownScopeError` when the scope is neither the world
+        root nor a known region.
+        """
+        state = self.state
+        scope_str = str(scope_node_id)
+        now = _now()
+        if state.world_root is not None and scope_str == str(state.world_root.node_id):
+            if state.world_root.environment_id is None:
+                return
+            new_root: WorldRootNode = state.world_root.model_copy(
+                update={"environment_id": None},
+            )
+            state.world_root = new_root
+            write_json(state.paths.world_node_path, new_root)
+        elif RegionId(scope_str) in state.regions:
+            region_id = RegionId(scope_str)
+            region = state.regions[region_id]
+            if region.environment_id is None:
+                return
+            new_region: RegionNode = region.model_copy(
+                update={"environment_id": None, "modified_at": now},
+            )
+            state.regions[region_id] = new_region
+            write_json(state.paths.region_path(region_id), new_region)
+        else:
+            msg = f"scope {scope_node_id!r} is neither the world root nor a known region"
+            raise UnknownScopeError(msg)
+        self._append_history(
+            HistoryEventKind.ENVIRONMENT_UNBOUND,
+            payload={"scope_node_id": scope_str},
+            now=now,
+        )
+        self._notify("unbind_environment")
+
+    # ------------------------------------------------------------------
     # Material archetype CRUD (Phase 6-bis)
     # ------------------------------------------------------------------
     def create_material_archetype(
@@ -1520,6 +1773,21 @@ class ProjectService:
         msg = f"could not allocate a unique sub-region id for name {name!r}"
         raise ProjectError(msg)
 
+    def _allocate_environment_id(self, name: str) -> EnvironmentNodeId:
+        """Return a fresh ``env_<slug>`` id, suffixing on collision."""
+        base = _slugify(name) or "environment"
+        candidate = f"env_{base}"
+        if EnvironmentNodeId(candidate) not in self.state.environments:
+            return EnvironmentNodeId(candidate)
+        for suffix_len in range(2, 9):
+            for _ in range(16):
+                token = uuid4().hex[:suffix_len]
+                candidate = f"env_{base}_{token}"
+                if EnvironmentNodeId(candidate) not in self.state.environments:
+                    return EnvironmentNodeId(candidate)
+        msg = f"could not allocate a unique environment id for name {name!r}"
+        raise ProjectError(msg)
+
     def _allocate_edge_id(self, layer: str, prefix: str) -> EdgeId:
         """Return a fresh, deterministic edge id within ``layer``."""
         existing = {edge.edge_id for edge in self.state.edges.get(layer, ())}
@@ -1626,8 +1894,30 @@ class UnknownParentRegionError(SubRegionError):
     """Raised when ``create_sub_region`` is called with an unknown parent region."""
 
 
+class EnvironmentBindingError(ProjectError):
+    """Base class for environment-CRUD/binding errors (Phase 6-f).
+
+    Named with a ``Binding`` suffix to avoid shadowing the Python
+    built-in :class:`EnvironmentError` (an alias for :class:`OSError`).
+    """
+
+
+class UnknownEnvironmentError(EnvironmentBindingError):
+    """Raised when an environment id does not exist in the open project."""
+
+
+class EnvironmentInUseError(EnvironmentBindingError):
+    """Raised when deleting an environment still bound to a scope."""
+
+
+class UnknownScopeError(EnvironmentBindingError):
+    """Raised when a bind/unbind targets neither the world root nor a known region."""
+
+
 __all__ = [
     "ArchetypeInUseError",
+    "EnvironmentBindingError",
+    "EnvironmentInUseError",
     "MaterialCompositionCycleError",
     "MaterialEdgePolicyError",
     "MaterialError",
@@ -1646,9 +1936,11 @@ __all__ = [
     "SubRegionError",
     "SubRegionInUseError",
     "UnknownArchetypeError",
+    "UnknownEnvironmentError",
     "UnknownMaterialEdgeError",
     "UnknownParentRegionError",
     "UnknownRegionError",
+    "UnknownScopeError",
     "UnknownSpecError",
     "UnknownSubRegionError",
     "UnknownTargetNodeError",
