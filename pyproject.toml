@@ -67,6 +67,14 @@ packages = ["forge_mcp"]
 # of install layout. CI test ``tests/skills/test_cli.py`` plus
 # ``tests/skills/test_loader.py`` exercise the load path end-to-end.
 
+# Phase 7 Stage F: ship the Vite-built canvas bundle inside the wheel.
+# ``forge_mcp/canvas_page/dist/`` is gitignored — CI builds it before
+# packaging — so we use ``force-include`` to drop the produced assets
+# under their on-disk path. The canvas server resolves the directory
+# at runtime via :func:`importlib.resources.files`.
+[tool.hatch.build.targets.wheel.force-include]
+"forge_mcp/canvas_page/dist" = "forge_mcp/canvas_page/dist"
+
 [dependency-groups]
 dev = [
     "ruff==0.15.12",

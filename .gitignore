@@ -45,6 +45,9 @@ realizations/**/*.png
 # Canvas frontend (lands in Phase 6)
 node_modules/
 dist-canvas/
+# Phase 7 Stage F — Vite-built bundle (CI builds it before packaging).
+forge_mcp/canvas_page/dist/
+forge_mcp/canvas_page/node_modules/
 
 # OS junk
 .DS_Store

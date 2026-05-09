@@ -139,6 +139,27 @@ async def test_index_returns_placeholder(canvas: CanvasServer) -> None:
     assert "Forge canvas" in response.text
 
 
+async def test_index_serves_bundle_or_placeholder(canvas: CanvasServer) -> None:
+    """Both branches of `_register_routes` produce a `Forge canvas` page.
+
+    When `forge_mcp/canvas_page/dist/` exists (CI builds it via Stage F's
+    npm step) the served HTML is the Vite-built index; otherwise the
+    placeholder HTML is returned. The body string discriminates the two
+    branches.
+    """
+    from forge_mcp.server.canvas_server import _bundled_dist_dir  # noqa: PLC0415
+
+    async with httpx.AsyncClient(base_url=canvas.url) as client:
+        response = await client.get("/")
+    body = response.text
+    if _bundled_dist_dir() is not None:
+        # Bundled `index.html` references a hashed entry chunk under
+        # `/assets/`; the placeholder never does.
+        assert "/assets/" in body
+    else:
+        assert "Bundle not yet built" in body
+
+
 async def test_create_region_round_trip(canvas: CanvasServer) -> None:
     async with httpx.AsyncClient(base_url=canvas.url) as client:
         create = await client.post(
