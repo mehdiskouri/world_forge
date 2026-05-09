@@ -9,6 +9,18 @@ Add an environment hypergraph layer (sun, sky, fog, ambient, time/season) plumbe
 4. **HDRI**: out of scope for v1. Reserve enum slot in docstring only; do not add the value.
 5. **Doc**: `AGENT/dev_phases/phase6f_environment.md` (full phase doc, not a follow-up note).
 
+## Stage status
+
+| Stage | Title | Status | PR |
+| --- | --- | --- | --- |
+| A | Schemas, project state, schema export | shipped | #70 |
+| B | Solar position helper | shipped | #71 |
+| C | Resolved environment plan + resolver | shipped | #72 |
+| D | RPC surface, curated sequence, fixed-method allowlist | shipped | #73 |
+| E | Adapter builders (Blender world + sun lamp) | shipped | #74 |
+| F | MCP tool surface + generation pipeline integration | shipped | #75 |
+| G | Phase doc, integration test, gates, ship | shipped | this PR |
+
 ## Stages
 
 ### Stage A — Schemas, project state, schema export
