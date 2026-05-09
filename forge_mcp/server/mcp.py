@@ -29,6 +29,7 @@ from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
 from forge_mcp.server.tools import hypergraph as hypergraph_tools
 from forge_mcp.server.tools import inspection as inspection_tools
+from forge_mcp.server.tools import locks as lock_tools
 from forge_mcp.server.tools import materials as material_tools
 from forge_mcp.server.tools import projects as project_tools
 from forge_mcp.server.tools import regions as region_tools
@@ -193,6 +194,41 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
         title="List locks",
         description="Return locks, optionally filtered by `region_id`.",
     )(inspection_tools.list_locks)
+
+    # --- Lock mutators (Phase 7 Stage A) ----------------------------------
+    server.tool(
+        name="forge.lock_property",
+        title="Pin a region property",
+        description=(
+            "Create a property lock that pins the value at `json_path` "
+            "(dotted path on the region JSON) to its current value. "
+            "Phase 7 Stage B will refuse mutations that would change it."
+        ),
+    )(lock_tools.lock_property)
+    server.tool(
+        name="forge.lock_feature",
+        title="Capture a heightmap feature",
+        description=(
+            "Capture the current heightmap patch covering `bbox_world` "
+            "(`[x0, y0, x1, y1]` in metres). Phase 7 Stage C blends the "
+            "patch back during regeneration so the feature survives "
+            "seed rerolls."
+        ),
+    )(lock_tools.lock_feature)
+    server.tool(
+        name="forge.lock_region",
+        title="Lock a whole region",
+        description=(
+            "Skip regeneration entirely for this region. `generate_region` "
+            "will short-circuit after spec compile and emit a "
+            "`region_lock_skipped` history event."
+        ),
+    )(lock_tools.lock_region)
+    server.tool(
+        name="forge.unlock",
+        title="Remove a lock",
+        description="Remove the lock identified by `lock_id`.",
+    )(lock_tools.unlock)
 
     # --- Generation (Phase 3) ---------------------------------------------
     server.tool(

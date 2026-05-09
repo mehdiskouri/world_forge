@@ -14,7 +14,14 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from forge_mcp._io.atomic import write_json
-from forge_mcp.project.schemas import LockId, LockRecord, LockStoreFile, RegionId
+from forge_mcp.project.schemas import (
+    FeatureLockPayload,
+    LockId,
+    LockKind,
+    LockRecord,
+    LockStoreFile,
+    RegionId,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -67,6 +74,67 @@ class LockStore:
         if region_id is None:
             return tuple(self._records)
         return tuple(r for r in self._records if r.region_id == region_id)
+
+    def find_by_id(self, lock_id: LockId) -> LockRecord | None:
+        """Return the single record matching ``lock_id`` or ``None``."""
+        for record in self._records:
+            if record.lock_id == lock_id:
+                return record
+        return None
+
+    def find_by_target(
+        self,
+        region_id: RegionId,
+        json_path: str | None = None,
+    ) -> tuple[LockRecord, ...]:
+        """Return locks targeting ``region_id``, optionally filtered by ``json_path``.
+
+        When ``json_path`` is ``None`` returns every lock on the region
+        regardless of kind. When set, returns only ``PROPERTY`` locks
+        whose payload's ``json_path`` equals the argument. Phase 7
+        Stage B's ``check_property_locks`` is the primary caller.
+        """
+        matches = tuple(r for r in self._records if r.region_id == region_id)
+        if json_path is None:
+            return matches
+        return tuple(
+            r
+            for r in matches
+            if r.kind is LockKind.PROPERTY
+            and isinstance(r.payload, dict)
+            and r.payload.get("json_path") == json_path
+        )
+
+    def find_by_region_and_kind(
+        self,
+        region_id: RegionId,
+        kind: LockKind,
+    ) -> tuple[LockRecord, ...]:
+        """Return every lock on ``region_id`` of the given ``kind``."""
+        return tuple(r for r in self._records if r.region_id == region_id and r.kind == kind)
+
+    def find_overlapping_features(
+        self,
+        region_id: RegionId,
+        bbox_world: tuple[float, float, float, float],
+    ) -> tuple[LockRecord, ...]:
+        """Return existing feature locks on ``region_id`` whose bbox overlaps ``bbox_world``.
+
+        Two axis-aligned rectangles overlap iff neither is fully to the
+        left, right, above, or below the other. Edges are treated as
+        non-overlapping so adjacent locks can share a seam.
+        """
+        x0, y0, x1, y1 = bbox_world
+        out: list[LockRecord] = []
+        for record in self._records:
+            if record.kind is not LockKind.FEATURE or record.region_id != region_id:
+                continue
+            payload = FeatureLockPayload.model_validate(record.payload)
+            ox0, oy0, ox1, oy1 = payload.bbox_world
+            if ox1 <= x0 or ox0 >= x1 or oy1 <= y0 or oy0 >= y1:
+                continue
+            out.append(record)
+        return tuple(out)
 
     def add_lock(self, lock: LockRecord) -> None:
         """Append ``lock`` and flush. Rejects a duplicate ``lock_id``."""

@@ -43,7 +43,7 @@
     },
     "LockRecord": {
       "additionalProperties": false,
-      "description": "Persisted lock entry.\n\nPhase 2 only persists + lists locks; Stage F's :class:`LockStore`\nhands these to Phase 7 which adds enforcement. The ``payload`` shape\ndepends on ``kind`` and is intentionally free-form here; the\nPhase-7 lock applier is the schema authority.",
+      "description": "Persisted lock entry.\n\nThe ``payload`` shape is constrained per ``kind`` by Phase 7 Stage A:\n``property`` locks carry a :class:`PropertyLockPayload`, ``feature``\nlocks a :class:`FeatureLockPayload`, ``region`` locks a\n:class:`RegionLockPayload`. The on-disk representation stays a flat\nJSON object so existing project files keep loading; the typed view\nis reachable via :meth:`typed_payload`.",
       "properties": {
         "created_at": {
           "format": "date-time",

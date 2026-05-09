@@ -262,6 +262,7 @@ def _seed_state(svc: ProjectService) -> tuple[RegionNode, BoundaryRecord, LockRe
         lock_id=LockId("lock_1"),
         region_id=RegionId("region_alpha"),
         kind=LockKind.PROPERTY,
+        payload={"json_path": "name", "expected_value": "Alpha"},
         created_at=now,
         modified_at=now,
     )

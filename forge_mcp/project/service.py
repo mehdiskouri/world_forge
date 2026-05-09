@@ -22,22 +22,32 @@ and Phase 7 (undo). Stage C is just the persistence skeleton.
 
 from __future__ import annotations
 
+import io
+import json
 import re
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from hashlib import blake2b
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Final
 from uuid import uuid4
 
+import numpy as np
 from pydantic import ValidationError
 
-from forge_mcp._io.atomic import atomic_write_text, write_json
+from forge_mcp._io.atomic import atomic_write_bytes, atomic_write_text, write_json
 from forge_mcp._types import JsonValue  # noqa: TC001 - runtime needed for Mapping[str, JsonValue]
 from forge_mcp.descriptor.schema import SCHEMA_VERSION as DESCRIPTOR_SCHEMA_VERSION
 from forge_mcp.descriptor.schema import StructuredDescriptor
+from forge_mcp.generate.heightmap import load_npy as _load_heightmap_npy
 from forge_mcp.project.history import HistoryLog
-from forge_mcp.project.locks import LockStore, LockStoreError
+from forge_mcp.project.locks import (
+    DuplicateLockError,
+    LockNotFoundError,
+    LockStore,
+    LockStoreError,
+)
 from forge_mcp.project.schemas import (
     DEFAULT_REGISTERED_LAYERS,
     LAYER_MATERIAL_APPLICATION,
@@ -52,10 +62,13 @@ from forge_mcp.project.schemas import (
     EnvironmentNodeId,
     EnvironmentParameters,
     EnvironmentRecipe,
+    FeatureLockPayload,
     HistoryActor,
     HistoryEvent,
     HistoryEventId,
     HistoryEventKind,
+    LockId,
+    LockKind,
     LockRecord,
     LockStoreFile,
     MaterialApplicationAttrs,
@@ -66,7 +79,9 @@ from forge_mcp.project.schemas import (
     NodeId,
     Polygon2D,
     ProjectMetadata,
+    PropertyLockPayload,
     RegionId,
+    RegionLockPayload,
     RegionNode,
     SpatialBounds,
     SpecId,
@@ -177,6 +192,15 @@ class ProjectPaths:
     def locks_path(self) -> Path:
         """``locks/locks.json`` — the :class:`LockStoreFile`."""
         return self.locks_dir / "locks.json"
+
+    @property
+    def feature_locks_dir(self) -> Path:
+        """``locks/feature`` — one ``<lock_id>.npy`` patch per feature lock (Phase 7)."""
+        return self.locks_dir / "feature"
+
+    def feature_lock_patch_path(self, lock_id: LockId) -> Path:
+        """Path of the captured heightmap patch for a feature lock (Phase 7)."""
+        return self.feature_locks_dir / f"{lock_id}.npy"
 
     @property
     def history_dir(self) -> Path:
@@ -293,6 +317,7 @@ class ProjectPaths:
             self.specs_dir,
             self.boundaries_dir,
             self.locks_dir,
+            self.feature_locks_dir,
             self.history_dir,
             self.realizations_dir,
             self.heightmaps_dir,
@@ -1450,6 +1475,274 @@ class ProjectService:
         self._notify("unbind_environment")
 
     # ------------------------------------------------------------------
+    # Lock CRUD (Phase 7 Stage A)
+    # ------------------------------------------------------------------
+    def create_property_lock(
+        self,
+        *,
+        region_id: RegionId,
+        json_path: str,
+    ) -> LockRecord:
+        """Create a :attr:`LockKind.PROPERTY` lock pinning ``json_path``.
+
+        Captures the current value at ``json_path`` (resolved against the
+        region's persisted JSON) as ``expected_value``. Raises
+        :class:`UnknownRegionError` if the region does not exist or
+        :class:`LockTargetNotFoundError` if ``json_path`` is missing or
+        empty.
+        """
+        region = self._require_region(region_id)
+        value = self._resolve_property_path(region, json_path)
+        payload: dict[str, JsonValue] = {
+            "json_path": json_path,
+            "expected_value": value,
+        }
+        return self._create_lock(LockKind.PROPERTY, region_id, payload)
+
+    def create_feature_lock(
+        self,
+        *,
+        region_id: RegionId,
+        bbox_world: tuple[float, float, float, float],
+    ) -> LockRecord:
+        """Create a :attr:`LockKind.FEATURE` lock capturing a heightmap patch.
+
+        ``captured_seed``, ``captured_at`` and ``captured_path`` are
+        derived deterministically by the service. Raises
+        :class:`UnknownRegionError`, :class:`LockTargetNotFoundError`
+        (no heightmap on disk or bbox outside the region), or
+        :class:`OverlappingFeatureLockError` when the bbox overlaps an
+        existing feature lock.
+        """
+        region = self._require_region(region_id)
+        now = _now()
+        # ``lock_id`` is allocated from a payload that does NOT yet
+        # contain ``captured_path`` (which depends on ``lock_id``),
+        # then ``captured_path`` is filled in canonically.
+        bootstrap_payload: dict[str, JsonValue] = {
+            "bbox_world": list(bbox_world),
+            "captured_seed": region.seed,
+            "captured_at": now.isoformat(),
+        }
+        lock_id = self._allocate_lock_id(LockKind.FEATURE, region_id, bootstrap_payload, now)
+        canonical_payload: dict[str, JsonValue] = {
+            **bootstrap_payload,
+            "captured_path": f"locks/feature/{lock_id}.npy",
+        }
+        return self._create_lock(
+            LockKind.FEATURE,
+            region_id,
+            canonical_payload,
+            now=now,
+            lock_id=lock_id,
+        )
+
+    def create_region_lock(self, *, region_id: RegionId) -> LockRecord:
+        """Create a :attr:`LockKind.REGION` ``skip_regen`` lock."""
+        self._require_region(region_id)
+        return self._create_lock(
+            LockKind.REGION,
+            region_id,
+            {"scope": "skip_regen"},
+        )
+
+    def remove_lock(self, lock_id: LockId) -> LockRecord:
+        """Remove a lock by id; cleans up the ``.npy`` patch for FEATURE locks."""
+        state = self.state
+        record = state.lock_store.find_by_id(lock_id)
+        if record is None:
+            msg = f"unknown lock {lock_id!r}"
+            raise UnknownLockError(msg)
+        try:
+            removed = state.lock_store.remove_lock(lock_id)
+        except LockNotFoundError as exc:  # pragma: no cover - defensive race guard
+            msg = f"unknown lock {lock_id!r}"
+            raise UnknownLockError(msg) from exc
+        if removed.kind is LockKind.FEATURE:
+            with suppress(FileNotFoundError):
+                state.paths.feature_lock_patch_path(lock_id).unlink()
+        self._append_history(
+            HistoryEventKind.LOCK_REMOVED,
+            payload={
+                "lock_id": str(lock_id),
+                "region_id": str(removed.region_id),
+                "kind": removed.kind.value,
+            },
+        )
+        self._notify("remove_lock")
+        return removed
+
+    # ------------------------------------------------------------------
+    # Lock CRUD internals
+    # ------------------------------------------------------------------
+    def _require_region(self, region_id: RegionId) -> RegionNode:
+        state = self.state
+        if region_id not in state.regions:
+            msg = f"unknown region {region_id!r}"
+            raise UnknownRegionError(msg)
+        return state.regions[region_id]
+
+    def _create_lock(
+        self,
+        kind: LockKind,
+        region_id: RegionId,
+        payload: Mapping[str, JsonValue],
+        *,
+        now: datetime | None = None,
+        lock_id: LockId | None = None,
+    ) -> LockRecord:
+        """Validate, persist, and history-log a new :class:`LockRecord`.
+
+        Per-kind validation runs the kind-specific Pydantic model
+        (``ValidationError`` propagates unchanged). FEATURE locks also
+        check overlap and capture the heightmap patch on disk.
+        """
+        # Per-kind payload validation.
+        typed: PropertyLockPayload | FeatureLockPayload | RegionLockPayload
+        match kind:
+            case LockKind.PROPERTY:
+                typed = PropertyLockPayload.model_validate(dict(payload))
+            case LockKind.FEATURE:
+                typed = FeatureLockPayload.model_validate(dict(payload))
+            case LockKind.REGION:
+                typed = RegionLockPayload.model_validate(dict(payload))
+        canonical_payload: dict[str, JsonValue] = typed.model_dump(mode="json")
+
+        state = self.state
+        timestamp = now if now is not None else _now()
+        chosen_id = (
+            lock_id
+            if lock_id is not None
+            else self._allocate_lock_id(kind, region_id, canonical_payload, timestamp)
+        )
+
+        if isinstance(typed, FeatureLockPayload):
+            existing_overlaps = state.lock_store.find_overlapping_features(
+                region_id,
+                typed.bbox_world,
+            )
+            if existing_overlaps:
+                msg = f"feature lock would overlap existing lock {existing_overlaps[0].lock_id!r}"
+                raise OverlappingFeatureLockError(msg)
+            self._capture_feature_patch(region_id, chosen_id, typed)
+
+        record = LockRecord(
+            lock_id=chosen_id,
+            region_id=region_id,
+            kind=kind,
+            payload=canonical_payload,
+            created_at=timestamp,
+            modified_at=timestamp,
+        )
+        try:
+            state.lock_store.add_lock(record)
+        except DuplicateLockError:
+            if kind is LockKind.FEATURE:
+                with suppress(FileNotFoundError):
+                    state.paths.feature_lock_patch_path(chosen_id).unlink()
+            raise
+        self._append_history(
+            HistoryEventKind.LOCK_CREATED,
+            payload={
+                "lock_id": str(chosen_id),
+                "region_id": str(region_id),
+                "kind": kind.value,
+            },
+            now=timestamp,
+        )
+        self._notify("create_lock")
+        return record
+
+    def _resolve_property_path(self, region: RegionNode, json_path: str) -> JsonValue:
+        """Walk ``json_path`` (``a.b.c``) on the persisted region JSON.
+
+        Returns the value at the path. Raises
+        :class:`LockTargetNotFoundError` if any segment is missing.
+        Sequence indices are not yet supported; segments are dict keys
+        only. Empty ``json_path`` is rejected.
+        """
+        if not json_path:
+            msg = "json_path must be non-empty"
+            raise LockTargetNotFoundError(msg)
+        node: JsonValue = region.model_dump(mode="json")
+        for segment in json_path.split("."):
+            if not isinstance(node, dict) or segment not in node:
+                msg = f"json_path {json_path!r} not found on region {region.node_id!r}"
+                raise LockTargetNotFoundError(msg)
+            node = node[segment]
+        return node
+
+    def _capture_feature_patch(
+        self,
+        region_id: RegionId,
+        lock_id: LockId,
+        payload: FeatureLockPayload,
+    ) -> None:
+        """Slice the heightmap patch covered by ``payload.bbox_world`` and persist it."""
+        state = self.state
+        npy_path = state.paths.heightmap_npy_path(region_id)
+        if not npy_path.exists():
+            msg = (
+                f"region {region_id!r} has no heightmap on disk; generate it "
+                f"before locking a feature"
+            )
+            raise LockTargetNotFoundError(msg)
+        heightmap = _load_heightmap_npy(npy_path)
+        x0, y0, x1, y1 = payload.bbox_world
+        ox, oy = heightmap.origin
+        res = heightmap.resolution_meters_per_pixel
+        col0 = int(np.floor((x0 - ox) / res))
+        col1 = int(np.ceil((x1 - ox) / res))
+        row0 = int(np.floor((y0 - oy) / res))
+        row1 = int(np.ceil((y1 - oy) / res))
+        height, width = heightmap.shape
+        col0_c = max(0, min(width, col0))
+        col1_c = max(0, min(width, col1))
+        row0_c = max(0, min(height, row0))
+        row1_c = max(0, min(height, row1))
+        if col1_c <= col0_c or row1_c <= row0_c:
+            msg = (
+                f"feature bbox {payload.bbox_world!r} does not intersect region "
+                f"{region_id!r} heightmap"
+            )
+            raise LockTargetNotFoundError(msg)
+        patch = heightmap.data[row0_c:row1_c, col0_c:col1_c].astype(
+            np.float32,
+            copy=True,
+        )
+        buffer = io.BytesIO()
+        np.save(buffer, patch, allow_pickle=False)
+        atomic_write_bytes(state.paths.feature_lock_patch_path(lock_id), buffer.getvalue())
+
+    def _allocate_lock_id(
+        self,
+        kind: LockKind,
+        region_id: RegionId,
+        payload: Mapping[str, JsonValue],
+        created_at: datetime,
+    ) -> LockId:
+        """Return a deterministic ``lock_<10hex>`` id (blake2b digest).
+
+        The digest covers ``(kind, region_id, payload, created_at)`` so two
+        otherwise-identical locks created in the same second still differ
+        by their ``created_at`` timestamp's microsecond field. The
+        ``payload`` is hashed in its current shape (which may be the
+        FEATURE bootstrap form lacking ``captured_path``) so the FEATURE
+        lock-id can be derived *before* the canonical payload is built.
+        """
+        seed = {
+            "kind": kind.value,
+            "region_id": str(region_id),
+            "payload": dict(payload),
+            "created_at": created_at.isoformat(),
+        }
+        digest = blake2b(
+            json.dumps(seed, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+            digest_size=10,
+        ).hexdigest()
+        return LockId(f"lock_{digest}")
+
+    # ------------------------------------------------------------------
     # Material archetype CRUD (Phase 6-bis)
     # ------------------------------------------------------------------
     def create_material_archetype(
@@ -1914,14 +2207,38 @@ class UnknownScopeError(EnvironmentBindingError):
     """Raised when a bind/unbind targets neither the world root nor a known region."""
 
 
+class LockOperationError(ProjectError):
+    """Base class for lock CRUD failures (Phase 7 Stage A)."""
+
+
+class UnknownLockError(LockOperationError):
+    """Raised when an operation references a ``lock_id`` that does not exist."""
+
+
+class LockTargetNotFoundError(LockOperationError):
+    """Raised when a property or feature lock targets a missing artefact.
+
+    Examples: a ``json_path`` that does not resolve on the region, or a
+    feature ``bbox_world`` that lies outside the region's heightmap (or
+    where no heightmap has been generated yet).
+    """
+
+
+class OverlappingFeatureLockError(LockOperationError):
+    """Raised when a new feature lock's bbox overlaps an existing one on the same region."""
+
+
 __all__ = [
     "ArchetypeInUseError",
     "EnvironmentBindingError",
     "EnvironmentInUseError",
+    "LockOperationError",
+    "LockTargetNotFoundError",
     "MaterialCompositionCycleError",
     "MaterialEdgePolicyError",
     "MaterialError",
     "NoOpenProjectError",
+    "OverlappingFeatureLockError",
     "ProjectAlreadyExistsError",
     "ProjectError",
     "ProjectFormatError",
@@ -1937,6 +2254,7 @@ __all__ = [
     "SubRegionInUseError",
     "UnknownArchetypeError",
     "UnknownEnvironmentError",
+    "UnknownLockError",
     "UnknownMaterialEdgeError",
     "UnknownParentRegionError",
     "UnknownRegionError",

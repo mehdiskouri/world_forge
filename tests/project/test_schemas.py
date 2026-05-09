@@ -344,6 +344,7 @@ def test_lock_record_and_store() -> None:
         lock_id=LockId("lock_1"),
         region_id=RegionId("region_a"),
         kind=LockKind.PROPERTY,
+        payload={"json_path": "name", "expected_value": "Alpha"},
         created_at=NOW,
         modified_at=NOW,
     )

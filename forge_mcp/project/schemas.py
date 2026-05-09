@@ -1312,13 +1312,83 @@ class LockKind(StrEnum):
     REGION = "region"
 
 
+class PropertyLockPayload(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Payload shape for :attr:`LockKind.PROPERTY` locks (Phase 7 Stage A).
+
+    Pins the value of ``json_path`` (a dotted path into the persisted
+    JSON of the target node) to ``expected_value``. Phase 7 Stage B
+    enforces the pin on every node mutation that touches the path.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    json_path: str
+    expected_value: JsonValue
+
+
+class FeatureLockPayload(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Payload shape for :attr:`LockKind.FEATURE` locks (Phase 7 Stage A).
+
+    Captures a rectangular heightmap patch in world coordinates plus a
+    relative path to the ``.npy`` file holding the raw pixels. The patch
+    is blended back during regeneration with a 4-pixel cosine feather
+    (Phase 7 Stage C).
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    bbox_world: tuple[float, float, float, float]
+    """``(x0, y0, x1, y1)`` axis-aligned world-space rectangle, in metres."""
+
+    captured_path: str
+    """Project-relative path of the ``.npy`` patch (``locks/feature/<lock_id>.npy``)."""
+
+    captured_seed: int
+    captured_at: datetime
+
+    @model_validator(mode="after")
+    def _check_bbox(self) -> FeatureLockPayload:
+        x0, y0, x1, y1 = self.bbox_world
+        if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
+            msg = f"bbox_world must be finite, got {self.bbox_world!r}"
+            raise ValueError(msg)
+        if x1 <= x0 or y1 <= y0:
+            msg = f"bbox_world must satisfy x0<x1 and y0<y1, got {self.bbox_world!r}"
+            raise ValueError(msg)
+        return self
+
+
+class RegionLockPayload(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
+    """Payload shape for :attr:`LockKind.REGION` locks (Phase 7 Stage A).
+
+    A region lock short-circuits ``forge.generate_region`` after spec
+    compile: existing ``.blend`` and previews are kept untouched and a
+    ``region_lock_skipped`` history event is emitted (Phase 7 Stage C).
+    ``scope`` is a forward-looking discriminator; only ``"skip_regen"``
+    is recognised in v1.
+    """
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
+
+    scope: Literal["skip_regen"] = "skip_regen"
+
+
+_LOCK_PAYLOAD_MODELS: Final[dict[LockKind, type[BaseModel]]] = {
+    LockKind.PROPERTY: PropertyLockPayload,
+    LockKind.FEATURE: FeatureLockPayload,
+    LockKind.REGION: RegionLockPayload,
+}
+
+
 class LockRecord(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
     """Persisted lock entry.
 
-    Phase 2 only persists + lists locks; Stage F's :class:`LockStore`
-    hands these to Phase 7 which adds enforcement. The ``payload`` shape
-    depends on ``kind`` and is intentionally free-form here; the
-    Phase-7 lock applier is the schema authority.
+    The ``payload`` shape is constrained per ``kind`` by Phase 7 Stage A:
+    ``property`` locks carry a :class:`PropertyLockPayload`, ``feature``
+    locks a :class:`FeatureLockPayload`, ``region`` locks a
+    :class:`RegionLockPayload`. The on-disk representation stays a flat
+    JSON object so existing project files keep loading; the typed view
+    is reachable via :meth:`typed_payload`.
     """
 
     model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
@@ -1329,6 +1399,22 @@ class LockRecord(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs lea
     payload: dict[str, JsonValue] = Field(default_factory=dict)
     created_at: datetime
     modified_at: datetime
+
+    @model_validator(mode="after")
+    def _check_payload(self) -> LockRecord:
+        model_cls = _LOCK_PAYLOAD_MODELS[self.kind]
+        # ``model_validate`` raises ``ValidationError`` which Pydantic
+        # surfaces verbatim through ``LockRecord.model_validate(...)``.
+        model_cls.model_validate(self.payload)
+        return self
+
+    def typed_payload(self) -> PropertyLockPayload | FeatureLockPayload | RegionLockPayload:
+        """Return the payload as its kind-specific model."""
+        model_cls = _LOCK_PAYLOAD_MODELS[self.kind]
+        # The post-init validator already accepted the payload; the cast
+        # here is safe because ``_LOCK_PAYLOAD_MODELS`` keys 1:1 to the
+        # three concrete payload classes.
+        return model_cls.model_validate(self.payload)  # type: ignore[return-value]
 
 
 class LockStoreFile(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
@@ -1380,6 +1466,8 @@ class HistoryEventKind(StrEnum):
     ENVIRONMENT_DELETED = "environment_deleted"
     ENVIRONMENT_BOUND = "environment_bound"
     ENVIRONMENT_UNBOUND = "environment_unbound"
+    LOCK_CREATED = "lock_created"
+    LOCK_REMOVED = "lock_removed"
 
 
 class HistoryEvent(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any
@@ -1477,6 +1565,7 @@ __all__ = [
     "EnvironmentPlanId",
     "EnvironmentRecipe",
     "FeatureInjector",
+    "FeatureLockPayload",
     "GenerationMetadata",
     "HeightRampMask",
     "HistoryActor",
@@ -1502,7 +1591,9 @@ __all__ = [
     "Polygon2D",
     "PostPass",
     "ProjectMetadata",
+    "PropertyLockPayload",
     "RegionId",
+    "RegionLockPayload",
     "RegionNode",
     "RegionTier",
     "Season",
