@@ -37,7 +37,9 @@
         "environment_updated",
         "environment_deleted",
         "environment_bound",
-        "environment_unbound"
+        "environment_unbound",
+        "lock_created",
+        "lock_removed"
       ],
       "title": "HistoryEventKind",
       "type": "string"
