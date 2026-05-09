@@ -24,6 +24,7 @@ from forge_mcp.realize import (
 )
 from forge_mcp.server.tools import audit as audit_tools
 from forge_mcp.server.tools import canvas as canvas_tools
+from forge_mcp.server.tools import cleanup as cleanup_tools
 from forge_mcp.server.tools import environments as environment_tools
 from forge_mcp.server.tools import generation as generation_tools
 from forge_mcp.server.tools import history as history_tools
@@ -534,6 +535,45 @@ def build_server() -> FastMCP:  # type: ignore[explicit-any]  # FastMCP's sessio
             "the count of connected WebSocket clients."
         ),
     )(canvas_tools.canvas_status)
+
+    # --- Cleanup (Phase 7 Stage G) ----------------------------------------
+    server.tool(
+        name="forge.find_orphans",
+        title="Find orphan artefacts",
+        description=(
+            "Return orphan spec files (no region references them), "
+            "material_application edges with missing archetype "
+            "endpoints, and regions whose `environment_id` no longer "
+            "resolves. Read-only."
+        ),
+    )(cleanup_tools.find_orphans)
+    server.tool(
+        name="forge.find_stale_realizations",
+        title="Find stale .blend files",
+        description=(
+            "Return `realizations/blender/<region>.blend` files whose "
+            "source spec JSON has a newer mtime, plus blends whose "
+            "region or spec has been deleted. Read-only."
+        ),
+    )(cleanup_tools.find_stale_realizations)
+    server.tool(
+        name="forge.find_lock_conflicts",
+        title="Find lock conflicts",
+        description=(
+            "Return locks whose target region was deleted, plus "
+            "property locks whose `expected_value` no longer matches "
+            "the live region JSON. Read-only."
+        ),
+    )(cleanup_tools.find_lock_conflicts)
+    server.tool(
+        name="forge.purge_orphans",
+        title="Delete orphan spec files",
+        description=(
+            "Delete the orphan spec files reported by "
+            "`forge.find_orphans`. Defaults to `dry_run=True`; pass "
+            "`dry_run=False` explicitly to actually delete."
+        ),
+    )(cleanup_tools.purge_orphans)
 
     return server
 

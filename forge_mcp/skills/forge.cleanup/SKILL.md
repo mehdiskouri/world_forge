@@ -1,19 +1,18 @@
 ---
 name: "forge.cleanup"
-version: "0.2.0"
-description: "Find orphaned specs, stale realization artefacts, and conflicting locks. Reports what to remove; does not delete by itself in v1."
+version: "0.3.0"
+description: "Find orphaned specs, stale realization artefacts, and lock conflicts; optionally purge orphan specs."
 triggers: ["clean up", "remove orphans", "find stale realizations", "audit project size", "what's safe to delete", "lock conflict"]
-requires_tools: ["forge.list_regions", "forge.get_region", "forge.inspect_spec", "forge.list_locks"]
+requires_tools: ["forge.find_orphans", "forge.find_stale_realizations", "forge.find_lock_conflicts", "forge.purge_orphans", "forge.list_locks"]
 requires_subagent: false
 ---
 
 # forge.cleanup
 
-Use this skill to **find** disposable artefacts and lock conflicts in a
-Forge project. v1 of this skill is **read-only**: it surfaces the list
-of suspect paths and a brief recovery script, but it never removes
-anything itself. The user (or a follow-up tool turn the user
-authorises) does the actual deletion.
+Use this skill to **find** disposable artefacts and lock conflicts in
+a Forge project, and (with explicit user consent) purge orphan spec
+files. Three of the four tools are read-only; only `forge.purge_orphans`
+mutates state, and it defaults to `dry_run=True`.
 
 ## When to invoke
 
@@ -21,7 +20,7 @@ Invoke when the user asks to:
 
 * clean up a project / find orphans / free disk space,
 * explain why a specific spec/render/blend file is on disk,
-* diagnose a lock conflict ("why can't I edit this region?").
+* diagnose a lock conflict ("why does this lock not apply?").
 
 Do **not** invoke when:
 
@@ -32,112 +31,74 @@ Do **not** invoke when:
 
 ## Tool inventory
 
-| Tool | Purpose |
-|---|---|
-| `forge.list_regions` | Enumerate every region (spec_id may be `None` if not generated). |
-| `forge.get_region` | Per-region detail — used to confirm a spec is referenced. |
-| `forge.inspect_spec` | Resolve a `SpecRecord` to confirm it exists on disk. |
-| `forge.list_locks` | List active locks; optionally filter by `region_id`. |
-
-This skill does **not** call any mutation tool. There is no v1
-`forge.delete_spec` / `forge.purge_realization` — that is intentional
-(see [phase5.md](../../../AGENT/dev_phases/phase5.md) "Confirmed
-decisions"). Recommend manual deletion to the user with a clear
-prompt.
-
-## What counts as cleanup-worthy
-
-### 1. Orphan specs
-
-A spec file under `specs/` that no region's `spec_id` points to.
-Possible causes: a `forge.reroll_seed` that produced a new spec while
-leaving the old one on disk, or a deleted region that left its spec
-behind.
-
-**Detection**:
-
-```
-regions = forge.list_regions()
-referenced_spec_ids = {r.spec_id for r in regions if r.spec_id}
-on_disk_spec_ids = ... (read specs/ directory contents from project_root)
-orphans = on_disk_spec_ids - referenced_spec_ids
-```
-
-The skill cannot list `specs/` itself (no MCP tool exposes that). Ask
-the user for the project root or instruct them to run
-`ls <project>/specs/` and paste the result.
-
-### 2. Stale realizations
-
-Files under `realizations/heightmap/` or `realizations/blender/` whose
-filename stem is a `region_id` that no longer exists in the project.
-Detect by listing `forge.list_regions` and asking the user to
-intersect against their disk.
-
-### 3. Lock conflicts
-
-`forge.list_locks(region_id=...)` returning more than one record on
-the same scope, or a lock whose `holder` is `"agent"` but whose
-`acquired_at` is well in the past (suggesting an orphaned lock from a
-crashed agent run).
-
-In v1, locks are listed but not released by an MCP tool. Tell the
-user the on-disk path (`locks/locks.json`) and let them decide.
+| Tool | Purpose | Mutates? |
+|---|---|---|
+| `forge.find_orphans` | Specs not referenced by any region; material applications with missing archetype endpoints; environment bindings to deleted environments. | No |
+| `forge.find_stale_realizations` | `.blend` files whose source spec JSON is newer (re-compiled but not re-rendered), or whose region/spec was deleted. | No |
+| `forge.find_lock_conflicts` | Locks whose target region was deleted, plus property locks whose `expected_value` no longer matches the live region JSON. | No |
+| `forge.purge_orphans` | Deletes the orphan spec files reported by `forge.find_orphans`. Defaults to `dry_run=True`; pass `dry_run=False` to actually delete. | Yes (only when `dry_run=False`) |
+| `forge.list_locks` | Background context (filter the conflict list by region). | No |
 
 ## Worked patterns
 
-### Pattern: "find orphan specs"
+### Pattern: "find and confirm orphan specs"
 
 ```
-1. forge.list_regions()
-   → collect every non-null spec_id
-2. ask user: "What's under <project>/specs/ ?"
-3. diff the two sets; report the orphans
-4. for each orphan, recommend:
-   "rm <project>/specs/<spec_id>.json"
+1. forge.find_orphans()
+   → result.specs is a list of {spec_id, path}
+2. show the user the list and ask whether to delete
+3. if the user confirms, forge.purge_orphans(dry_run=False)
+   → result.removed lists each path that was unlinked
 ```
 
-### Pattern: "why is this region locked?"
+### Pattern: "why didn't my latest render appear?"
 
 ```
-forge.list_locks(region_id="alpine-bowl")
-  → if empty, tell the user there is no lock
-  → if one, surface holder + acquired_at + scope
-  → if more than one, name the conflict and tell the user to inspect
-    locks/locks.json directly
+forge.find_stale_realizations()
+  → entries with reason="spec_newer_than_blend" mean the user
+    re-ran compile but never re-ran forge.generate_region
+  → entries with reason="region_deleted" mean a leftover .blend
+    that should be removed manually
 ```
 
-### Pattern: "find stale renders"
+### Pattern: "why isn't my lock holding?"
 
 ```
-1. forge.list_regions()
-   → collect every region_id
-2. ask user: "What's under <project>/realizations/blender/ ?"
-3. report any filename stem that is not in the region set
-4. recommend "rm <project>/realizations/blender/<stem>.*"
+forge.find_lock_conflicts()
+  → reason="target_missing" → the locked region was deleted; tell
+    the user to forge.unlock(lock_id) to clear the dangling record
+  → reason="expected_value_drift" → the locked field already
+    changed; either forge.unlock or re-lock at the new value
 ```
+
+## Mutator safety
+
+`forge.purge_orphans` is the only tool in this skill that writes. It
+defaults to `dry_run=True`; the response shape is:
+
+```
+{"dry_run": true, "would_remove": [...], "removed": []}
+```
+
+To actually delete, you must pass `dry_run=False` explicitly. Always
+show the `would_remove` list to the user and get a yes before flipping
+the flag.
 
 ## Common pitfalls
 
-* **Recommending deletion of a region's spec**: a region's `spec_id`
-  is part of its identity — deleting that file breaks
-  `forge.inspect_spec`, `forge.analyze_region`, and any audit. Always
-  confirm the spec is *not* referenced before recommending removal.
-* **Deleting `realizations/heightmap/<rid>.npy` without the .png**:
-  the PNG is just a preview, but the `.npy` is the source of truth
-  for `forge.analyze_region`. Recommend deleting the pair together,
-  or neither.
+* **Confusing "stale" with "deletable"**: `find_stale_realizations`
+  flags files that are *out of sync* with their spec, not files that
+  the user wants gone. Recommend a re-render via
+  `forge.generate_region`, not deletion, unless the user explicitly
+  asks to drop the artefact.
 * **Touching `history/`**: never recommend deletion under
-  `history/` — those files back `forge.undo` (Phase 7) and rotating
-  them out is a project-format change, not a cleanup.
+  `history/` — those files back `forge.undo` and rotating them is a
+  project-format change, not a cleanup.
 * **Releasing locks by editing `locks/locks.json` while a project is
-  open**: the in-memory state will diverge. Recommend the user close
-  the project first, then edit, then reopen.
+  open**: the in-memory state will diverge. Use `forge.unlock` instead.
 
 ## Failure recovery
 
 | Error code | Meaning | Recovery |
 |---|---|---|
 | `no_open_project` | No project is loaded. | Tell the user to open a project; this skill can't operate without one. |
-| `unknown_region` | The user named a region that no longer exists. | That itself may be a cleanup signal — ask the user whether to recommend purging the corresponding realization files. |
-| `unknown_spec` | A spec id the user supplied is not on disk. | The spec is already gone; there is nothing to clean. |

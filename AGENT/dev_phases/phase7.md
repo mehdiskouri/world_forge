@@ -16,6 +16,21 @@ Wire the v1 lock semantics (property/feature/region) end-to-end so locked featur
 
 ## Stages (one PR per stage, gates green between)
 
+## Status (post-Stage G)
+
+| Stage | Title | Status | PR |
+|---|---|---|---|
+| A | Lock service CRUD + 4 mutation MCP tools | shipped | #77 |
+| B | Property lock enforcement | shipped | #78 |
+| C | Feature + region lock enforcement in regeneration | shipped | #79 |
+| D | Lock-aware reroll + §8.2 acceptance integration test | shipped | #80 |
+| E | Undo replay implementation (snapshot strategy) | shipped | #81 |
+| F | Connection-map frontend (Vite bundle) | shipped | #82 |
+| F follow-up | Playwright connection-map e2e | shipped | #83 |
+| G | Cleanup MCP tools + phase doc + ship | shipped | #84 |
+
+
+
 ### Stage A — Lock service CRUD + 4 mutation MCP tools
 - Add `LockKind`-specific Pydantic payload models in `forge_mcp/project/schemas.py`: `PropertyLockPayload`, `FeatureLockPayload`, `RegionLockPayload`. Existing `LockRecord.payload` becomes `PropertyLockPayload | FeatureLockPayload | RegionLockPayload` discriminated by `kind`.
 - Extend `forge_mcp/project/locks.py` with `LockStore.find_by_target(node_id, json_path=None)`, `LockStore.find_overlapping_features(bbox)`, `LockStore.remove_by_id(lock_id)`. Generate `lock_id` with blake2b-10 over `(kind, region_id, payload, created_at)`.
