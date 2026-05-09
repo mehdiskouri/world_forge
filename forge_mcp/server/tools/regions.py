@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import ValidationError
 
 from forge_mcp.descriptor.schema import StructuredDescriptor
+from forge_mcp.project.lock_enforcement import LockViolationError
 from forge_mcp.project.schemas import RegionId
 from forge_mcp.project.service import (
     NoOpenProjectError,
@@ -13,7 +14,7 @@ from forge_mcp.project.service import (
     UnknownRegionError,
 )
 from forge_mcp.server.tools import get_service
-from forge_mcp.server.tools._responses import fail, ok
+from forge_mcp.server.tools._responses import fail, lock_violation_envelope, ok
 
 
 def _coerce_polygon(value: object) -> tuple[tuple[float, float], ...]:
@@ -103,6 +104,8 @@ def update_region(  # noqa: PLR0911 - one return per structured-error category i
         return fail("invalid_polygon", str(exc))
     except RegionOverlapError as exc:
         return fail("region_overlap", str(exc))
+    except LockViolationError as exc:
+        return lock_violation_envelope(exc)
     return ok(region.model_dump(mode="json"))
 
 

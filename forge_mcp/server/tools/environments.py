@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
+from forge_mcp.project.lock_enforcement import LockViolationError
 from forge_mcp.project.schemas import (
     EnvironmentNodeId,
     EnvironmentParameters,
@@ -31,7 +32,7 @@ from forge_mcp.realize.environment import (
 )
 from forge_mcp.realize.environment.defaults import EnvironmentParameterError
 from forge_mcp.server.tools import get_service
-from forge_mcp.server.tools._responses import fail, ok
+from forge_mcp.server.tools._responses import fail, lock_violation_envelope, ok
 
 
 def _coerce_recipe(value: object) -> EnvironmentRecipe:
@@ -106,7 +107,7 @@ def create_environment(  # noqa: PLR0911
     return ok(env.model_dump(mode="json"))
 
 
-def update_environment(  # noqa: PLR0911, PLR0913 - flat kwargs mirror service signature
+def update_environment(  # noqa: PLR0911, PLR0913, C901 - flat kwargs mirror service signature
     environment_id: str,
     name: str | None = None,
     recipe: object = None,
@@ -148,6 +149,8 @@ def update_environment(  # noqa: PLR0911, PLR0913 - flat kwargs mirror service s
         return fail("no_open_project", str(exc))
     except UnknownEnvironmentError as exc:
         return fail("unknown_environment", str(exc))
+    except LockViolationError as exc:
+        return lock_violation_envelope(exc)
     return ok(env.model_dump(mode="json"))
 
 
@@ -207,6 +210,8 @@ def bind_environment(scope_node_id: str, environment_id: str) -> dict[str, objec
         return fail("unknown_environment", str(exc))
     except UnknownScopeError as exc:
         return fail("unknown_scope", str(exc))
+    except LockViolationError as exc:
+        return lock_violation_envelope(exc)
     return ok({"scope_node_id": scope_node_id, "environment_id": environment_id})
 
 
@@ -218,6 +223,8 @@ def unbind_environment(scope_node_id: str) -> dict[str, object]:
         return fail("no_open_project", str(exc))
     except UnknownScopeError as exc:
         return fail("unknown_scope", str(exc))
+    except LockViolationError as exc:
+        return lock_violation_envelope(exc)
     return ok({"scope_node_id": scope_node_id})
 
 

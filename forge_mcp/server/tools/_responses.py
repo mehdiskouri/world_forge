@@ -14,6 +14,11 @@ guessing.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from forge_mcp.project.lock_enforcement import LockViolationError
+
 
 def ok(result: object) -> dict[str, object]:
     """Return a successful tool response envelope."""
@@ -33,4 +38,23 @@ def fail(
     return {"ok": False, "error": error}
 
 
-__all__ = ["fail", "ok"]
+def lock_violation_envelope(exc: LockViolationError) -> dict[str, object]:
+    """Map a :class:`LockViolationError` onto the standard ``lock_violation`` envelope.
+
+    Centralised so every Phase-7 mutator surface produces the same
+    ``details`` shape (``lock_id``, ``json_path``, ``expected``,
+    ``actual``).
+    """
+    return fail(
+        "lock_violation",
+        str(exc),
+        details={
+            "lock_id": str(exc.lock_id),
+            "json_path": exc.json_path,
+            "expected": exc.expected,
+            "actual": exc.actual,
+        },
+    )
+
+
+__all__ = ["fail", "lock_violation_envelope", "ok"]

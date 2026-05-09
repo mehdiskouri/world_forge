@@ -15,6 +15,7 @@ from pydantic import TypeAdapter, ValidationError
 from forge_mcp.analyze.terrain_analysis import compute_predicate_grids
 from forge_mcp.generate.heightmap import load_npy
 from forge_mcp.generate.stream import StreamGeometry
+from forge_mcp.project.lock_enforcement import LockViolationError
 from forge_mcp.project.schemas import RegionId, SubRegionId, SubRegionPredicate
 from forge_mcp.project.service import (
     NoOpenProjectError,
@@ -24,7 +25,7 @@ from forge_mcp.project.service import (
 )
 from forge_mcp.realize.material.predicate import evaluate_predicate
 from forge_mcp.server.tools import get_service
-from forge_mcp.server.tools._responses import fail, ok
+from forge_mcp.server.tools._responses import fail, lock_violation_envelope, ok
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -95,7 +96,7 @@ def create_sub_region(  # noqa: PLR0911 - distinct error envelopes per failure m
     return ok(sub_region.model_dump(mode="json"))
 
 
-def update_sub_region(
+def update_sub_region(  # noqa: PLR0911 - one return per structured-error category is the point
     sub_region_id: str,
     name: str | None = None,
     predicate: object = None,
@@ -129,6 +130,8 @@ def update_sub_region(
         return fail("no_open_project", str(exc))
     except UnknownSubRegionError as exc:
         return fail("unknown_sub_region", str(exc))
+    except LockViolationError as exc:
+        return lock_violation_envelope(exc)
     return ok(sub_region.model_dump(mode="json"))
 
 
