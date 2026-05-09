@@ -109,6 +109,11 @@ EXPECTED_TOOLS: frozenset[str] = frozenset(
         "forge.bind_environment",
         "forge.unbind_environment",
         "forge.resolve_environment",
+        # Cleanup surface (Phase 7 Stage G)
+        "forge.find_orphans",
+        "forge.find_stale_realizations",
+        "forge.find_lock_conflicts",
+        "forge.purge_orphans",
     },
 )
 

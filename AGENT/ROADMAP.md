@@ -112,7 +112,7 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 
 ---
 
-## Phase 7 — Locks, reroll, undo + live connection map (PRD week 6)
+## Phase 7 — Locks, reroll, undo + live connection map (PRD week 6) — **complete**
 **Outcome:** Full v1 feature set working; locked features survive seed rerolls; map updates live throughout.
 **Steps**
 1. `forge_mcp/project/locks.py`: property locks (JSON path), feature locks (heightmap patch capture + blend-back during regeneration), wholesale region locks (skip regen). Architecture §9.
@@ -124,6 +124,8 @@ Forge v1 is an agent-native worldbuilding MCP server: deterministic Python (zero
 7. Acceptance test §8.2 (regeneration test) rigging.
 
 **Verification:** PRD success §8.2 (lock survives 3 rerolls) passes; connection map test §8.4 passes.
+
+**Landed in:** PRs #77 (Stage A), #78 (B), #79 (C), #80 (D), #81 (E), #82 (F), #83 (Playwright e2e follow-up), #84 (G).
 
 ---
 
