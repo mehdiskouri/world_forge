@@ -101,9 +101,7 @@ def compute_sun_direction(
     g = math.radians(mean_anomaly_deg)
 
     # Ecliptic longitude (apparent), then obliquity of the ecliptic.
-    ecliptic_longitude_deg = (
-        mean_longitude_deg + 1.915 * math.sin(g) + 0.020 * math.sin(2.0 * g)
-    )
+    ecliptic_longitude_deg = mean_longitude_deg + 1.915 * math.sin(g) + 0.020 * math.sin(2.0 * g)
     lam = math.radians(ecliptic_longitude_deg)
     obliquity_deg = 23.439 - 0.0000004 * n
     eps = math.radians(obliquity_deg)
