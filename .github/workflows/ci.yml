@@ -29,14 +29,14 @@ jobs:
       - name: Set up Python 3.13
         run: uv python install 3.13
 
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
-
       - name: Set up Node 22 LTS
         # Phase 7 Stage F — the popup canvas + connection-map frontend
         # is a Vite + TS bundle under ``forge_mcp/canvas_page/``.
-        # ``npm ci`` + ``npm run build`` must run before the canvas
-        # server tests so the bundled ``dist/`` directory exists.
+        # ``npm ci`` + ``npm run build`` must run **before** ``uv sync``
+        # because ``pyproject.toml`` force-includes
+        # ``forge_mcp/canvas_page/dist`` in the wheel — hatchling
+        # refuses to build (even editable) when the directory is
+        # missing.
         uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -54,6 +54,9 @@ jobs:
 
       - name: Type-check canvas-page bundle (tsc --noEmit)
         run: npm run typecheck --prefix forge_mcp/canvas_page
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
 
       - name: Pre-commit (ruff, ruff-format, hooks, mypy)
         run: uv run pre-commit run --all-files --show-diff-on-failure
