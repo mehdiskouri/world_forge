@@ -1468,6 +1468,7 @@ class HistoryEventKind(StrEnum):
     ENVIRONMENT_UNBOUND = "environment_unbound"
     LOCK_CREATED = "lock_created"
     LOCK_REMOVED = "lock_removed"
+    REGION_LOCK_SKIPPED = "region_lock_skipped"
 
 
 class HistoryEvent(BaseModel):  # type: ignore[explicit-any]  # pydantic stubs leak Any

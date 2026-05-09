@@ -1116,6 +1116,26 @@ class ProjectService:
             },
         )
 
+    def record_region_lock_skipped(
+        self,
+        region_id: RegionId,
+        lock_id: LockId,
+    ) -> HistoryEvent:
+        """Append a ``region_lock_skipped`` history event (Phase 7 Stage C).
+
+        Emitted by ``forge.generate_region`` when the region carries a
+        ``LockKind.REGION`` lock; existing realization artefacts are
+        kept untouched and the event records which lock short-circuited
+        the run.
+        """
+        return self._append_history(
+            HistoryEventKind.REGION_LOCK_SKIPPED,
+            payload={
+                "region_id": str(region_id),
+                "lock_id": str(lock_id),
+            },
+        )
+
     # ------------------------------------------------------------------
     # Sub-region CRUD (Phase 6-c)
     # ------------------------------------------------------------------
