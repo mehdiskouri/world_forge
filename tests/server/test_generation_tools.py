@@ -283,6 +283,31 @@ def test_reroll_seed_changes_subsequent_generation(tmp_path: Path) -> None:
     assert first_elev["mean"] != second_elev["mean"]
 
 
+def test_reroll_seed_regenerate_invokes_generation(tmp_path: Path) -> None:
+    """``regenerate=True`` runs the lock-aware regen path inline."""
+    _bootstrap(tmp_path)
+    rid = _make_region(seed=1)
+    _ok(generate_region(rid))
+    out = _ok(reroll_seed(rid, seed=_REROLL_SEED, regenerate=True))
+    assert out["seed"] == _REROLL_SEED
+    generation = cast("dict[str, object]", out["generation"])
+    assert "analysis" in generation
+    assert "generators_used" in generation
+
+
+def test_reroll_seed_regenerate_propagates_failure_envelope(tmp_path: Path) -> None:
+    """A region lock makes the ``regenerate=True`` path return the skip envelope."""
+    from forge_mcp.project.schemas import RegionId  # noqa: PLC0415
+    from forge_mcp.server.tools import get_service  # noqa: PLC0415
+
+    _bootstrap(tmp_path)
+    rid = _make_region(seed=1)
+    _ok(generate_region(rid))
+    get_service().create_region_lock(region_id=RegionId(rid))
+    error = _err(reroll_seed(rid, seed=_REROLL_SEED, regenerate=True))
+    assert error["code"] == "region_lock_skipped"
+
+
 # ---------------------------------------------------------------------------
 # analyze_region
 # ---------------------------------------------------------------------------

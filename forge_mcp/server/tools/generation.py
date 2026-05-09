@@ -1034,8 +1034,20 @@ def _derive_seed(region_id: RegionId, history_count: int) -> int:
     return int.from_bytes(digest, "big", signed=False)
 
 
-def reroll_seed(region_id: str, seed: int | None = None) -> dict[str, object]:
-    """Replace the region's seed (caller-provided or deterministically derived)."""
+def reroll_seed(
+    region_id: str,
+    seed: int | None = None,
+    *,
+    regenerate: bool = False,
+) -> dict[str, object]:
+    """Replace the region's seed (caller-provided or deterministically derived).
+
+    When ``regenerate`` is true, immediately re-run :func:`generate_region`
+    after the seed is rotated. The Stage C lock-aware regeneration path is
+    used unchanged: feature-lock patches blend back into the new heightmap,
+    region locks short-circuit with ``region_lock_skipped``, and property
+    locks raise ``lock_violation`` if the regenerated stats would drift.
+    """
     rid, lookup = _resolve_region(region_id)
     if isinstance(lookup, dict):
         return lookup
@@ -1045,7 +1057,16 @@ def reroll_seed(region_id: str, seed: int | None = None) -> dict[str, object]:
         region = service.reroll_region_seed(rid, new_seed)
     except UnknownRegionError as exc:  # pragma: no cover - guarded above
         return fail("unknown_region", str(exc))
-    return ok({"region_id": region_id, "seed": region.seed})
+    if not regenerate:
+        return ok({"region_id": region_id, "seed": region.seed})
+    regen = generate_region(region_id)
+    if regen.get("ok") is not True:
+        return regen
+    payload = regen.get("result")
+    data: dict[str, object] = {"region_id": region_id, "seed": region.seed}
+    if isinstance(payload, dict):
+        data["generation"] = payload
+    return ok(data)
 
 
 def analyze_region(region_id: str) -> dict[str, object]:
