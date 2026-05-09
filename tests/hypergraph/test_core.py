@@ -201,3 +201,32 @@ def test_from_project_seeds_world_root_even_without_regions(tmp_path: Path) -> N
     hg = Hypergraph.from_project(svc.state)
     assert NodeId("world_root") in hg
     assert isinstance(hg.node(NodeId("world_root")), type(_world()))
+
+
+def test_from_project_includes_environment_nodes(tmp_path: Path) -> None:
+    """Phase 6-f: ``EnvironmentNode``s are seeded into the hypergraph."""
+    from datetime import UTC as _UTC  # noqa: PLC0415 - local import keeps top imports stable
+    from datetime import datetime as _datetime  # noqa: PLC0415
+
+    from forge_mcp.project.schemas import (  # noqa: PLC0415 - local import
+        EnvironmentParameters,
+        EnvironmentRecipe,
+    )
+
+    svc = ProjectService()
+    svc.create_project(
+        tmp_path,
+        "Eldoria",
+        WorldBounds(min=(-1.0, -1.0), max=(1.0, 1.0)),
+    )
+    env = svc.create_environment(
+        "Day",
+        EnvironmentRecipe.CLEAR,
+        EnvironmentParameters(
+            datetime_utc=_datetime(2026, 6, 21, 12, 0, 0, tzinfo=_UTC),
+            latitude_deg=0.0,
+            longitude_deg=0.0,
+        ),
+    )
+    hg = Hypergraph.from_project(svc.state)
+    assert NodeId(str(env.node_id)) in hg

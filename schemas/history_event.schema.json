@@ -32,7 +32,12 @@
         "material_uncomposed",
         "sub_region_created",
         "sub_region_updated",
-        "sub_region_deleted"
+        "sub_region_deleted",
+        "environment_created",
+        "environment_updated",
+        "environment_deleted",
+        "environment_bound",
+        "environment_unbound"
       ],
       "title": "HistoryEventKind",
       "type": "string"

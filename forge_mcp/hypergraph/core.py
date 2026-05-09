@@ -26,9 +26,11 @@ from forge_mcp.project.schemas import (
     Edge,
     EdgeId,
     EdgeLayerFile,
+    EnvironmentNode,
     MaterialArchetypeNode,
     NodeId,
     RegionNode,
+    SubRegionNode,
     WorldRootNode,
 )
 
@@ -39,8 +41,8 @@ if TYPE_CHECKING:
     from forge_mcp.project.service import ProjectState
 
 
-NodeRecord = RegionNode | WorldRootNode | MaterialArchetypeNode
-"""Every node kind that can live in the hypergraph (regions, world root, materials)."""
+NodeRecord = RegionNode | WorldRootNode | MaterialArchetypeNode | SubRegionNode | EnvironmentNode
+"""Every node kind that can live in the hypergraph (Phase 6-f)."""
 
 
 def _node_id_of(record: NodeRecord) -> NodeId:
@@ -196,7 +198,7 @@ class Hypergraph:
         # Seed the synthetic world root. Phase-2 only persists region
         # nodes per region file; the world-root record is reconstructed
         # from ProjectMetadata to keep the on-disk layout minimal.
-        world_root = WorldRootNode(
+        world_root = state.world_root or WorldRootNode(
             node_id=state.metadata.world_node_id,
             name="World",
             created_at=state.metadata.created_at,
@@ -206,6 +208,10 @@ class Hypergraph:
             hg.add_node(region)
         for archetype in state.archetypes.values():
             hg.add_node(archetype)
+        for sub_region in state.sub_regions.values():
+            hg.add_node(sub_region)
+        for environment in state.environments.values():
+            hg.add_node(environment)
         for layer, edges in state.edges.items():
             view = hg.layer(layer)
             for edge in edges:
